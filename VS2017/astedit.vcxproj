@@ -137,7 +137,7 @@
     <ClCompile Include="..\src\memoryalloc.c" />
     <ClCompile Include="..\src\rb3ptr.c" />
     <ClCompile Include="..\src\rope.c" />
-    <ClCompile Include="..\src\textedit.c\textedit.c" />
+    <ClCompile Include="..\src\textedit.c" />
     <ClCompile Include="..\src\textureatlas.c" />
     <ClCompile Include="..\src\utf8.c" />
     <ClCompile Include="..\src\window-glfw.c" />
