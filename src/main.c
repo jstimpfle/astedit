@@ -45,7 +45,8 @@ void print_rope(struct Rope *rope)
         printf("\n");
 
         for (int i = 0; i < 100; i++) {
-                struct Node *tmp = get_first_intersecting_node(rope, i, 100);
+                int nodestart;
+                struct Node *tmp = get_first_intersecting_node(rope, i, 100, &nodestart);
                 if (!tmp)
                         break;
                 printf("first node at %d is %s\n", i, get_thing_from_node(tmp)->data);
@@ -122,18 +123,18 @@ void handle_events(void)
                         int flag = 0;
                         const char *prefix[2] = { " with ", "+" };
                         if (input.tMousebutton.modifiers & MODIFIER_CONTROL) {
-                                log_write(prefix[flag]);
-                                log_write("Ctrl");
+                                log_write_cstring(prefix[flag]);
+                                log_write_cstring("Ctrl");
                                 flag = 1;
                         }
                         if (input.tMousebutton.modifiers & MODIFIER_MOD) {
-                                log_write(prefix[flag]);
-                                log_write("Mod");
+                                log_write_cstring(prefix[flag]);
+                                log_write_cstring("Mod");
                                 flag = 1;
                         }
                         if (input.tMousebutton.modifiers & MODIFIER_SHIFT) {
-                                log_write(prefix[flag]);
-                                log_write("Shift");
+                                log_write_cstring(prefix[flag]);
+                                log_write_cstring("Shift");
                                 flag = 1;
                         }
                         log_end();

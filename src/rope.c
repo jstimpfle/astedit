@@ -55,7 +55,9 @@ void init_rope(struct Rope *rope)
         init_node(&rope->lastNode, "LAST", 4);
         // cheat a little here...
         rope->firstNode.ownLength = 0;
+        rope->firstNode.totalLength = 0;
         rope->lastNode.ownLength = 0;
+        rope->lastNode.totalLength = 0;
         rb3_link_and_rebalance(&rope->firstNode.link, &rope->tree.base, RB3_LEFT);
         rb3_link_and_rebalance(&rope->lastNode.link, &rope->firstNode.link, RB3_RIGHT);
 }
@@ -68,7 +70,7 @@ void init_node(struct Node *node, const char *name, int length)
         memcpy(node->name, name, length < sizeof node->name ? length : sizeof node->name);
 }
 
-struct Node *get_first_intersecting_node(struct Rope *rope, int start, int length)
+struct Node *get_first_intersecting_node(struct Rope *rope, int start, int length, int *outNodestart)
 {
         struct Node *node = node_from_head(rb3_get_root(&rope->tree));
         //if (node == NULL)
@@ -113,6 +115,7 @@ struct Node *get_first_intersecting_node(struct Rope *rope, int start, int lengt
                 return NULL;
         if (end - node->ownLength >= start + length)
                 return NULL;
+        *outNodestart = end - node->ownLength;
         return node;
 }
 
@@ -138,4 +141,15 @@ void insert_node_next_to_existing(struct Node *existingNode, struct Node *newNod
 void unlink_node(struct Node *node)
 {
         rb3_unlink_and_rebalance_and_maybe_augment(&node->link, &augment_node);
+}
+
+int rope_length(struct Rope *rope)
+{
+        int length = 0;
+        for (struct Node *node = &rope->firstNode;
+                node != NULL; node = get_child_node(node, RB3_RIGHT)) {
+                length += get_child_weight(node, RB3_LEFT);
+                length += node->ownLength;
+        }
+        return length;
 }

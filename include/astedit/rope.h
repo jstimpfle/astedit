@@ -25,7 +25,9 @@ struct Rope {
 
 void init_rope(struct Rope *rope);
 void init_node(struct Node *node, const char *name, int length);
+
+int rope_length(struct Rope *rope);
 struct Node *get_inorder_node(struct Node *node, enum Rb3Dir dir);
-struct Node *get_first_intersecting_node(struct Rope *rope, int start, int length);
+struct Node *get_first_intersecting_node(struct Rope *rope, int start, int length, int *outNodestart);
 void insert_node_next_to_existing(struct Node *existingNode, struct Node *newNode, enum Rb3Dir dir);
 void unlink_node(struct Node *node);

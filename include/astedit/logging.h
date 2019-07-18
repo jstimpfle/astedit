@@ -3,7 +3,8 @@
 
 void log_writefv(const char *fmt, va_list ap);
 void log_writef(const char *fmt, ...);
-void log_write(const char *text);
+void log_write(const char *text, int length);
+void log_write_cstring(const char *text);
 
 void _log_begin(const char *filename, int line);
 void log_end(void);

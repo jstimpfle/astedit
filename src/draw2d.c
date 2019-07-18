@@ -4,6 +4,8 @@
 #include <astedit/font.h>
 #include <astedit/gfx.h>
 #include <astedit/textedit.h>
+#include <astedit/utf8.h>
+#include <astedit/draw2d.h>
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d fontVertexBuffer[3 * 1024];
@@ -200,24 +202,6 @@ void draw_region(struct DrawCursor *cursor, uint32_t *text, int start, int end, 
 
 }
 
-
-int draw_string_utf8(Font font, int size, const char *text, int length, int initX, int baselineY)
-{
-        int x = initX;
-        int i = 0;
-        /* todo: optimize for decoding and pushing larger batches */
-        while (i < length) {
-                unsigned codepoint;
-                int r = decode_codepoint_from_utf8(text, i, length, &i, &codepoint);
-                if (!r) {
-                        i++;
-                        continue;
-                }
-                x = draw_glyph_span(font, size, &codepoint, 1, NULL, x, baselineY);
-        }
-        ENSURE(x >= initX);
-        return x;
-}
 
 void decode_utf8_span(const char *text, int startPos, int maxPos, uint32_t *codepointOut, int maxCodepoints,
         int *outPos, int *outNumCodepoints)

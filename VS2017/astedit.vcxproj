@@ -137,7 +137,9 @@
     <ClCompile Include="..\src\memoryalloc.c" />
     <ClCompile Include="..\src\rb3ptr.c" />
     <ClCompile Include="..\src\rope.c" />
+    <ClCompile Include="..\src\stringpool.c" />
     <ClCompile Include="..\src\textedit.c" />
+    <ClCompile Include="..\src\textrope.c" />
     <ClCompile Include="..\src\textureatlas.c" />
     <ClCompile Include="..\src\utf8.c" />
     <ClCompile Include="..\src\window-glfw.c" />
@@ -153,11 +155,14 @@
     <ClInclude Include="..\include\astedit\logging.h" />
     <ClInclude Include="..\include\astedit\memoryalloc.h" />
     <ClInclude Include="..\include\astedit\rope.h" />
+    <ClInclude Include="..\include\astedit\stringpool.h" />
+    <ClInclude Include="..\include\astedit\textrope.h" />
     <ClInclude Include="..\include\astedit\textedit.h" />
     <ClInclude Include="..\include\astedit\textureatlas.h" />
     <ClInclude Include="..\include\astedit\utf8.h" />
     <ClInclude Include="..\include\astedit\window.h" />
     <ClInclude Include="..\include\rb3ptr.h" />
+    <ClInclude Include="..\include\stringpool.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\include\astedit\opengl-extensions.inc" />

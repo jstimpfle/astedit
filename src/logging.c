@@ -16,9 +16,14 @@ void log_writef(const char *fmt, ...)
         va_end(ap);
 }
 
-void log_write(const char *text)
+void log_write(const char *text, int length)
 {
-        log_writef("%s", text);
+        fwrite(text, length, 1, stderr);
+}
+
+void log_write_cstring(const char *text)
+{
+        fprintf(stderr, "%s", text);
 }
 
 
