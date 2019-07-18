@@ -129,12 +129,15 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
 
         if (!rb3_get_parent(rb3_get_parent(head))) {
                 rb3_set_black(rb3_get_parent(head), RB3_LEFT);
+                rb3_augment_ancestors(head, augment);
                 return;
         }
 
-        if (!rb3_is_red(rb3_get_parent(rb3_get_parent(head)), rb3_get_parent_dir(rb3_get_parent(head))))
+        if (!rb3_is_red(rb3_get_parent(rb3_get_parent(head)), rb3_get_parent_dir(rb3_get_parent(head)))) {
                 /* parent is black */
+                rb3_augment_ancestors(head, augment);
                 return;
+        }
 
         /*
          * Since parent is red parent can't be the root.
@@ -154,6 +157,8 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
                 rb3_set_red(ggpnt, ggdir);
                 rb3_set_black(gpnt, RB3_LEFT);
                 rb3_set_black(gpnt, RB3_RIGHT);
+                augment(head);
+                augment(pnt);
                 rb3_insert_rebalance(gpnt, augment);
         } else if (gdir == right) {
                 rb3_connect_null(pnt, left, rb3_get_black_child(head, right), _RB3_BLACK);
@@ -172,6 +177,7 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
                 rb3_connect(pnt, right, gpnt, _RB3_RED);
                 rb3_connect(ggpnt, ggdir, pnt, _RB3_BLACK);
                 if (augment) {
+                        augment(head);
                         augment(gpnt);
                         augment(pnt);
                         rb3_augment_ancestors(ggpnt, augment);
@@ -214,8 +220,10 @@ static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *head, rb3_aug
         if (!rb3_get_parent(head))
                 return;
 
-        if (!rb3_get_parent(rb3_get_parent(head)))
+        if (!rb3_get_parent(rb3_get_parent(head))) {
+                rb3_augment_ancestors(head, augment);
                 return;
+        }
 
         pnt = rb3_get_parent(head);
         left = rb3_get_parent_dir(head);
