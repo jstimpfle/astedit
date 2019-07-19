@@ -129,13 +129,15 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
 
         if (!rb3_get_parent(rb3_get_parent(head))) {
                 rb3_set_black(rb3_get_parent(head), RB3_LEFT);
-                rb3_augment_ancestors(head, augment);
+                if (augment)
+                        augment(head);
                 return;
         }
 
         if (!rb3_is_red(rb3_get_parent(rb3_get_parent(head)), rb3_get_parent_dir(rb3_get_parent(head)))) {
                 /* parent is black */
-                rb3_augment_ancestors(head, augment);
+                if (augment)
+                        rb3_augment_ancestors(head, augment);
                 return;
         }
 
@@ -157,8 +159,8 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
                 rb3_set_red(ggpnt, ggdir);
                 rb3_set_black(gpnt, RB3_LEFT);
                 rb3_set_black(gpnt, RB3_RIGHT);
-                augment(head);
-                augment(pnt);
+                if (augment)
+                        rb3_augment_ancestors(head, augment);
                 rb3_insert_rebalance(gpnt, augment);
         } else if (gdir == right) {
                 rb3_connect_null(pnt, left, rb3_get_black_child(head, right), _RB3_BLACK);
@@ -169,18 +171,15 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
                 if (augment) {
                         augment(pnt);
                         augment(gpnt);
-                        augment(head);
-                        rb3_augment_ancestors(ggpnt, augment);
+                        rb3_augment_ancestors(head, augment);
                 }
         } else {
                 rb3_connect_null(gpnt, left, rb3_get_black_child(pnt, right), _RB3_BLACK);
                 rb3_connect(pnt, right, gpnt, _RB3_RED);
                 rb3_connect(ggpnt, ggdir, pnt, _RB3_BLACK);
                 if (augment) {
-                        augment(head);
                         augment(gpnt);
-                        augment(pnt);
-                        rb3_augment_ancestors(ggpnt, augment);
+                        rb3_augment_ancestors(head, augment);
                 }
         }
 }
@@ -205,9 +204,8 @@ _RB3_NEVERINLINE void rb3_link_and_rebalance(struct rb3_head *head, struct rb3_h
 
 /* delete implementation */
 
-static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *head, rb3_augment_func *augment)
+static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *pnt, int pdir, rb3_augment_func *augment)
 {
-        struct rb3_head *pnt;
         struct rb3_head *gpnt;
         struct rb3_head *sibling;
         struct rb3_head *sleft;
@@ -217,17 +215,11 @@ static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *head, rb3_aug
         int right;
         int gdir;
 
-        if (!rb3_get_parent(head))
+        if (!rb3_get_parent(pnt))
                 return;
 
-        if (!rb3_get_parent(rb3_get_parent(head))) {
-                rb3_augment_ancestors(head, augment);
-                return;
-        }
-
-        pnt = rb3_get_parent(head);
-        left = rb3_get_parent_dir(head);
-        right = !rb3_get_parent_dir(head);
+        left = pdir;  // define "left" as the direction from parent to deleted node
+        right = !pdir;
         gpnt = rb3_get_parent(pnt);
         gdir = rb3_get_parent_dir(pnt);
         sibling = rb3_get_child(pnt, right);
@@ -238,22 +230,16 @@ static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *head, rb3_aug
                 rb3_connect(pnt, right, sleft, _RB3_BLACK);
                 rb3_connect(sibling, left, pnt, _RB3_RED);
                 rb3_connect(gpnt, gdir, sibling, _RB3_BLACK);
-                if (augment) {
+                if (augment)
                         augment(sleft);
-                        augment(pnt);
-                        augment(sibling);
-                        rb3_augment_ancestors(gpnt, augment);
-                }
-                rb3_delete_rebalance(head, augment);
+                rb3_delete_rebalance(pnt, pdir, augment);
         } else if (rb3_is_red(sibling, right)) {
                 /* outer child of sibling is red */
                 rb3_connect_null(pnt, right, sleft, rb3_get_color_bit(sibling, left));
                 rb3_connect(sibling, left, pnt, _RB3_BLACK);
                 rb3_connect(gpnt, gdir, sibling, rb3_get_color_bit(gpnt, gdir));
                 if (augment) {
-                        augment(pnt);
-                        augment(sibling);
-                        rb3_augment_ancestors(gpnt, augment);
+                        rb3_augment_ancestors(pnt, augment);
                 }
                 rb3_set_black(sibling, right);
         } else if (rb3_is_red(sibling, left)) {
@@ -266,24 +252,26 @@ static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *head, rb3_aug
                 rb3_connect(sleft, right, sibling, _RB3_BLACK);
                 rb3_connect(gpnt, gdir, sleft, rb3_get_color_bit(gpnt, gdir));
                 if (augment) {
-                        augment(pnt);
                         augment(sibling);
-                        augment(sleft);
-                        rb3_augment_ancestors(gpnt, augment);
+                        rb3_augment_ancestors(pnt, augment);
                 }
         } else if (rb3_is_red(gpnt, gdir)) {
                 /* parent is red */
                 rb3_set_red(pnt, right);
                 rb3_set_black(gpnt, gdir);
+                if (augment)
+                        rb3_augment_ancestors(pnt, augment);
         } else {
                 /* all relevant nodes are black */
                 rb3_set_red(pnt, right);
-                rb3_delete_rebalance(pnt, augment);
+                if (augment)
+                        augment(pnt);
+                rb3_delete_rebalance(gpnt, gdir, augment);
         }
 }
 
 
-void rb3_replace(struct rb3_head *head, struct rb3_head *newhead)
+void rb3_replace(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment)
 {
         struct rb3_head *left;
         struct rb3_head *right;
@@ -304,6 +292,9 @@ void rb3_replace(struct rb3_head *head, struct rb3_head *newhead)
         if (right)
                 right->parent = _RB3_PARENT_PTR(newhead, RB3_RIGHT);
         parent->child[pdir] = _RB3_CHILD_PTR(newhead, pcol);
+
+        if (augment)
+                rb3_augment_ancestors(newhead, augment);
 }
 
 static _RB3_NEVERINLINE void rb3_delete_noninternal(struct rb3_head *head, rb3_augment_func *augment)
@@ -319,12 +310,22 @@ static _RB3_NEVERINLINE void rb3_delete_noninternal(struct rb3_head *head, rb3_a
         cld = rb3_get_child(head, dir);
         pdir = rb3_get_parent_dir(head);
 
-        if (!rb3_is_red(pnt, pdir) && !rb3_is_red(head, dir))
+        int mustRebalance = !rb3_is_red(pnt, pdir) && !rb3_is_red(head, dir);
+
+        /* since we added the possibility for augmentation,
+        we need to remove `head` *before* the rebalancing that we do below.
+        (Otherwise the augmentation function would still see the to-be-deleted child). */
+        rb3_connect_null(pnt, pdir, cld, _RB3_BLACK);
+
+        if (mustRebalance)
                 /* To be deleted node is black (and child cannot be repainted)
                  * => height decreased */
-                rb3_delete_rebalance(head, augment);
-
-        rb3_connect_null(pnt, pdir, cld, _RB3_BLACK);
+                rb3_delete_rebalance(pnt, pdir, augment);
+        else if (augment)
+                /* the augment wasn't done since we didn't rebalance. So we need to do it separately.
+                TODO: Could we restrict the augmentation done during rebalancing to just the
+                nodes that aren't not be augmented by a regular rb3_augment_ancestors(pnt, augment)? */
+                rb3_augment_ancestors(pnt, augment);
 }
 
 static _RB3_NEVERINLINE void rb3_delete_internal(struct rb3_head *head, rb3_augment_func *augment)
@@ -333,7 +334,7 @@ static _RB3_NEVERINLINE void rb3_delete_internal(struct rb3_head *head, rb3_augm
 
         subst = rb3_get_next_descendant(head);
         rb3_delete_noninternal(subst, augment);
-        rb3_replace(head, subst);
+        rb3_replace(head, subst, augment);
 }
 
 _RB3_NEVERINLINE void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head *head, rb3_augment_func *augment)
@@ -393,4 +394,83 @@ struct rb3_head *rb3_find_parent(struct rb3_tree *tree, rb3_cmp cmp, void *data,
 struct rb3_head *rb3_find(struct rb3_tree *tree, rb3_cmp cmp, void *data)
 {
         return rb3_find_parent_in_subtree(rb3_get_base(tree), RB3_LEFT, cmp, data, _RB3_NULL, _RB3_NULL);
+}
+
+
+
+
+
+
+/* DEBUG STUFF */
+
+#include <stdio.h>
+static void visit_inorder_helper(struct rb3_head *head, int isred)
+{
+        if (!head)
+                return;
+        printf(" (");
+        visit_inorder_helper(rb3_get_child(head, RB3_LEFT), rb3_is_red(head, RB3_LEFT));
+        printf("%s", isred ? "R" : "B");
+        visit_inorder_helper(rb3_get_child(head, RB3_RIGHT), rb3_is_red(head, RB3_RIGHT));
+        printf(")");
+}
+
+static void visit_inorder(struct rb3_tree *tree)
+{
+        visit_inorder_helper(rb3_get_root(tree), 0);
+        printf("\n");
+}
+
+static int rb3_is_valid_tree_helper(struct rb3_head *head, int isred, int dir, int *depth)
+{
+        int i;
+        int depths[2] = { 1,1 };
+
+        *depth = 1;
+
+        if (!head) {
+                if (isred) {
+                        printf("red leaf child!\n");
+                        return 0;
+                }
+                return 1;
+        }
+
+        if (rb3_get_parent_dir(head) != dir) {
+                printf("Directions messed up!\n");
+                return 0;
+        }
+
+        for (i = 0; i < 2; i++) {
+                if (isred && rb3_get_color_bit(head, i)) {
+                        printf("two red in a row!\n");
+                        return 0;
+                }
+                if (!rb3_is_valid_tree_helper(rb3_get_child(head, i),
+                        rb3_is_red(head, i), i, &depths[i]))
+                        return 0;
+        }
+        if (depths[0] != depths[1]) {
+                printf("Unbalanced tree! got %d and %d\n", depths[0], depths[1]);
+                return 0;
+        }
+        *depth = depths[0] + !isred;
+
+        return 1;
+}
+
+int rb3_check_tree(struct rb3_tree *tree)
+{
+        int depth;
+        int valid;
+
+        if (rb3_is_red(&tree->base, RB3_LEFT)) {
+                printf("Error! root is red.\n");
+                return 0;
+        }
+
+        valid = rb3_is_valid_tree_helper(rb3_get_root(tree), 0, 0, &depth);
+        if (!valid)
+                visit_inorder(tree);
+        return valid;
 }

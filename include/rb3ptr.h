@@ -409,7 +409,7 @@ extern void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head *head, rb
  * Replace `head` with `newhead`. `head` must be linked in a tree and
  * `newhead` must not be linked in a tree.
  */
-extern void rb3_replace(struct rb3_head *head, struct rb3_head *newhead);
+extern void rb3_replace(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment);
 
 /**
  * Insert `head` into `tree` using `cmp` and `data` to direct the search. At
@@ -491,3 +491,8 @@ static inline struct rb3_head *rb3_get_next(struct rb3_head *head)
 {
         return rb3_get_prevnext(head, RB3_RIGHT);
 }
+
+
+
+/**************** DEBUG STUFF *******************/
+int rb3_check_tree(struct rb3_tree *tree);
