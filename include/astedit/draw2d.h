@@ -20,6 +20,6 @@ void draw_rgba_texture_rect(int x, int y, int w, int h,
 void draw_alpha_texture_rect(int x, int y, int w, int h,
         float texX, float texY, float texW, float texH, Texture texture);
 
-void testdraw(void);
+void testdraw(struct TextEdit *textedit);
 
 #endif

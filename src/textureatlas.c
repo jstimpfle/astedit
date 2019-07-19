@@ -1,5 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
+#include <astedit/logging.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/textureatlas.h>
 
@@ -45,18 +46,20 @@ static int numAtlasTextures;
 
 static void debug_print_texture(unsigned char *pixels, int pixW, int pixH, int stride)
 {
+        log_begin();
         int pos = 0;
         for (int i = 0; i < pixH; i++) {
                 for (int j = 0; j < pixW; j++) {
                         int c = pixels[pos + j];
                         if (c < 128)
-                                putchar(' ');
+                                log_write(" ", 1);
                         else
-                                putchar('X');
+                                log_write("X", 1);
                 }
-                putchar('\n');
+                log_write("\n", 1);
                 pos += stride;
         }
+        log_end();
 }
 
 

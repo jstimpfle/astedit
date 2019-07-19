@@ -262,7 +262,105 @@ void draw_text_file(const char *text, int length, int markStart, int markEnd)
                 }
 
                 decode_utf8_span(text, textpos, length, &buffer[0], maxCodepoints, &textpos, &bufferFill);
-                draw_region(&cursor, &buffer, 0, bufferFill, drawstringKind);
+                draw_region(&cursor, &buffer[0], 0, bufferFill, drawstringKind);
+                codepointpos += bufferFill;
+        }
+}
+
+struct Utf8Buffer {
+        char textbuffer[256];
+        struct TextEdit *edit;
+        int editCursor;
+        int textbufferStart;
+        int textbufferEnd;
+};
+
+void reset_utf8buffer(struct Utf8Buffer *buffer, struct TextEdit *edit)
+{
+        buffer->edit = edit;
+        buffer->editCursor = 0;
+        buffer->textbufferStart = 0;
+        buffer->textbufferEnd = 0;
+}
+
+void refill_utf8buffer(struct Utf8Buffer *buffer)
+{
+        if (buffer->textbufferStart > LENGTH(buffer->textbuffer) - 4 /* max utf8 byte length */) {
+                int numBytes = buffer->textbufferEnd - buffer->textbufferStart;
+                memmove(buffer->textbuffer,
+                        buffer->textbuffer + buffer->textbufferStart,
+                        numBytes);
+                buffer->textbufferStart = 0;
+                buffer->textbufferEnd = numBytes;
+        }
+
+        int remainingSpace = LENGTH(buffer->textbuffer) - buffer->textbufferEnd;
+        int numBytesRead = read_from_textedit(buffer->edit, buffer->editCursor,
+                                buffer->textbuffer + buffer->textbufferEnd, remainingSpace);
+        buffer->editCursor += numBytesRead;
+        buffer->textbufferEnd += numBytesRead;
+}
+
+void consume_from_utf8buffer(struct Utf8Buffer *buffer, int numBytes)
+{
+        ENSURE(numBytes <= buffer->textbufferEnd - buffer->textbufferStart);
+        buffer->textbufferStart += numBytes;
+}
+
+void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
+{
+        struct DrawCursor cursor;
+        cursor.xLeft = 20;
+        cursor.fontSize = 25;
+        cursor.ascender = 20;
+        cursor.lineHeight = 30;
+        cursor.x = cursor.xLeft;
+        cursor.y = 20;
+
+        int length = textedit_length_in_bytes(edit);
+
+        if (length == 0) return;  // for debugging
+
+        if (markStart < 0) markStart = 0;
+        if (markEnd < 0) markEnd = 0;
+        if (markStart >= length) markStart = length;
+        if (markEnd >= length) markEnd = length;
+
+        ENSURE(markStart <= markEnd);
+
+        struct Utf8Buffer utf8buffer;
+        reset_utf8buffer(&utf8buffer, edit);
+
+        int textpos = 0;
+        int codepointpos = 0;
+        uint32_t buffer[64];
+        int bufferFill;
+        int bufFill = 0;
+
+        for (;;) {
+                refill_utf8buffer(&utf8buffer);
+                if (utf8buffer.textbufferStart - utf8buffer.textbufferEnd == 0)
+                        /* EOF */
+                        break;
+
+                int drawstringKind;
+                int maxCodepoints;
+                if (codepointpos < markStart) {
+                        drawstringKind = DRAWSTRING_NORMAL;
+                        maxCodepoints = minInt(markStart - codepointpos, LENGTH(buffer));
+                }
+                else if (codepointpos < markEnd) {
+                        drawstringKind = DRAWSTRING_HIGHLIGHT;
+                        maxCodepoints = minInt(LENGTH(buffer), markEnd - markStart);
+                }
+                else {
+                        drawstringKind = DRAWSTRING_NORMAL;
+                        maxCodepoints = LENGTH(buffer);
+                }
+
+                decode_utf8_span(utf8buffer.textbuffer, utf8buffer.textbufferStart, utf8buffer.textbufferEnd,
+                        &buffer[0], maxCodepoints, &utf8buffer.textbufferStart, &bufferFill);
+                draw_region(&cursor, &buffer[0], 0, bufferFill, drawstringKind);
                 codepointpos += bufferFill;
         }
 }
@@ -275,7 +373,9 @@ void testdraw(struct TextEdit *edit)
         set_2d_coordinate_system(0.0f, 0.0f, (float)(windowWidthInPixels - 100), (float)(windowHeightInPixels - 100));
 
         //draw_colored_rect(200, 200, 200, 200, 128, 128, 128, 224);
-        draw_text_file(edit->contents, edit->length, 3, 5);
+        //draw_text_file(edit->contents, edit->length, 3, 5);
+
+        draw_TextEdit(edit, edit->cursorCodepointPosition, edit->cursorCodepointPosition + 1);
         
 
         end_frame();

@@ -1,5 +1,6 @@
 #include <rb3ptr.h>
 #include <astedit/astedit.h>
+#include <astedit/bytes.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/bytes.h>
 #include <astedit/logging.h>
@@ -33,7 +34,7 @@ void destroy_textrope(struct Textrope *textrope)
 }
 
 
-static struct Textnode *alloc_textnode(const char *text, int length)
+static struct Textnode *create_textnode(const char *text, int length)
 {
         // TODO optimization
         struct Textnode *textnode;
@@ -46,9 +47,15 @@ static struct Textnode *alloc_textnode(const char *text, int length)
         return textnode;
 }
 
+static void destroy_textnode(struct Textnode *textnode)
+{
+        // TODO optimization
+        FREE_MEMORY(&textnode->text);
+        FREE_MEMORY(&textnode);
+}
 
 
-static struct Textnode *textnode_from_head(struct rb3_head *head)
+static inline struct Textnode *textnode_from_head(struct rb3_head *head)
 {
         return (struct Textnode *) (((char *)head) - offsetof(struct Textnode, link));
 }
@@ -74,19 +81,19 @@ int node_weight(struct rb3_head *link)
         return node->totalWeight;
 }
 
-int own_weight(struct rb3_head *link)
+static inline int own_weight(struct rb3_head *link)
 {
         struct Textnode *node = textnode_from_head(link);
         return node->ownWeight;
 }
 
-int total_weight(struct rb3_head *link)
+static inline int total_weight(struct rb3_head *link)
 {
         struct Textnode *node = textnode_from_head(link);
         return node->totalWeight;
 }
 
-int child_weight(struct rb3_head *link, int dir)
+static inline int child_weight(struct rb3_head *link, int dir)
 {
         struct rb3_head *child = rb3_get_child(link, dir);
         return node_weight(child);
@@ -105,6 +112,34 @@ void init_textiter(struct Textiter *iter, struct Textrope *rope)
                 iter->pos = 0;
         else
                 iter->pos = child_weight(current, RB3_LEFT);
+}
+
+/* returns if iterator is currently at root. More precisely, if iter->parent
+is the base link. That means that even if iter->current == NULL, the iterator
+could still be "at root" */
+int is_at_root(struct Textiter *iter)
+{
+        return rb3_is_base(iter->parent);
+}
+
+void go_to_parent(struct Textiter *iter)
+{
+        ENSURE(!is_at_root(iter));
+        if (iter->linkDir == RB3_LEFT) {
+                if (iter->current) {
+                        iter->pos += own_weight(iter->current);
+                        iter->pos += child_weight(iter->current, RB3_RIGHT);
+                }
+        }
+        else {
+                if (iter->current) {
+                        iter->pos -= child_weight(iter->current, RB3_LEFT);
+                }
+                iter->pos -= own_weight(iter->parent);
+        }
+        iter->current = iter->parent;
+        iter->parent = rb3_get_parent(iter->current);
+        iter->linkDir = rb3_get_parent_dir(iter->current);
 }
 
 void go_to_left_child(struct Textiter *iter)
@@ -133,8 +168,7 @@ void go_to_right_child(struct Textiter *iter)
                 iter->pos += child_weight(child, RB3_LEFT);
 }
 
-
-static void augment_node(struct rb3_head *head)
+static void augment_textnode_head(struct rb3_head *head)
 {
         struct Textnode *node = textnode_from_head(head);
         node->totalWeight = own_weight(head)
@@ -142,32 +176,14 @@ static void augment_node(struct rb3_head *head)
                 + child_weight(head, RB3_RIGHT);
 }
 
-static void link_textnode(struct rb3_head *child, struct rb3_head *parent, int linkDir)
+static void link_textnode_head(struct rb3_head *child, struct rb3_head *parent, int linkDir)
 {
-        rb3_link_and_rebalance_and_maybe_augment(child, parent, linkDir, &augment_node);
+        rb3_link_and_rebalance_and_maybe_augment(child, parent, linkDir, &augment_textnode_head);
 }
 
-static void unlink_textnode(struct rb3_head *head)
+static void unlink_textnode_head(struct rb3_head *head)
 {
-        rb3_unlink_and_rebalance_and_maybe_augment(head, &augment_node);
-}
-
-
-void findpos(struct Textiter *iter, int pos)
-{
-        while (iter->current) {
-                if (iter->pos >= pos)
-                        go_to_left_child(iter);
-                else if (iter->pos + own_weight(iter->current) <= pos)
-                        go_to_right_child(iter);
-                else
-                        /* in range */
-                        return;
-        }
-        if (iter->pos == pos)
-                return;
-        /* out of range. What to do? */
-        ENSURE(0);
+        rb3_unlink_and_rebalance_and_maybe_augment(head, &augment_textnode_head);
 }
 
 
@@ -202,12 +218,84 @@ void debug_print_textrope(struct Textrope *rope)
         log_end();
 }
 
-void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text, int length)
+static struct Textiter find_first_that_contains_position(struct Textrope *rope, int pos)
 {
         struct Textiter textiter;
         struct Textiter *iter = &textiter;
         init_textiter(iter, rope);
-        findpos(iter, pos);
+        while (iter->current) {
+                if (iter->pos > pos)
+                        go_to_left_child(iter);
+                else if (iter->pos + own_weight(iter->current) <= pos)
+                        go_to_right_child(iter);
+                else
+                        break;
+        }
+        return textiter;
+}
+
+static struct Textiter findpos(struct Textrope *rope, int pos)
+{
+        struct Textiter textiter;
+        struct Textiter *iter = &textiter;
+        init_textiter(iter, rope);
+        while (iter->current) {
+                if (iter->pos >= pos)
+                        go_to_left_child(iter);
+                else if (iter->pos + own_weight(iter->current) <= pos)
+                        go_to_right_child(iter);
+                else
+                        /* in range */
+                        return textiter;
+        }
+        if (iter->pos == pos)
+                return textiter;
+        /* out of range. What to do? */
+        UNREACHABLE();
+}
+
+
+static struct Textiter split(struct Textrope *rope, int pos)
+{
+        struct Textiter textiter;
+        struct Textiter *iter = &textiter;
+        init_textiter(iter, rope);
+        while (iter->current) {
+                if (iter->pos > pos)
+                        go_to_left_child(iter);
+                else if (iter->pos + own_weight(iter->current) <= pos)
+                        go_to_right_child(iter);
+                else
+                        break;
+        }
+        if (iter->pos == pos)
+                return textiter;  /* already split, or pos == 0, pos == total length */
+        if (iter->current == NULL)
+                /* out of range. What to do? */
+                ENSURE(0);
+        /* split */
+        struct rb3_head *old = iter->current;
+        struct Textnode *oldNode = textnode_from_head(old);
+        int internalPos = pos - iter->pos;
+        ENSURE(0 < internalPos && internalPos < oldNode->ownWeight);
+        unlink_textnode_head(old);
+        insert_text_into_textrope(rope, iter->pos, oldNode->text + internalPos, oldNode->ownWeight - internalPos);
+        insert_text_into_textrope(rope, iter->pos, oldNode->text, internalPos);
+        /*
+        ENSURE(rb3_check_tree(&rope->tree)); //XXX
+        check_node_values(rb3_get_root(&rope->tree)); //XXX
+        */
+        destroy_textnode(oldNode);
+
+        // TODO: optimize this away. We should have all the relevant information already, no need to start another search.
+        return findpos(rope, pos);
+}
+
+
+void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text, int length)
+{
+        struct Textiter textiter = findpos(rope, pos);
+        struct Textiter *iter = &textiter;
 
         /* currently visited node contains pos */
         int rangeStart = iter->pos;
@@ -221,18 +309,19 @@ void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text,
                 the search again. */
                 struct rb3_head *old = iter->current;
                 struct Textnode *oldNode = textnode_from_head(old);
-                unlink_textnode(old);
                 int d = pos - rangeStart;
-                insert_text_into_textrope(rope, pos, oldNode->text + d, oldNode->ownWeight - d);
-                insert_text_into_textrope(rope, pos, text, length);
-                insert_text_into_textrope(rope, pos, oldNode->text, d);
+                unlink_textnode_head(old);
+                insert_text_into_textrope(rope, rangeStart, oldNode->text + d, oldNode->ownWeight - d);
+                insert_text_into_textrope(rope, rangeStart, text, length);
+                insert_text_into_textrope(rope, rangeStart, oldNode->text, d);
+                destroy_textnode(oldNode);
         }
         else {
                 /* Otherwise (if the position lies on one of the ends
                 of the range) we can insert the new text here. */
                 ENSURE(iter->current == NULL);
-                struct Textnode *newNode = alloc_textnode(text, length);
-                link_textnode(&newNode->link, iter->parent, iter->linkDir);
+                struct Textnode *newNode = create_textnode(text, length);
+                link_textnode_head(&newNode->link, iter->parent, iter->linkDir);
         }
 }
 
@@ -245,16 +334,54 @@ int textrope_length(struct Textrope *rope)
 }
 
 
-void erase_text_from_textrope(struct Textrope *textrope, int offset, int length)
+void erase_text_from_textrope(struct Textrope *rope, int pos, int length)
 {
-        // TODO
+        ENSURE(textrope_length(rope) >= pos + length);
+
+        split(rope, pos);
+        split(rope, pos + length);
+
+        struct Textiter iter = find_first_that_contains_position(rope, pos);
+        struct Textiter end = find_first_that_contains_position(rope, pos + length);
+        struct rb3_head *head = iter.current;
+        while (head != end.current) {
+                struct rb3_head *tmp = rb3_get_next(head);
+                unlink_textnode_head(head);
+                destroy_textnode(textnode_from_head(head));
+                head = tmp;
+        }
+}
+
+static int minInt(int a, int b) {
+        return a < b ? a : b;
 }
 
 int copy_text_from_textrope(struct Textrope *rope, int offset, char *dstBuffer, int length)
 {
-        // TODO
-        return 42;
-        struct Textiter textiter;
-        struct Textiter *iter = &textiter;
-        init_textiter(iter, rope);
+        struct Textiter textiter = find_first_that_contains_position(rope, offset);
+        struct Textiter *iter = &textiter;        
+
+        int numRead = 0;
+
+        struct rb3_head *head = iter->current;
+        if (head != NULL) {
+                /* read from first node - we might have to start somewhere in the middle */
+                struct Textnode *node = textnode_from_head(head);
+                int internalPos = offset - iter->pos;
+                ENSURE(0 <= internalPos && internalPos < node->ownWeight);
+                int numToRead = minInt(length, node->ownWeight - internalPos);
+                COPY_ARRAY(dstBuffer, node->text + internalPos, numToRead);
+                numRead += numToRead;
+                head = rb3_get_next(head);
+        }
+
+        /* read subsequent nodes */
+        while (head != NULL && numRead < length) {
+                struct Textnode *node = textnode_from_head(head);
+                int numToRead = minInt(length - numRead, node->ownWeight);
+                COPY_ARRAY(dstBuffer + numRead, node->text, numToRead);
+                numRead += numToRead;
+                head = rb3_get_next(head);
+        }
+        return numRead;
 }

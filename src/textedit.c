@@ -5,60 +5,104 @@
 #include <astedit/textedit.h>
 #include <string.h>  // XXX memcpy()
 
-// TEST
+
 static struct Textrope *textrope;
 
 
-void init_TextEdit(struct TextEdit *edit)
+int textedit_length_in_bytes(struct TextEdit *edit)
 {
-        edit->contents = NULL;
-        edit->length = 0;
-
-        textrope = create_textrope();
+        return textrope_length(textrope);
 }
 
-void exit_TextEdit(struct TextEdit *edit)
+int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size)
 {
-        FREE_MEMORY(&edit->contents);
-        edit->length = 0;
+        return copy_text_from_textrope(textrope, offset, dstBuffer, size);
+}
 
-        destroy_textrope(textrope);
+void erase_from_textedit(struct TextEdit *edit, int offset, int length)
+{
+        erase_text_from_textrope(textrope, offset, length);
+}
+
+int read_character_from_textedit(struct TextEdit *edit, int pos)
+{
+        char c;
+        read_from_textedit(edit, pos, &c, 1);
+        return c;
 }
 
 
-static void append_codepoint_to_TextEdit(struct TextEdit *edit, unsigned long codepoint)
+static int find_previous_utf8_sequence(struct TextEdit *edit, int pos)
+{
+        while (pos > 0) {
+                pos--;
+                int c = read_character_from_textedit(edit, pos);
+                if (is_utf8_leader_byte(c))
+                        break;
+        }
+        return pos;
+}
+
+static int find_next_utf8_sequence(struct TextEdit *edit, int pos)
+{
+        int length = textedit_length_in_bytes(edit);
+        while (pos < length) {
+                pos++;
+                int c = read_character_from_textedit(edit, pos);
+                if (is_utf8_leader_byte(c))
+                        break;
+        }
+        return pos;
+}
+
+static void move_cursor_left(struct TextEdit *edit)
+{
+        if (edit->cursorBytePosition > 0) {
+                int offset = find_previous_utf8_sequence(edit, edit->cursorBytePosition);
+                edit->cursorBytePosition = offset;
+                edit->cursorCodepointPosition -= 1;
+        }
+}
+
+static void move_cursor_right(struct TextEdit *edit)
+{
+        if (edit->cursorBytePosition < textedit_length_in_bytes(edit)) {
+                int offset = find_next_utf8_sequence(edit, edit->cursorBytePosition);
+                edit->cursorBytePosition = offset;
+                edit->cursorCodepointPosition += 1;
+        }
+}
+
+static void insert_codepoint(struct TextEdit *edit, unsigned long codepoint)
 {
         char tmp[16];
         int numBytes = encode_codepoint_as_utf8(codepoint, &tmp[0], 0, sizeof tmp);
         tmp[numBytes] = 0;  // for nicer debugging
-        int pos = edit->length;
-        edit->length += numBytes;
-        REALLOC_MEMORY(&edit->contents, edit->length);
-        memcpy(edit->contents + pos, &tmp[0], numBytes);
 
-        insert_text_into_textrope(textrope, textrope_length(textrope), &tmp[0], numBytes);
+        int insertPos = edit->cursorBytePosition;
+        //int insertPos = textrope_length(textrope);
 
-        debug_print_textrope(textrope);
+        insert_text_into_textrope(textrope, insertPos, &tmp[0], numBytes);
+        move_cursor_right(edit);
+
+        //debug_print_textrope(textrope);
 }
 
-static void pop_character_from_TextEdit_if_possible(struct TextEdit *edit)
+static void erase_forwards(struct TextEdit *edit)
 {
-        // currently not possible since we're using rope now
-        return;
+        int start = edit->cursorBytePosition;
+        int end = find_next_utf8_sequence(edit, start);
+        if (start < end)
+                erase_from_textedit(edit, start, end - start);
+}
 
-        int length = edit->length;
-        if (length == 0)
-                return;
-        length--;
-        /* UTF-8 magic */
-        for (;;) {
-                unsigned c = (unsigned char) edit->contents[length];
-                if ((c & 0xc0) != 0x80)
-                        break;
-                ENSURE(length > 0);
-                length--;
-        }
-        edit->length = length;
+static void erase_backwards(struct TextEdit *edit)
+{
+        int end = edit->cursorBytePosition;
+        move_cursor_left(edit);
+        int start = edit->cursorBytePosition;
+        if (start < end)
+                erase_from_textedit(edit, start, end - start);
 }
 
 void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
@@ -66,19 +110,38 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
         if (input->inputKind == INPUT_KEY) {
                 switch (input->tKey.keyKind) {
                 case KEY_ENTER:
-                        append_codepoint_to_TextEdit(edit, 0x0a);
+                        insert_codepoint(edit, 0x0a);
+                        break;
+                case KEY_CURSORLEFT:
+                        move_cursor_left(edit);
+                        break;
+                case KEY_CURSORRIGHT:
+                        move_cursor_right(edit);
+                        break;
+                case KEY_DELETE:
+                        erase_forwards(edit);
                         break;
                 case KEY_BACKSPACE:
-                        pop_character_from_TextEdit_if_possible(edit);
+                        erase_backwards(edit);
                         break;
                 default:
                         if (input->tKey.hasCodepoint) {
                                 unsigned long codepoint = input->tKey.codepoint;
-                                append_codepoint_to_TextEdit(edit, codepoint);
+                                insert_codepoint(edit, codepoint);
                         }
                         break;
                 }
 
 
         }
+}
+
+void init_TextEdit(struct TextEdit *edit)
+{
+        textrope = create_textrope();
+}
+
+void exit_TextEdit(struct TextEdit *edit)
+{
+        destroy_textrope(textrope);
 }

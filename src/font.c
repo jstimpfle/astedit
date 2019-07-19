@@ -2,6 +2,7 @@
 #include <astedit/gfx.h>
 #include <astedit/draw2d.h>
 #include <astedit/textureatlas.h>
+#include <astedit/logging.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/utf8.h>
 #include <astedit/font.h>
@@ -98,7 +99,7 @@ static struct CachedGlyph *render_and_insert_glyph(const struct GlyphMeta *meta)
         render_glyph(meta, &buffer, &stride, &layout);
 
         if (meta->codepoint == 'J')
-        printf("storing glyph %c\n", (int) meta->codepoint);
+        log_postf("storing glyph %c\n", (int) meta->codepoint);
         cachedTexture = store_texture_in_texture_atlas(buffer, layout.pixW, layout.pixH, stride);
 
         cachedGlyph = cache_glyph(meta, &layout, cachedTexture);
