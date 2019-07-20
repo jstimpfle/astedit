@@ -1,6 +1,7 @@
 #include <astedit/astedit.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/utf8.h>
+#include <astedit/logging.h>
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 #include <string.h>  // XXX memcpy()
@@ -16,10 +17,7 @@ int textedit_length_in_bytes(struct TextEdit *edit)
 
 int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size)
 {
-        int numBytes = copy_text_from_textrope(textrope, offset, dstBuffer, size);
-        if (numBytes > 0)
-                printf("read %d at offset %d\n", dstBuffer[0], pos);
-        return numBytes;
+        return copy_text_from_textrope(textrope, offset, dstBuffer, size);
 }
 
 void erase_from_textedit(struct TextEdit *edit, int offset, int length)
@@ -30,7 +28,8 @@ void erase_from_textedit(struct TextEdit *edit, int offset, int length)
 int read_character_from_textedit(struct TextEdit *edit, int pos)
 {
         char c;
-        read_from_textedit(edit, pos, &c, 1);
+        int numBytes = read_from_textedit(edit, pos, &c, 1);
+        ENSURE(numBytes == 1);
         return c;
 }
 

@@ -17,10 +17,12 @@ void handle_events(void)
                 look_input(&input);
                 consume_input())
         {
-                if (input.inputKind == INPUT_WINDOWRESIZE)
-                        log_postf("Window size is now %d %d",
+                if (input.inputKind == INPUT_WINDOWRESIZE) {
+                        /*log_postf("Window size is now %d %d",
                                 input.tWindowresize.width,
                                 input.tWindowresize.height);
+                                */
+                }
                 else if (input.inputKind == INPUT_KEY) {
                         if (input.tKey.keyKind == KEY_ESCAPE) {
                                 shouldWindowClose = 1;
@@ -65,7 +67,7 @@ int main(void)
 
         init_TextEdit(&globalTextEdit);
 
-        //textedit_test_init(&globalTextEdit);
+        textedit_test_init(&globalTextEdit);
 
         while (!shouldWindowClose) {
                 wait_for_events();

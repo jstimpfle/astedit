@@ -124,6 +124,7 @@ static void realloc_node_text(struct Textnode *textnode, int newLength)
         if (textnode->textCapacity < newLength + 1
             || newLength + 1 <= textnode->textCapacity) {
                 int newCap = next_power_of_2(newLength + 1);
+                ENSURE(newCap >= newLength + 1);
                 REALLOC_MEMORY(&textnode->text, newCap);
                 textnode->textCapacity = newCap;
         }
@@ -306,27 +307,6 @@ static struct Textiter find_first_that_contains_character(struct Textrope *rope,
         return textiter;
 }
 
-static struct Textiter findpos(struct Textrope *rope, int pos)
-{
-        struct Textiter textiter;
-        struct Textiter *iter = &textiter;
-        init_textiter(iter, rope);
-        while (iter->current) {
-                if (iter->pos >= pos)
-                        go_to_left_child(iter);
-                else if (iter->pos + own_length(iter->current) <= pos)
-                        go_to_right_child(iter);
-                else
-                        /* in range */
-                        return textiter;
-        }
-        if (iter->pos == pos)
-                return textiter;
-        /* out of range. What to do? */
-        UNREACHABLE();
-}
-
-
 
 
 
@@ -351,43 +331,6 @@ static void unlink_textnode_head(struct rb3_head *head)
 
 
 
-
-static struct Textiter split(struct Textrope *rope, int pos)
-{
-        struct Textiter textiter;
-        struct Textiter *iter = &textiter;
-        init_textiter(iter, rope);
-        while (iter->current) {
-                if (iter->pos > pos)
-                        go_to_left_child(iter);
-                else if (iter->pos + own_length(iter->current) <= pos)
-                        go_to_right_child(iter);
-                else
-                        break;
-        }
-        if (iter->pos == pos)
-                return textiter;  /* already split, or pos == 0, pos == total length */
-        if (iter->current == NULL)
-                /* out of range. What to do? */
-                ENSURE(0);
-        /* split */
-        struct rb3_head *old = iter->current;
-        struct Textnode *oldNode = textnode_from_head(old);
-        int internalPos = pos - iter->pos;
-        ENSURE(0 < internalPos && internalPos < oldNode->ownLength);
-        unlink_textnode_head(old);
-        insert_text_into_textrope(rope, iter->pos, oldNode->text + internalPos, oldNode->ownLength - internalPos);
-        insert_text_into_textrope(rope, iter->pos, oldNode->text, internalPos);
-        /*
-        ENSURE(rb3_check_tree(&rope->tree)); //XXX
-        check_node_values(rb3_get_root(&rope->tree)); //XXX
-        */
-        destroy_textnode(oldNode);
-
-        // TODO: optimize this away. We should have all the relevant information already, no need to start another search.
-        return findpos(rope, pos);
-}
-
 void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text, int length)
 {
         struct Textiter textiter = find_topmost_that_contains_or_touches_offset(rope, pos);
@@ -409,8 +352,9 @@ void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text,
                 struct rb3_head *head = iter->current;
                 struct Textnode *node = textnode_from_head(head);
                 int internalPos = pos - rangeStart;
+                int moveLength = node->ownLength - internalPos;
                 realloc_node_text(node, node->ownLength + length);
-                move_memory(node->text + internalPos, length, node->ownLength - internalPos);
+                move_memory(node->text + internalPos, length, moveLength);
                 copy_memory(node->text + internalPos, text, length);
                 rb3_update_augment(head, &augment_textnode_head);
         }
@@ -440,18 +384,61 @@ void erase_text_from_textrope(struct Textrope *rope, int pos, int length)
 {
         ENSURE(textrope_length(rope) >= pos + length);
 
-        split(rope, pos);
-        split(rope, pos + length);
+        struct Textiter textiter;
+        struct Textiter *iter = &textiter;
+        init_textiter(iter, rope);
 
-        struct Textiter iter = find_first_that_contains_character(rope, pos);
-        struct Textiter end = find_first_that_contains_character(rope, pos + length);
-        struct rb3_head *head = iter.current;
-        while (head != end.current) {
-                struct rb3_head *tmp = rb3_get_next(head);
-                unlink_textnode_head(head);
-                destroy_textnode(textnode_from_head(head));
-                head = tmp;
+        /* find start of to-be-deleted range */
+        while (iter->current != NULL) {
+                if (iter->pos > pos)
+                        go_to_left_child(iter);
+                else if (iter->pos + own_length(iter->current) < pos)
+                        go_to_right_child(iter);
+                else
+                        break;
         }
+        ENSURE(iter->current != NULL);  // that would mean: pos out of range
+
+        struct rb3_head *head = iter->current;
+        int headpos = iter->pos;
+        int numBytesErased = 0;
+        //log_postf("headpos, pos, length: %d, %d, %d\n", headpos, pos, length);
+        while (head && headpos < pos + length) {
+                struct Textnode *node = textnode_from_head(head);
+                struct rb3_head *next = rb3_get_next(head);
+                int nextpos = headpos + node->ownLength;
+                int erasedHere;
+                if (headpos >= pos) {
+                        erasedHere = length - numBytesErased;
+                        if (erasedHere < node->ownLength) {
+                                //log_postf("HERE!\n");
+                                move_memory(node->text + erasedHere, -erasedHere,
+                                            node->ownLength - erasedHere);
+                                realloc_node_text(node, node->ownLength - erasedHere);
+                                rb3_update_augment(head, &augment_textnode_head);
+                        }
+                        else {
+                                //log_postf("DESTROY\n");
+                                erasedHere = node->ownLength;
+                                unlink_textnode_head(head);
+                                destroy_textnode(node);
+                        }
+                }
+                else {
+                        //log_postf("delete middle or end\n");
+                        ENSURE(headpos < pos);
+                        int internalOffset = pos - headpos;
+                        erasedHere = length - numBytesErased;
+                        if (erasedHere > node->ownLength - internalOffset)
+                                erasedHere = node->ownLength - internalOffset;
+                        realloc_node_text(node, node->ownLength - erasedHere);
+                        rb3_update_augment(head, &augment_textnode_head);
+                }
+                head = next;
+                headpos = nextpos;
+        }
+
+        // TODO: merge first and last nodes?
 }
 
 int copy_text_from_textrope(struct Textrope *rope, int offset, char *dstBuffer, int length)

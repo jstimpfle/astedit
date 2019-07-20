@@ -1,5 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
+#include <astedit/logging.h>
 #include <astedit/window.h>
 #include <astedit/font.h>
 #include <astedit/gfx.h>
@@ -282,6 +283,17 @@ void refill_utf8buffer(struct Utf8Buffer *buffer)
         }
 
         int remainingSpace = LENGTH(buffer->textbuffer) - buffer->textbufferEnd;
+
+        //XXX for debugging
+        int textEditLength = textedit_length_in_bytes(buffer->edit);
+        if (remainingSpace > textEditLength - buffer->editCursor)
+                remainingSpace = textEditLength - buffer->editCursor;
+
+        /*
+        log_postf("now read %d starting at %d (length is %d)\n",
+               remainingSpace, buffer->editCursor, textEditLength);
+               */
+
         int numBytesRead = read_from_textedit(buffer->edit, buffer->editCursor,
                                 buffer->textbuffer + buffer->textbufferEnd, remainingSpace);
         buffer->editCursor += numBytesRead;
