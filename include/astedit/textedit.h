@@ -1,3 +1,6 @@
+#ifndef ASTEDIT_TEXTEDIT_H_INCLUDED
+#define ASTEDIT_TEXTEDIT_H_INCLUDED
+
 #include <astedit/astedit.h>
 #include <astedit/window.h>
 
@@ -22,7 +25,9 @@ int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int s
 
 
 void erase_from_textedit(struct TextEdit *edit, int offset, int length);
-void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned codepoint);
+void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoint);
 
 /* fill TextEdit with some text. For debugging purposes. */
 void textedit_test_init(struct TextEdit *edit);
+
+#endif

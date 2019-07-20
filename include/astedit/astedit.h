@@ -1,14 +1,17 @@
 #ifndef ASTEDIT_ASTEDIT_H_INCLUDED
 #define ASTEDIT_ASTEDIT_H_INCLUDED
 
-#include <stdarg.h>
 #include <assert.h>
+#include <stdarg.h>
+#include <stddef.h>  // NULL
 
 
 #ifdef _MSC_VER
 #define NORETURN __declspec(noreturn)
+#define UNUSEDFUNC
 #else  // assume gcc or clang
 #define NORETURN __attribute__((noreturn))
+#define UNUSEDFUNC __attribute__((unused))
 #endif
 
 #define LENGTH(a) (sizeof (a) / sizeof (a)[0])

@@ -1,7 +1,7 @@
 #ifndef ASTEDIT_WINDOW_H_INCLUDED
 #define ASTEDIT_WINDOW_H_INCLUDED
 
-enum {
+enum KeyKind {
         KEY_NONE = -1,  /* we use this because we have "optional" keys in input handling */
 
         KEY_ENTER = 0,
@@ -65,7 +65,7 @@ enum {
         KEY_SCROLLDOWN,
 };
 
-enum Mousebutton {
+enum MousebuttonKind {
         MOUSEBUTTON_1,
         MOUSEBUTTON_2,
         MOUSEBUTTON_3,
@@ -77,7 +77,7 @@ enum Mousebutton {
         NUM_MOUSEBUTTON_KINDS,
 };
 
-enum {
+enum InputKind {
         // currently INPUT_KEY and INPUT_MOUSEBUTTON are separate things,
         // even though we could make them one. But I think processing is
         // usually done separately anyway.
@@ -157,8 +157,8 @@ struct Input {
 
 DATA int shouldWindowClose;
 
-DATA windowWidthInPixels;
-DATA windowHeightInPixels;
+DATA int windowWidthInPixels;
+DATA int windowHeightInPixels;
 
 
 

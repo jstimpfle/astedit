@@ -35,7 +35,7 @@ void teardown_stringpool(struct StringPool *pool)
 static void *allocate_in_pool(struct StringPool *pool, int numBytes)
 {
         struct LinkedChunk *chunk;
-        alloc_memory(&chunk, sizeof *chunk + numBytes, 1);
+        ALLOC_MEMORY(&chunk, sizeof *chunk + numBytes);
         chunk->next = pool->allocations;
         pool->allocations = chunk;
         return &chunk->data[0];  // alignment?

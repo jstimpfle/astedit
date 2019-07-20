@@ -6,21 +6,14 @@
 #include <astedit/textedit.h>
 #include <astedit/utf8.h>
 #include <astedit/draw2d.h>
+#include <string.h> // memmove()
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
-static struct TextureVertex2d fontVertexBuffer[3 * 1024];
+//static struct TextureVertex2d fontVertexBuffer[3 * 1024];
 
 static int colorVertexCount;
 static int fontVertexCount;
 
-
-
-// experiment: bounding box
-static int bbActive;
-static float bbX;
-static float bbY;
-static float bbW;
-static float bbH;
 
 
 
@@ -28,11 +21,6 @@ static float bbH;
 static int minInt(int x, int y)
 {
         return x < y ? x : y;
-}
-
-static int maxInt(int x, int y)
-{
-        return x > y ? x : y;
 }
 
 
@@ -243,8 +231,7 @@ void draw_text_file(const char *text, int length, int markStart, int markEnd)
         int textpos = 0;
         int codepointpos = 0;
         uint32_t buffer[64];
-        int bufferFill;
-        int bufFill = 0;
+        int bufferFill = 0;
         while (textpos < length) {
                 int drawstringKind;
                 int maxCodepoints;
@@ -325,11 +312,9 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
         struct Utf8Buffer utf8buffer;
         reset_utf8buffer(&utf8buffer, edit);
 
-        int textpos = 0;
         int codepointpos = 0;
         uint32_t buffer[64];
-        int bufferFill;
-        int bufFill = 0;
+        int bufferFill = 0;
 
         for (;;) {
                 // for development / debugging

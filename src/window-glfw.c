@@ -63,7 +63,7 @@ static const struct {
 
 static const struct {
         int glfwMousebutton;
-        enum Mousebutton mousebutton;
+        enum MousebuttonKind mousebutton;
 } glfwMousebuttonToMousebutton[] = {
         { GLFW_MOUSE_BUTTON_1, MOUSEBUTTON_1 },
         { GLFW_MOUSE_BUTTON_2, MOUSEBUTTON_2 },

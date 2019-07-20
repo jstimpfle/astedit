@@ -44,7 +44,7 @@ static int numAtlasTextures;
 
 
 
-static void debug_print_texture(unsigned char *pixels, int pixW, int pixH, int stride)
+static UNUSEDFUNC void debug_print_texture(unsigned char *pixels, int pixW, int pixH, int stride)
 {
         log_begin();
         int pos = 0;
