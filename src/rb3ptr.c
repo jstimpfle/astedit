@@ -107,7 +107,7 @@ struct rb3_head *rb3_get_prevnext(struct rb3_head *head, int dir)
                 return rb3_get_prevnext_ancestor(head, dir);
 }
 
-static void rb3_augment_ancestors(struct rb3_head *head, rb3_augment_func *augment)
+void rb3_update_augment(struct rb3_head *head, rb3_augment_func *augment)
 {
         while (!rb3_is_base(head)) {
                 augment(head);
@@ -117,7 +117,7 @@ static void rb3_augment_ancestors(struct rb3_head *head, rb3_augment_func *augme
 
 /* insert implementation */
 
-static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_augment_func *augment)
+static void rb3_insert_rebalance(struct rb3_head *head, rb3_augment_func *augment)
 {
         struct rb3_head *pnt;
         struct rb3_head *gpnt;
@@ -137,7 +137,7 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
         if (!rb3_is_red(rb3_get_parent(rb3_get_parent(head)), rb3_get_parent_dir(rb3_get_parent(head)))) {
                 /* parent is black */
                 if (augment)
-                        rb3_augment_ancestors(head, augment);
+                        rb3_update_augment(head, augment);
                 return;
         }
 
@@ -160,7 +160,7 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
                 rb3_set_black(gpnt, RB3_LEFT);
                 rb3_set_black(gpnt, RB3_RIGHT);
                 if (augment)
-                        rb3_augment_ancestors(head, augment);
+                        rb3_update_augment(head, augment);
                 rb3_insert_rebalance(gpnt, augment);
         } else if (gdir == right) {
                 rb3_connect_null(pnt, left, rb3_get_black_child(head, right), _RB3_BLACK);
@@ -171,7 +171,7 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
                 if (augment) {
                         augment(pnt);
                         augment(gpnt);
-                        rb3_augment_ancestors(head, augment);
+                        rb3_update_augment(head, augment);
                 }
         } else {
                 rb3_connect_null(gpnt, left, rb3_get_black_child(pnt, right), _RB3_BLACK);
@@ -179,12 +179,12 @@ static _RB3_NEVERINLINE void rb3_insert_rebalance(struct rb3_head *head, rb3_aug
                 rb3_connect(ggpnt, ggdir, pnt, _RB3_BLACK);
                 if (augment) {
                         augment(gpnt);
-                        rb3_augment_ancestors(head, augment);
+                        rb3_update_augment(head, augment);
                 }
         }
 }
 
-_RB3_NEVERINLINE void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *head, struct rb3_head *parent, int dir, rb3_augment_func *augment)
+void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *head, struct rb3_head *parent, int dir, rb3_augment_func *augment)
 {
         _RB3_ASSERT(dir == RB3_LEFT || dir == RB3_RIGHT);
         _RB3_ASSERT(!rb3_has_child(parent, dir));
@@ -196,15 +196,9 @@ _RB3_NEVERINLINE void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *
         rb3_insert_rebalance(head, augment);
 }
 
-_RB3_NEVERINLINE void rb3_link_and_rebalance(struct rb3_head *head, struct rb3_head *parent, int dir)
-{
-        rb3_link_and_rebalance_and_maybe_augment(head, parent, dir, _RB3_NULL);
-}
-
-
 /* delete implementation */
 
-static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *pnt, int pdir, rb3_augment_func *augment)
+static void rb3_delete_rebalance(struct rb3_head *pnt, int pdir, rb3_augment_func *augment)
 {
         struct rb3_head *gpnt;
         struct rb3_head *sibling;
@@ -239,7 +233,7 @@ static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *pnt, int pdir
                 rb3_connect(sibling, left, pnt, _RB3_BLACK);
                 rb3_connect(gpnt, gdir, sibling, rb3_get_color_bit(gpnt, gdir));
                 if (augment) {
-                        rb3_augment_ancestors(pnt, augment);
+                        rb3_update_augment(pnt, augment);
                 }
                 rb3_set_black(sibling, right);
         } else if (rb3_is_red(sibling, left)) {
@@ -253,14 +247,14 @@ static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *pnt, int pdir
                 rb3_connect(gpnt, gdir, sleft, rb3_get_color_bit(gpnt, gdir));
                 if (augment) {
                         augment(sibling);
-                        rb3_augment_ancestors(pnt, augment);
+                        rb3_update_augment(pnt, augment);
                 }
         } else if (rb3_is_red(gpnt, gdir)) {
                 /* parent is red */
                 rb3_set_red(pnt, right);
                 rb3_set_black(gpnt, gdir);
                 if (augment)
-                        rb3_augment_ancestors(pnt, augment);
+                        rb3_update_augment(pnt, augment);
         } else {
                 /* all relevant nodes are black */
                 rb3_set_red(pnt, right);
@@ -271,7 +265,7 @@ static _RB3_NEVERINLINE void rb3_delete_rebalance(struct rb3_head *pnt, int pdir
 }
 
 
-void rb3_replace(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment)
+void rb3_replace_and_maybe_augment(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment)
 {
         struct rb3_head *left;
         struct rb3_head *right;
@@ -294,7 +288,7 @@ void rb3_replace(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_fu
         parent->child[pdir] = _RB3_CHILD_PTR(newhead, pcol);
 
         if (augment)
-                rb3_augment_ancestors(newhead, augment);
+                rb3_update_augment(newhead, augment);
 }
 
 static _RB3_NEVERINLINE void rb3_delete_noninternal(struct rb3_head *head, rb3_augment_func *augment)
@@ -325,19 +319,19 @@ static _RB3_NEVERINLINE void rb3_delete_noninternal(struct rb3_head *head, rb3_a
                 /* the augment wasn't done since we didn't rebalance. So we need to do it separately.
                 TODO: Could we restrict the augmentation done during rebalancing to just the
                 nodes that aren't not be augmented by a regular rb3_augment_ancestors(pnt, augment)? */
-                rb3_augment_ancestors(pnt, augment);
+                rb3_update_augment(pnt, augment);
 }
 
-static _RB3_NEVERINLINE void rb3_delete_internal(struct rb3_head *head, rb3_augment_func *augment)
+static void rb3_delete_internal(struct rb3_head *head, rb3_augment_func *augment)
 {
         struct rb3_head *subst;
 
         subst = rb3_get_next_descendant(head);
         rb3_delete_noninternal(subst, augment);
-        rb3_replace(head, subst, augment);
+        rb3_replace_and_maybe_augment(head, subst, augment);
 }
 
-_RB3_NEVERINLINE void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head *head, rb3_augment_func *augment)
+void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head *head, rb3_augment_func *augment)
 {
         if (rb3_has_child(head, RB3_LEFT) && rb3_has_child(head, RB3_RIGHT))
                 rb3_delete_internal(head, augment);
@@ -345,14 +339,9 @@ _RB3_NEVERINLINE void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head
                 rb3_delete_noninternal(head, augment);
 }
 
-_RB3_NEVERINLINE void rb3_unlink_and_rebalance(struct rb3_head *head)
-{
-        rb3_unlink_and_rebalance_and_maybe_augment(head, _RB3_NULL);
-}
-
 /* node-find implementations using code from inline header functions */
 
-_RB3_NEVERINLINE struct rb3_head *rb3_find_parent_in_subtree(struct rb3_head *parent, int dir, rb3_cmp cmp, void *data, struct rb3_head **parent_out, int *dir_out)
+struct rb3_head *rb3_find_parent_in_subtree(struct rb3_head *parent, int dir, rb3_cmp cmp, void *data, struct rb3_head **parent_out, int *dir_out)
 {
         return rb3_INLINE_find(parent, dir, cmp, data, parent_out, dir_out);
 }
@@ -386,6 +375,9 @@ struct rb3_head *rb3_delete(struct rb3_tree *tree, rb3_cmp cmp, void *data)
         return _RB3_NULL;
 }
 
+
+
+
 struct rb3_head *rb3_find_parent(struct rb3_tree *tree, rb3_cmp cmp, void *data, struct rb3_head **parent_out, int *dir_out)
 {
         return rb3_find_parent_in_subtree(rb3_get_base(tree), RB3_LEFT, cmp, data, parent_out, dir_out);
@@ -394,6 +386,42 @@ struct rb3_head *rb3_find_parent(struct rb3_tree *tree, rb3_cmp cmp, void *data,
 struct rb3_head *rb3_find(struct rb3_tree *tree, rb3_cmp cmp, void *data)
 {
         return rb3_find_parent_in_subtree(rb3_get_base(tree), RB3_LEFT, cmp, data, _RB3_NULL, _RB3_NULL);
+}
+
+
+
+
+
+void rb3_link_and_rebalance(struct rb3_head *head, struct rb3_head *parent, int dir)
+{
+        rb3_link_and_rebalance_and_maybe_augment(head, parent, dir, _RB3_NULL);
+}
+
+void rb3_unlink_and_rebalance(struct rb3_head *head)
+{
+        rb3_unlink_and_rebalance_and_maybe_augment(head, _RB3_NULL);
+}
+
+void rb3_replace(struct rb3_head *head, struct rb3_head *newhead)
+{
+        rb3_replace_and_maybe_augment(head, newhead, _RB3_NULL);
+}
+
+
+
+void rb3_link_and_rebalance_and_augment(struct rb3_head *head, struct rb3_head *parent, int dir, rb3_augment_func *augment)
+{
+        rb3_link_and_rebalance_and_maybe_augment(head, parent, dir, augment);
+}
+
+void rb3_unlink_and_rebalance_and_augment(struct rb3_head *head, rb3_augment_func *augment)
+{
+        rb3_unlink_and_rebalance_and_maybe_augment(head, augment);
+}
+
+void rb3_replace_and_augment(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment)
+{
+        rb3_replace_and_maybe_augment(head, newhead, augment);
 }
 
 

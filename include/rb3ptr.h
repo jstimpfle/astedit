@@ -387,12 +387,6 @@ extern struct rb3_head *rb3_find_parent(struct rb3_tree *tree, rb3_cmp cmp, void
 extern void rb3_link_and_rebalance(struct rb3_head *head, struct rb3_head *parent, int dir);
 
 /**
- * Like rb3_link_and_rebalance(), but call an augmentation function for each
- * subtree that has been changed.
- */
-extern void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *head, struct rb3_head *parent, int dir, rb3_augment_func *augment);
-
-/**
  * Unlink `head` from its current tree.
  *
  * Time complexity: O(log n)
@@ -400,16 +394,39 @@ extern void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *head, stru
 extern void rb3_unlink_and_rebalance(struct rb3_head *head);
 
 /**
- * Like rb3_unlink_and_rebalance(), but call an augmentation function for each
- * subtree that has been changed.
- */
-extern void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head *head, rb3_augment_func *augment);
-
-/**
  * Replace `head` with `newhead`. `head` must be linked in a tree and
  * `newhead` must not be linked in a tree.
  */
-extern void rb3_replace(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment);
+extern void rb3_replace(struct rb3_head *head, struct rb3_head *newhead);
+
+/**
+ * Like rb3_link_and_rebalance(), but call an augmentation function for each
+ * subtree that has been changed.
+ */
+extern void rb3_link_and_rebalance_and_augment(struct rb3_head *head, struct rb3_head *parent, int dir, rb3_augment_func *augment);
+
+/**
+ * Like rb3_unlink_and_rebalance(), but call an augmentation function for each
+ * subtree that has been changed.
+ */
+extern void rb3_unlink_and_rebalance_and_augment(struct rb3_head *head, rb3_augment_func *augment);
+
+/**
+ * Like rb3_replace(), but call an augmentation function for each subtree that has changed.
+ */
+extern void rb3_replace_and_augment(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment);
+
+/**
+ * Update by calling the augmentation func for `head` and all its ancestors.
+ */
+extern void rb3_update_augment(struct rb3_head *head, rb3_augment_func *augment);
+
+
+extern void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *head, struct rb3_head *parent, int dir, rb3_augment_func *augment);
+extern void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head *head, rb3_augment_func *augment);
+extern void rb3_replace_and_maybe_augment(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment);
+
+
 
 /**
  * Insert `head` into `tree` using `cmp` and `data` to direct the search. At
