@@ -301,12 +301,6 @@ void refill_utf8buffer(struct Utf8Buffer *buffer)
         buffer->textbufferEnd += numBytesRead;
 }
 
-void consume_from_utf8buffer(struct Utf8Buffer *buffer, int numBytes)
-{
-        ENSURE(numBytes <= buffer->textbufferEnd - buffer->textbufferStart);
-        buffer->textbufferStart += numBytes;
-}
-
 void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
 {
         struct DrawCursor cursor;
@@ -338,6 +332,10 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
         int bufFill = 0;
 
         for (;;) {
+                // for development / debugging
+                if (utf8buffer.editCursor > 1024)
+                        break;
+
                 refill_utf8buffer(&utf8buffer);
                 if (utf8buffer.textbufferStart - utf8buffer.textbufferEnd == 0)
                         /* EOF */

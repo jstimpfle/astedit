@@ -65,6 +65,8 @@ int main(void)
 
         init_TextEdit(&globalTextEdit);
 
+        textedit_test_init(&globalTextEdit);
+
         while (!shouldWindowClose) {
                 wait_for_events();
                 handle_events();

@@ -73,7 +73,7 @@ static void move_cursor_right(struct TextEdit *edit)
         }
 }
 
-static void insert_codepoint(struct TextEdit *edit, unsigned long codepoint)
+void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoint)
 {
         char tmp[16];
         int numBytes = encode_codepoint_as_utf8(codepoint, &tmp[0], 0, sizeof tmp);
@@ -110,7 +110,7 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
         if (input->inputKind == INPUT_KEY) {
                 switch (input->tKey.keyKind) {
                 case KEY_ENTER:
-                        insert_codepoint(edit, 0x0a);
+                        insert_codepoint_into_textedit(edit, 0x0a);
                         break;
                 case KEY_CURSORLEFT:
                         move_cursor_left(edit);
@@ -127,7 +127,7 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                 default:
                         if (input->tKey.hasCodepoint) {
                                 unsigned long codepoint = input->tKey.codepoint;
-                                insert_codepoint(edit, codepoint);
+                                insert_codepoint_into_textedit(edit, codepoint);
                         }
                         break;
                 }
@@ -144,4 +144,18 @@ void init_TextEdit(struct TextEdit *edit)
 void exit_TextEdit(struct TextEdit *edit)
 {
         destroy_textrope(textrope);
+}
+
+
+void textedit_test_init(struct TextEdit *edit)
+{
+        for (int i = 0; i < 256; i++) {
+                char buf[256];
+                for (int j = 0; j < i; j++)
+                        buf[j] = 65;
+                insert_text_into_textrope(textrope, i, buf, i);
+                
+        }
+        edit->cursorBytePosition = 0;
+        edit->cursorCodepointPosition = 0;
 }
