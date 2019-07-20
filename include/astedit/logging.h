@@ -18,7 +18,7 @@ NORETURN void _fatal(const char *filename, int line, const char *text);
 
 #define log_begin() _log_begin(__FILE__, __LINE__)
 #define log_postfv(fmt, ap) _log_postfv(__FILE__, __LINE__, (fmt), (ap))
-#define log_postf(fmt, ap, ...) _log_postf(__FILE__, __LINE__, (fmt), (ap), ##__VA_ARGS__)
+#define log_postf(fmt, ...) _log_postf(__FILE__, __LINE__, (fmt), ##__VA_ARGS__)
 #define fatalfv(fmt, ap), _fatalfv(__FILE__, __LINE__, (fmt), (ap))
 #define fatalf(fmt, ...) _fatalf(__FILE__, __LINE__, (fmt), ##__VA_ARGS__)
 #define fatal(text) _fatal(__FILE__, __LINE__, (text))
