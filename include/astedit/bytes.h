@@ -10,5 +10,6 @@ void zero_memory(void *ptr, int numBytes);
 void zero_array(void *ptr, int numElems, int elemSize);
 void copy_memory(void *dst, const void *src, int numBytes);
 void copy_array(void *dst, const void *src, int numElems, int elemSize);
+void move_memory(void *ptr, int distance, int numBytes);
 
 #endif
