@@ -16,7 +16,10 @@ int textedit_length_in_bytes(struct TextEdit *edit)
 
 int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size)
 {
-        return copy_text_from_textrope(textrope, offset, dstBuffer, size);
+        int numBytes = copy_text_from_textrope(textrope, offset, dstBuffer, size);
+        if (numBytes > 0)
+                printf("read %d at offset %d\n", dstBuffer[0], pos);
+        return numBytes;
 }
 
 void erase_from_textedit(struct TextEdit *edit, int offset, int length)
@@ -48,6 +51,8 @@ static int find_next_utf8_sequence(struct TextEdit *edit, int pos)
         int length = textedit_length_in_bytes(edit);
         while (pos < length) {
                 pos++;
+                if (pos == length)
+                        break;
                 int c = read_character_from_textedit(edit, pos);
                 if (is_utf8_leader_byte(c))
                         break;
