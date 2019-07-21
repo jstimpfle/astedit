@@ -1,3 +1,6 @@
+#include <astedit/astedit.h>
+#include <astedit/utf8.h>
+
 int encode_codepoint_as_utf8(unsigned codepoint, char *str, int start, int end)
 {
         unsigned char *s = (void *)&str[start]; //XXX
@@ -99,4 +102,22 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
                 return 1;
         }
         return 0;
+}
+
+void decode_utf8_span(const char *text, int startPos, int maxPos, uint32_t *codepointOut, int maxCodepoints,
+        int *outPos, int *outNumCodepoints)
+{
+        int pos = startPos;
+        int numCodepoints = 0;
+        while (pos < maxPos && numCodepoints < maxCodepoints) {
+                int r = decode_codepoint_from_utf8(text, pos, maxPos, &pos, &codepointOut[numCodepoints]);
+                if (!r) {
+                        pos++;
+                        // TODO: insert replacement char?
+                        continue;
+                }
+                numCodepoints++;
+        }
+        *outPos = pos;
+        *outNumCodepoints = numCodepoints;
 }

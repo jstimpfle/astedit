@@ -151,12 +151,32 @@ void exit_TextEdit(struct TextEdit *edit)
 }
 
 
-void textedit_test_init(struct TextEdit *edit)
+#include <stdio.h>
+void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
-        return;
-        char buf[2048];
-        for (int i = 0; i < 2048; i++)
-                buf[i] = 65;
+        FILE *f = fopen(filepath, "rb");
+        if (!f)
+                fatalf("Failed to open file %s\n", filepath);
+
+        char buf[1024];
+        uint32_t utf8buf[1024];
+        int bufFill = 0;
+        int utf8Fill = 0;
+        for (;;) {
+                size_t n = fread(buf + bufFill, 1, sizeof buf - bufFill, f);
+                if (n == 0)
+                        break;
+                int x = 0;
+                decode_utf8_span(buf, 0, bufFill, utf8buf, LENGTH(utf8buf), &x, &utf8Fill);
+                for (int i = 0; i < utf8Fill; i++)
+                        insert_codepoint_into_textedit(edit, utf8buf[i]);
+        }
+        if (ferror(f))
+                fatalf("Errors while reading from file %s\n", filepath);
+        if (bufFill > 0)
+                fatalf("Unconsumed characters at the end!\n");
+        fclose(f);
+
 
         insert_text_into_textrope(textrope, 0, buf, 950);
         insert_text_into_textrope(textrope, 650, buf, 1300);

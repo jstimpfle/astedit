@@ -27,7 +27,7 @@ int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int s
 void erase_from_textedit(struct TextEdit *edit, int offset, int length);
 void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoint);
 
-/* fill TextEdit with some text. For debugging purposes. */
-void textedit_test_init(struct TextEdit *edit);
+/* fill TextEdit with some text loaded from a file. For debugging purposes. */
+void textedit_test_init(struct TextEdit *edit, const char *filepath);
 
 #endif

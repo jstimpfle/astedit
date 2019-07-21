@@ -27,7 +27,7 @@ static int next_power_of_2(int x)
 We do this by combining adjacent nodes whose combined size does not exceed
 this. This means that each node will always be at least half that size. */
 enum {
-        TARGET_LENGTH = 16,  /* for testing purposes. Later, switch back to 1024 or so. */
+        TARGET_LENGTH = 256,  /* for testing purposes. Later, switch back to 1024 or so. */
 };
 
 struct Textnode {

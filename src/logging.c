@@ -59,7 +59,7 @@ NORETURN void _fatalfv(const char *filename, int line, const char *fmt, va_list 
         _log_begin(filename, line);
         log_writefv(fmt, ap);
         log_end();
-        abort();
+        exit(1);
 }
 
 NORETURN void _fatalf(const char *filename, int line, const char *fmt, ...)

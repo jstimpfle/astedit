@@ -192,24 +192,6 @@ void draw_region(struct DrawCursor *cursor, uint32_t *text, int start, int end, 
 }
 
 
-void decode_utf8_span(const char *text, int startPos, int maxPos, uint32_t *codepointOut, int maxCodepoints,
-        int *outPos, int *outNumCodepoints)
-{
-        int pos = startPos;
-        int numCodepoints = 0;
-        while (pos < maxPos && numCodepoints < maxCodepoints) {
-                int r = decode_codepoint_from_utf8(text, pos, maxPos, &pos, &codepointOut[numCodepoints]);
-                if (!r) {
-                        pos++;
-                        // TODO: insert replacement char?
-                        continue;
-                }
-                numCodepoints++;
-        }
-        *outPos = pos;
-        *outNumCodepoints = numCodepoints;
-}
-
 void draw_text_file(const char *text, int length, int markStart, int markEnd)
 {
         struct DrawCursor cursor;
@@ -330,7 +312,7 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
 
         for (;;) {
                 // for development / debugging
-                if (utf8buffer.editCursor > 1024)
+                if (utf8buffer.editCursor > 4096)
                         break;
 
                 refill_utf8buffer(&utf8buffer);

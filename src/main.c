@@ -59,7 +59,7 @@ void handle_events(void)
         }
 }
 
-int main(void)
+int main(int argc, const char **argv)
 {
         setup_window();
         setup_fonts();
@@ -67,7 +67,8 @@ int main(void)
 
         init_TextEdit(&globalTextEdit);
 
-        textedit_test_init(&globalTextEdit);
+        if (argc == 2)
+                textedit_test_init(&globalTextEdit, argv[1]);
 
         while (!shouldWindowClose) {
                 wait_for_events();
