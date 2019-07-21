@@ -1,5 +1,16 @@
-CFLAGS = -g -Wall -D_POSIX_C_SOURE=200809LL -Iinclude
-LDFLAGS = -lglfw -lfreetype -lGL -lGLU
+CFLAGS = -g -Wall
+CFLAGS += -D_POSIX_C_SOURE=200809LL
+
+CFLAGS += -Iinclude
+CFLAGS += $(shell pkg-config --cflags glfw3)
+CFLAGS += $(shell pkg-config --cflags freetype2)
+#CFLAGS += $(shell pkg-config --cflags gl)
+#CFLAGS += $(shell pkg-config --cflags glu)
+
+LDFLAGS += $(shell pkg-config --libs glfw3)
+LDFLAGS += $(shell pkg-config --libs freetype2)
+LDFLAGS += $(shell pkg-config --libs gl)
+LDFLAGS += $(shell pkg-config --libs glu)
 
 CFILES =  \
 bytes.c \
@@ -30,7 +41,6 @@ astedit: $(OBJECTS)
 
 %.o: src/%
 	$(CC) -c $(CFLAGS) -o $@ $^
-
 
 clean:
 	rm -f astedit $(OBJECTS)
