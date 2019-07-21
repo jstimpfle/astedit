@@ -98,8 +98,6 @@ static struct CachedGlyph *render_and_insert_glyph(const struct GlyphMeta *meta)
 
         render_glyph(meta, &buffer, &stride, &layout);
 
-        if (meta->codepoint == 'J')
-        log_postf("storing glyph %c\n", (int) meta->codepoint);
         cachedTexture = store_texture_in_texture_atlas(buffer, layout.pixW, layout.pixH, stride);
 
         cachedGlyph = cache_glyph(meta, &layout, cachedTexture);

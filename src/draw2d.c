@@ -271,11 +271,6 @@ void refill_utf8buffer(struct Utf8Buffer *buffer)
         if (remainingSpace > textEditLength - buffer->editCursor)
                 remainingSpace = textEditLength - buffer->editCursor;
 
-        /*
-        log_postf("now read %d starting at %d (length is %d)\n",
-               remainingSpace, buffer->editCursor, textEditLength);
-               */
-
         int numBytesRead = read_from_textedit(buffer->edit, buffer->editCursor,
                                 buffer->textbuffer + buffer->textbufferEnd, remainingSpace);
         buffer->editCursor += numBytesRead;
@@ -311,8 +306,10 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
         int bufferFill = 0;
 
         for (;;) {
-                // for development / debugging
-                if (utf8buffer.editCursor > 4096)
+                // for development / debugging (we still need to make the
+                // drawing more effective and also introduce bounding boxes for
+                // font culling)
+                if (utf8buffer.editCursor > 512)
                         break;
 
                 refill_utf8buffer(&utf8buffer);

@@ -1,4 +1,5 @@
 #include <astedit/astedit.h>
+#include <astedit/bytes.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/utf8.h>
 #include <astedit/logging.h>
@@ -88,8 +89,6 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoi
 
         insert_text_into_textrope(textrope, insertPos, &tmp[0], numBytes);
         move_cursor_right(edit);
-
-        debug_print_textrope(textrope);
 }
 
 static void erase_forwards(struct TextEdit *edit)
@@ -159,27 +158,30 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
                 fatalf("Failed to open file %s\n", filepath);
 
         char buf[1024];
-        uint32_t utf8buf[1024];
         int bufFill = 0;
-        int utf8Fill = 0;
         for (;;) {
                 size_t n = fread(buf + bufFill, 1, sizeof buf - bufFill, f);
                 if (n == 0)
                         break;
-                int x = 0;
-                decode_utf8_span(buf, 0, bufFill, utf8buf, LENGTH(utf8buf), &x, &utf8Fill);
+                bufFill += n;
+                printf("read %d\n", (int) n);
+
+                uint32_t utf8buf[1024];
+                int utf8Fill;
+                int decodeEnd;
+                decode_utf8_span(buf, 0, bufFill, utf8buf, LENGTH(utf8buf), &decodeEnd, &utf8Fill);
+
                 for (int i = 0; i < utf8Fill; i++)
                         insert_codepoint_into_textedit(edit, utf8buf[i]);
+
+                move_memory(buf + decodeEnd, -decodeEnd, bufFill - decodeEnd);
+                bufFill -= decodeEnd;
         }
         if (ferror(f))
                 fatalf("Errors while reading from file %s\n", filepath);
         if (bufFill > 0)
                 fatalf("Unconsumed characters at the end!\n");
         fclose(f);
-
-
-        insert_text_into_textrope(textrope, 0, buf, 950);
-        insert_text_into_textrope(textrope, 650, buf, 1300);
 
         edit->cursorBytePosition = 0;
         edit->cursorCodepointPosition = 0;

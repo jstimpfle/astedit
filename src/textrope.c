@@ -13,15 +13,6 @@ static int minInt(int a, int b) {
 }
 
 
-static int next_power_of_2(int x)
-{
-        ENSURE(x > 0);
-        x = x * 2 - 1;
-        while (x & (x - 1))
-                x = x & (x - 1);
-        return x;
-}
-
 
 /* We try to make nodes as big as possible but no bigger than this.
 We do this by combining adjacent nodes whose combined size does not exceed
@@ -177,26 +168,6 @@ static void init_textiter(struct Textiter *iter, struct Textrope *rope)
                 iter->pos = child_length(current, RB3_LEFT);
 }
 
-
-static void go_to_parent(struct Textiter *iter)
-{
-        ENSURE(!rb3_is_base(iter->parent));
-        if (iter->linkDir == RB3_LEFT) {
-                if (iter->current) {
-                        iter->pos += own_length(iter->current);
-                        iter->pos += child_length(iter->current, RB3_RIGHT);
-                }
-        }
-        else {
-                if (iter->current) {
-                        iter->pos -= child_length(iter->current, RB3_LEFT);
-                }
-                iter->pos -= own_length(iter->parent);
-        }
-        iter->current = iter->parent;
-        iter->parent = rb3_get_parent(iter->current);
-        iter->linkDir = rb3_get_parent_dir(iter->current);
-}
 
 static void go_to_left_child(struct Textiter *iter)
 {
