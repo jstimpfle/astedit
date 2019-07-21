@@ -46,7 +46,7 @@ width.
 */
 int measure_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int *outPositions);
 
-int draw_glyph_span(Font font, int size, const uint32_t *text, int length, int *outPositions, int initX, int baselineY);
+int draw_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int baselineY);
 
 
 

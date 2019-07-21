@@ -104,10 +104,10 @@ static void enqueue_key_input(int keyKind, int modifiers, int hasCodepoint, unsi
 {
         struct Input inp;
         inp.inputKind = INPUT_KEY;
-        inp.tKey.keyKind = keyKind;
-        inp.tKey.modifiers = modifiers;
-        inp.tKey.hasCodepoint = hasCodepoint;
-        inp.tKey.codepoint = codepoint;
+        inp.data.tKey.keyKind = keyKind;
+        inp.data.tKey.modifiers = modifiers;
+        inp.data.tKey.hasCodepoint = hasCodepoint;
+        inp.data.tKey.codepoint = codepoint;
         enqueue_input(&inp);
 }
 
@@ -128,9 +128,9 @@ static void mouse_cb_glfw(GLFWwindow *win, int button, int action, int mods)
                         enum MousebuttonKind mousebuttonKind = glfwMousebuttonToMousebutton[i].mousebutton;
                         struct Input inp;
                         inp.inputKind = INPUT_MOUSEBUTTON;
-                        inp.tMousebutton.mousebuttonKind = mousebuttonKind;
-                        inp.tMousebutton.mousebuttonEventKind = mousebuttonEventKind;
-                        inp.tMousebutton.modifiers = glfwmods_to_modifiers(mods);
+                        inp.data.tMousebutton.mousebuttonKind = mousebuttonKind;
+                        inp.data.tMousebutton.mousebuttonEventKind = mousebuttonEventKind;
+                        inp.data.tMousebutton.modifiers = glfwmods_to_modifiers(mods);
                         enqueue_input(&inp);
                 }
         }
@@ -139,10 +139,11 @@ static void mouse_cb_glfw(GLFWwindow *win, int button, int action, int mods)
 
 static void cursor_cb_glfw(GLFWwindow *win, double xoff, double yoff)
 {
+        UNUSED(win);
         struct Input inp;
         inp.inputKind = INPUT_CURSORMOVE;
-        inp.tCursormove.pixelX = (int)xoff;
-        inp.tCursormove.pixelY = (int)yoff;
+        inp.data.tCursormove.pixelX = (int)xoff;
+        inp.data.tCursormove.pixelY = (int)yoff;
         enqueue_input(&inp);
 }
 
@@ -232,8 +233,8 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
 
         struct Input inp;
         inp.inputKind = INPUT_WINDOWRESIZE;
-        inp.tWindowresize.width = width;
-        inp.tWindowresize.height = height;
+        inp.data.tWindowresize.width = width;
+        inp.data.tWindowresize.height = height;
         enqueue_input(&inp);
 }
 

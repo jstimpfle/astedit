@@ -149,7 +149,7 @@ struct Input {
                 struct MousebuttonInput tMousebutton;
                 struct CursormoveInput tCursormove;
                 struct WindowresizeInput tWindowresize;
-        };
+        } data;
 };
 
 

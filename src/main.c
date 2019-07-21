@@ -24,7 +24,7 @@ void handle_events(void)
                                 */
                 }
                 else if (input.inputKind == INPUT_KEY) {
-                        if (input.tKey.keyKind == KEY_ESCAPE) {
+                        if (input.data.tKey.keyKind == KEY_ESCAPE) {
                                 shouldWindowClose = 1;
                         }
                         else {
@@ -34,22 +34,22 @@ void handle_events(void)
                 else if (input.inputKind == INPUT_MOUSEBUTTON) {
                         log_begin();
                         log_writef("%s mouse button %d",
-                                input.tMousebutton.mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS ? "Press" : "Release",
-                                input.tMousebutton.mousebuttonKind);
+                                input.data.tMousebutton.mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS ? "Press" : "Release",
+                                input.data.tMousebutton.mousebuttonKind);
 
                         int flag = 0;
                         const char *prefix[2] = { " with ", "+" };
-                        if (input.tMousebutton.modifiers & MODIFIER_CONTROL) {
+                        if (input.data.tMousebutton.modifiers & MODIFIER_CONTROL) {
                                 log_write_cstring(prefix[flag]);
                                 log_write_cstring("Ctrl");
                                 flag = 1;
                         }
-                        if (input.tMousebutton.modifiers & MODIFIER_MOD) {
+                        if (input.data.tMousebutton.modifiers & MODIFIER_MOD) {
                                 log_write_cstring(prefix[flag]);
                                 log_write_cstring("Mod");
                                 flag = 1;
                         }
-                        if (input.tMousebutton.modifiers & MODIFIER_SHIFT) {
+                        if (input.data.tMousebutton.modifiers & MODIFIER_SHIFT) {
                                 log_write_cstring(prefix[flag]);
                                 log_write_cstring("Shift");
                                 flag = 1;

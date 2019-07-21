@@ -13,16 +13,19 @@ static struct Textrope *textrope;
 
 int textedit_length_in_bytes(struct TextEdit *edit)
 {
+        UNUSED(edit);
         return textrope_length(textrope);
 }
 
 int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size)
 {
+        UNUSED(edit);
         return copy_text_from_textrope(textrope, offset, dstBuffer, size);
 }
 
 void erase_from_textedit(struct TextEdit *edit, int offset, int length)
 {
+        UNUSED(edit);
         erase_text_from_textrope(textrope, offset, length);
 }
 
@@ -80,6 +83,7 @@ static void move_cursor_right(struct TextEdit *edit)
 
 void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint32_t *codepoints, int numCodepoints)
 {
+        UNUSED(edit);
         char buf[512];
         int bufFill;
         int pos = 0;
@@ -123,7 +127,7 @@ static void erase_backwards(struct TextEdit *edit)
 void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
 {
         if (input->inputKind == INPUT_KEY) {
-                switch (input->tKey.keyKind) {
+                switch (input->data.tKey.keyKind) {
                 case KEY_ENTER:
                         insert_codepoint_into_textedit(edit, 0x0a);
                         break;
@@ -140,8 +144,8 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                         erase_backwards(edit);
                         break;
                 default:
-                        if (input->tKey.hasCodepoint) {
-                                unsigned long codepoint = input->tKey.codepoint;
+                        if (input->data.tKey.hasCodepoint) {
+                                unsigned long codepoint = input->data.tKey.codepoint;
                                 insert_codepoint_into_textedit(edit, codepoint);
                         }
                         break;
@@ -153,11 +157,13 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
 
 void init_TextEdit(struct TextEdit *edit)
 {
+        UNUSED(edit);
         textrope = create_textrope();
 }
 
 void exit_TextEdit(struct TextEdit *edit)
 {
+        UNUSED(edit);
         destroy_textrope(textrope);
 }
 

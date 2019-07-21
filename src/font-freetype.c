@@ -68,11 +68,11 @@ static const char *faceKindToFontpath[NUM_FONTFACES] = {
 
 void setup_fonts(void)
 {
-        int error;
-
-	error = FT_Init_FreeType(&library);
-	if (error)
-                fatal("Failed to initialize the FreeType font library\n");
+        {
+                int error = FT_Init_FreeType(&library);
+                if (error)
+                        fatal("Failed to initialize the FreeType font library\n");
+        }
 
         for (int i = 0; i < NUM_FONTFACES; i++) {
                 int error = FT_New_Face(library, faceKindToFontpath[i], 0,

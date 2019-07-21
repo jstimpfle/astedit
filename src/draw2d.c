@@ -173,7 +173,7 @@ void draw_region(struct DrawCursor *cursor, uint32_t *text, int start, int end, 
                         j++;
 
                 int xEnd = draw_glyph_span(FONTFACE_REGULAR,
-                        cursor->fontSize, text + i, j - i, NULL,
+                        cursor->fontSize, text + i, j - i,
                         cursor->x, cursor->y);
                 if (drawstringKind == DRAWSTRING_HIGHLIGHT)
                         draw_colored_rect(cursor->x, cursor->y - cursor->ascender,

@@ -136,7 +136,7 @@ int measure_glyph_span(Font font, int size, const uint32_t *text, int length, in
         return x;
 }
 
-int draw_glyph_span(Font font, int size, const uint32_t *text, int length, int *outPositions, int initX, int baselineY)
+int draw_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int baselineY)
 {
         int x = initX;
         for (int i = 0; i < length; i++) {
