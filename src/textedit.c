@@ -89,7 +89,7 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoi
         insert_text_into_textrope(textrope, insertPos, &tmp[0], numBytes);
         move_cursor_right(edit);
 
-        //debug_print_textrope(textrope);
+        debug_print_textrope(textrope);
 }
 
 static void erase_forwards(struct TextEdit *edit)
@@ -153,13 +153,14 @@ void exit_TextEdit(struct TextEdit *edit)
 
 void textedit_test_init(struct TextEdit *edit)
 {
-        for (int i = 0; i < 256; i++) {
-                char buf[256];
-                for (int j = 0; j < i; j++)
-                        buf[j] = 65;
-                insert_text_into_textrope(textrope, i, buf, i);
-                
-        }
+        return;
+        char buf[2048];
+        for (int i = 0; i < 2048; i++)
+                buf[i] = 65;
+
+        insert_text_into_textrope(textrope, 0, buf, 950);
+        insert_text_into_textrope(textrope, 650, buf, 1300);
+
         edit->cursorBytePosition = 0;
         edit->cursorCodepointPosition = 0;
 }
