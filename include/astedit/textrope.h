@@ -8,3 +8,5 @@ void insert_text_into_textrope(struct Textrope *textrope, int offset, const char
 void erase_text_from_textrope(struct Textrope *textrope, int offset, int length);
 int copy_text_from_textrope(struct Textrope *rope, int offset, char *dstBuffer, int length);
 void debug_print_textrope(struct Textrope *rope);
+void print_textrope_statistics(struct Textrope *rope);
+

@@ -104,6 +104,22 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
         return 0;
 }
 
+void encode_utf8_span(const uint32_t *codepoints, int startPos, int maxPos, char *bufOut, int maxBytes,
+        int *outPos, int *outNumBytes)
+{
+        int pos = startPos;
+        int numBytes = 0;
+        while (pos < maxPos && numBytes < maxBytes) {
+                int r = encode_codepoint_as_utf8(codepoints[pos], bufOut, numBytes, maxBytes);
+                if (!r)
+                        break;
+                numBytes += r;
+                pos++;
+        }
+        *outPos = pos;
+        *outNumBytes = numBytes;
+}
+
 void decode_utf8_span(const char *text, int startPos, int maxPos, uint32_t *codepointOut, int maxCodepoints,
         int *outPos, int *outNumCodepoints)
 {

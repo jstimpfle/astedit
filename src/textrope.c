@@ -18,7 +18,7 @@ static int minInt(int a, int b) {
 We do this by combining adjacent nodes whose combined size does not exceed
 this. This means that each node will always be at least half that size. */
 enum {
-        TARGET_LENGTH = 256,  /* for testing purposes. Later, switch back to 1024 or so. */
+        TARGET_LENGTH = 1024,  /* for testing purposes. Later, switch back to 1024 or so. */
 };
 
 struct Textnode {
@@ -90,7 +90,7 @@ void check_node_values(struct rb3_head *head)
 
 void debug_print_textrope(struct Textrope *rope)
 {
-        check_node_values(rb3_get_root(&rope->tree)); //XXX
+       check_node_values(rb3_get_root(&rope->tree)); //XXX
 
         struct rb3_head *head = rb3_get_min(&rope->tree);
         log_begin();
@@ -98,9 +98,27 @@ void debug_print_textrope(struct Textrope *rope)
         while (head != NULL) {
                 struct Textnode *node = textnode_from_head(head);
                 log_write(node->text, node->ownLength);
+
                 head = rb3_get_next(head);
         }
         log_end();
+}
+
+void print_textrope_statistics(struct Textrope *rope)
+{
+        int nodesVisited = 0;
+        int bytesUsed = 0;
+
+        struct rb3_head *head = rb3_get_min(&rope->tree);
+        while (head != NULL) {
+                struct Textnode *node = textnode_from_head(head);
+                bytesUsed += node->ownLength;
+                nodesVisited++;
+                head = rb3_get_next(head);
+        }
+
+        log_postf("Textrope: %d bytes distributed among %d nodes. That's %d per node",
+                bytesUsed, nodesVisited, bytesUsed / nodesVisited);
 }
 
 

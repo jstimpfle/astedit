@@ -78,6 +78,18 @@ static void move_cursor_right(struct TextEdit *edit)
         }
 }
 
+void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint32_t *codepoints, int numCodepoints)
+{
+        char buf[512];
+        int bufFill;
+        int pos = 0;
+        while (pos < numCodepoints) {
+                encode_utf8_span(codepoints, pos, numCodepoints, buf, sizeof buf, &pos, &bufFill);
+                insert_text_into_textrope(textrope, insertPos, &buf[0], bufFill);
+                insertPos += bufFill;
+        }
+}
+
 void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoint)
 {
         char tmp[16];
@@ -149,7 +161,6 @@ void exit_TextEdit(struct TextEdit *edit)
         destroy_textrope(textrope);
 }
 
-
 #include <stdio.h>
 void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
@@ -164,15 +175,13 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
                 if (n == 0)
                         break;
                 bufFill += n;
-                printf("read %d\n", (int) n);
 
                 uint32_t utf8buf[1024];
                 int utf8Fill;
                 int decodeEnd;
                 decode_utf8_span(buf, 0, bufFill, utf8buf, LENGTH(utf8buf), &decodeEnd, &utf8Fill);
 
-                for (int i = 0; i < utf8Fill; i++)
-                        insert_codepoint_into_textedit(edit, utf8buf[i]);
+                insert_codepoints_into_textedit(edit, textrope_length(textrope), utf8buf, utf8Fill);
 
                 move_memory(buf + decodeEnd, -decodeEnd, bufFill - decodeEnd);
                 bufFill -= decodeEnd;
@@ -185,4 +194,6 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
 
         edit->cursorBytePosition = 0;
         edit->cursorCodepointPosition = 0;
+
+        print_textrope_statistics(textrope);
 }
