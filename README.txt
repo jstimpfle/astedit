@@ -1,7 +1,12 @@
 The goal of this project is to experiment a little with syntax aware editing
 and basic IDE functionality.
 
-A bare bones text editor is already in a working state.
+A bare bones text editor is already in a working state:
+
+- Rope data structure that can efficiently insert or remove chunks of text
+- UTF-8 encoding/decoding
+- Basic graphics
+- Cursor can only go 1 character left/right at a time, currently.
 
 Now I want to include a parser for a simple programming language that has a
 valid parse tree for any text that is buffered in the editor.
