@@ -141,7 +141,6 @@
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\memoryalloc.c" />
     <ClCompile Include="..\src\rb3ptr.c" />
-    <ClCompile Include="..\src\rope.c" />
     <ClCompile Include="..\src\stringpool.c" />
     <ClCompile Include="..\src\textedit.c" />
     <ClCompile Include="..\src\textrope.c" />
@@ -159,7 +158,6 @@
     <ClInclude Include="..\include\astedit\gfx.h" />
     <ClInclude Include="..\include\astedit\logging.h" />
     <ClInclude Include="..\include\astedit\memoryalloc.h" />
-    <ClInclude Include="..\include\astedit\rope.h" />
     <ClInclude Include="..\include\astedit\stringpool.h" />
     <ClInclude Include="..\include\astedit\textrope.h" />
     <ClInclude Include="..\include\astedit\textedit.h" />
