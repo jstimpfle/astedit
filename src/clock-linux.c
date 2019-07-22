@@ -28,6 +28,7 @@ void sleep_milliseconds(int ms)
                 r = nanosleep(&ts, &remain);
                 if (r != EINTR)
                         break;
+                ts = remain;
         }
         if (r != 0)
                 fatalf("nanosleep() failed: %s\n", strerror(errno));
