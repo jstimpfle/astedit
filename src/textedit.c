@@ -176,21 +176,20 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
 
         char buf[1024];
         int bufFill = 0;
+
         for (;;) {
                 size_t n = fread(buf + bufFill, 1, sizeof buf - bufFill, f);
-                if (n == 0)
-                        break;
                 bufFill += n;
 
-                uint32_t utf8buf[1024];
+                if (n == 0)
+                        /* EOF. Ignore remaining undecoded bytes */
+                        break;
+
+                uint32_t utf8buf[LENGTH(buf)];
                 int utf8Fill;
-                int decodeEnd;
-                decode_utf8_span(buf, 0, bufFill, utf8buf, LENGTH(utf8buf), &decodeEnd, &utf8Fill);
 
+                decode_utf8_span_and_move_rest_to_front(buf, bufFill, utf8buf, &bufFill, &utf8Fill);
                 insert_codepoints_into_textedit(edit, textrope_length(textrope), utf8buf, utf8Fill);
-
-                move_memory(buf + decodeEnd, -decodeEnd, bufFill - decodeEnd);
-                bufFill -= decodeEnd;
         }
         if (ferror(f))
                 fatalf("Errors while reading from file %s\n", filepath);

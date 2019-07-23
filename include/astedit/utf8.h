@@ -11,4 +11,17 @@ void encode_utf8_span(const uint32_t *codepoints, int startPos, int maxPos, char
 void decode_utf8_span(const char *text, int startPos, int maxPos, uint32_t *codepointOut, int maxCodepoints,
         int *outPos, int *outNumCodepoints);
 
+
+/* This version is intended to be used with fixed-size read buffers.
+As many characters as possible (but at most `length`) characters from the
+input read buffer are decoded. The output is stored in the codepointOut
+array, which must be at least of size `length` (otherwise there is a possible
+buffer overflow).
+Since there are always less than 4 remaining bytes (UTF-8 byte sequences are
+of length <= 4), we can afford to move them to the front. The number of
+remaining bytes is stored in *outLength.
+*/
+void decode_utf8_span_and_move_rest_to_front(char *inputText, int length,
+        uint32_t *codepointOut, int *outLength, int *outNumCodepoints);
+
 #endif

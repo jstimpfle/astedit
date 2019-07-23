@@ -157,6 +157,7 @@ struct DrawCursor {
         int lineHeight;
         int x;
         int y;
+        int codepointpos;
 };
 
 enum {
@@ -188,9 +189,7 @@ void draw_region(struct DrawCursor *cursor, uint32_t *text, int start, int end, 
                         cursor->y += cursor->lineHeight;
                 }
         }
-
 }
-
 
 void draw_text_file(const char *text, int length, int markStart, int markEnd)
 {
@@ -237,44 +236,30 @@ void draw_text_file(const char *text, int length, int markStart, int markEnd)
         }
 }
 
-struct Utf8Buffer {
-        char textbuffer[256];
-        struct TextEdit *edit;
-        int editCursor;
-        int textbufferStart;
-        int textbufferEnd;
-};
 
-void reset_utf8buffer(struct Utf8Buffer *buffer, struct TextEdit *edit)
+static void draw_codepoints_with_cursor(struct DrawCursor *cursor, uint32_t *codepoints, int length, int markStart, int markEnd)
 {
-        buffer->edit = edit;
-        buffer->editCursor = 0;
-        buffer->textbufferStart = 0;
-        buffer->textbufferEnd = 0;
-}
-
-void refill_utf8buffer(struct Utf8Buffer *buffer)
-{
-        if (buffer->textbufferStart > LENGTH(buffer->textbuffer) - 4 /* max utf8 byte length */) {
-                int numBytes = buffer->textbufferEnd - buffer->textbufferStart;
-                memmove(buffer->textbuffer,
-                        buffer->textbuffer + buffer->textbufferStart,
-                        numBytes);
-                buffer->textbufferStart = 0;
-                buffer->textbufferEnd = numBytes;
+        int start = 0;
+        while (start < length) {
+                int numCodepointsRemain = length - start;
+                int drawstringKind;
+                int numCodepoints;
+                if (cursor->codepointpos < markStart) {
+                        drawstringKind = DRAWSTRING_NORMAL;
+                        numCodepoints = minInt(numCodepointsRemain, markStart - cursor->codepointpos);
+                }
+                else if (cursor->codepointpos < markEnd) {
+                        drawstringKind = DRAWSTRING_HIGHLIGHT;
+                        numCodepoints = minInt(numCodepointsRemain, markEnd - cursor->codepointpos);
+                }
+                else {
+                        drawstringKind = DRAWSTRING_NORMAL;
+                        numCodepoints = numCodepointsRemain;
+                }
+                draw_region(cursor, codepoints, start, start + numCodepoints, drawstringKind);
+                start += numCodepoints;
+                cursor->codepointpos += numCodepoints;
         }
-
-        int remainingSpace = LENGTH(buffer->textbuffer) - buffer->textbufferEnd;
-
-        //XXX for debugging
-        int textEditLength = textedit_length_in_bytes(buffer->edit);
-        if (remainingSpace > textEditLength - buffer->editCursor)
-                remainingSpace = textEditLength - buffer->editCursor;
-
-        int numBytesRead = read_from_textedit(buffer->edit, buffer->editCursor,
-                                buffer->textbuffer + buffer->textbufferEnd, remainingSpace);
-        buffer->editCursor += numBytesRead;
-        buffer->textbufferEnd += numBytesRead;
 }
 
 void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
@@ -286,6 +271,7 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
         cursor.lineHeight = 30;
         cursor.x = cursor.xLeft;
         cursor.y = 20;
+        cursor.codepointpos = 0;
 
         int length = textedit_length_in_bytes(edit);
 
@@ -298,44 +284,45 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
 
         ENSURE(markStart <= markEnd);
 
-        struct Utf8Buffer utf8buffer;
-        reset_utf8buffer(&utf8buffer, edit);
+        char readbuffer[256];
+        uint32_t codepointBuffer[LENGTH(readbuffer)];
 
-        int codepointpos = 0;
-        uint32_t buffer[64];
-        int bufferFill = 0;
+        int readbufferFill = 0;
+        int readPositionInBytes = 0;  // textedit
 
         for (;;) {
                 // for development / debugging (we still need to make the
                 // drawing more effective and also introduce bounding boxes for
                 // font culling)
-                if (utf8buffer.editCursor > 512)
+                if (readPositionInBytes > 512)
                         break;
 
-                refill_utf8buffer(&utf8buffer);
-                if (utf8buffer.textbufferStart - utf8buffer.textbufferEnd == 0)
-                        /* EOF */
-                        break;
+                {
+                        int remainingSpace = LENGTH(readbuffer) - readbufferFill;
+                        int texteditLengthInBytes = textedit_length_in_bytes(edit);
+                        // (This is only true if the textedit doesn't change during the lifetime of this read buffer)
+                        ENSURE(readPositionInBytes <= texteditLengthInBytes);
+                        int editBytesAvailable = texteditLengthInBytes - readPositionInBytes;
 
-                int drawstringKind;
-                int maxCodepoints;
-                if (codepointpos < markStart) {
-                        drawstringKind = DRAWSTRING_NORMAL;
-                        maxCodepoints = minInt(markStart - codepointpos, LENGTH(buffer));
-                }
-                else if (codepointpos < markEnd) {
-                        drawstringKind = DRAWSTRING_HIGHLIGHT;
-                        maxCodepoints = minInt(LENGTH(buffer), markEnd - markStart);
-                }
-                else {
-                        drawstringKind = DRAWSTRING_NORMAL;
-                        maxCodepoints = LENGTH(buffer);
+                        int maxReadLength = remainingSpace;
+                        if (maxReadLength > editBytesAvailable)
+                                remainingSpace = editBytesAvailable;
+
+                        int numBytesRead = read_from_textedit(edit, readPositionInBytes,
+                                readbuffer + readbufferFill, maxReadLength);
+                        readbufferFill += numBytesRead;
+                        readPositionInBytes += numBytesRead;
+
+                        if (numBytesRead == 0)
+                                /* EOF. Ignore remaining undecoded bytes */
+                                break;
                 }
 
-                decode_utf8_span(utf8buffer.textbuffer, utf8buffer.textbufferStart, utf8buffer.textbufferEnd,
-                        &buffer[0], maxCodepoints, &utf8buffer.textbufferStart, &bufferFill);
-                draw_region(&cursor, &buffer[0], 0, bufferFill, drawstringKind);
-                codepointpos += bufferFill;
+                int numCodepointsDecoded;
+                decode_utf8_span_and_move_rest_to_front(readbuffer, readbufferFill,
+                        codepointBuffer, &readbufferFill, &numCodepointsDecoded);
+
+                draw_codepoints_with_cursor(&cursor, codepointBuffer, numCodepointsDecoded, markStart, markEnd);
         }
 }
 

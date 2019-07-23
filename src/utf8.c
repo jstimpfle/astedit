@@ -1,4 +1,5 @@
 #include <astedit/astedit.h>
+#include <astedit/bytes.h>
 #include <astedit/utf8.h>
 
 int encode_codepoint_as_utf8(unsigned codepoint, char *str, int start, int end)
@@ -136,4 +137,16 @@ void decode_utf8_span(const char *text, int startPos, int maxPos, uint32_t *code
         }
         *outPos = pos;
         *outNumCodepoints = numCodepoints;
+}
+
+void decode_utf8_span_and_move_rest_to_front(char *inputText, int length,
+        uint32_t *codepointOut, int *outLength, int *outNumCodepoints)
+{
+        int pos;
+        decode_utf8_span(inputText, 0, length, codepointOut, length /*XXX*/,
+                &pos, outNumCodepoints);
+        int remainingBytes = length - pos;
+        ENSURE(0 <= remainingBytes && remainingBytes < 4);
+        move_memory(inputText + pos, -pos, remainingBytes);
+        *outLength = remainingBytes;
 }
