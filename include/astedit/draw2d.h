@@ -5,9 +5,9 @@
 #include <astedit/gfx.h>
 
 void flush_color_vertices(void);
-void flush_font_texture_vertices(void);
+void flush_alpha_texture_vertices(void);
 void push_color_vertices(struct ColorVertex2d *verts, int length);
-void push_font_texture_vertices(struct TextureVertex2d *verts, int length);
+void push_alpha_texture_vertices(struct TextureVertex2d *verts, int length);
 void push_rgba_texture_vertices(struct TextureVertex2d *verts, int length);
 void begin_frame(int x, int y, int w, int h);
 void end_frame(void);

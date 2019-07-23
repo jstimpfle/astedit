@@ -136,7 +136,8 @@ int measure_glyph_span(Font font, int size, const uint32_t *text, int length, in
         return x;
 }
 
-int draw_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int baselineY)
+int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
+        int size, const uint32_t *text, int length, int initX, int baselineY)
 {
         int x = initX;
         for (int i = 0; i < length; i++) {
@@ -158,7 +159,13 @@ int draw_glyph_span(Font font, int size, const uint32_t *text, int length, int i
                 float texH = region.texH;
 
                 commit_all_dirty_textures(); //XXX
-                draw_alpha_texture_rect(rectX, rectY, rectW, rectH, texX, texY, texW, texH, texture);
+
+                if (rectX + rectW >= boundingBox->bbX &&
+                        rectY + rectH >= boundingBox->bbY &&
+                        rectX <= boundingBox->bbX + boundingBox->bbW &&
+                        rectY <= boundingBox->bbY + boundingBox->bbH) {
+                        draw_alpha_texture_rect(rectX, rectY, rectW, rectH, texX, texY, texW, texH, texture);
+                }
 
                 x += layout->horiAdvance;
         }

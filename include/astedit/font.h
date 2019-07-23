@@ -37,6 +37,25 @@ struct GlyphLayoutInfo {
         int horiAdvance;  // XXX not accounted for kerning
 };
 
+
+struct DrawCursor {
+        int xLeft;
+        int fontSize;
+        int ascender;
+        int lineHeight;
+        int x;
+        int y;
+        int codepointpos;
+};
+
+struct BoundingBox {
+        float bbX;
+        float bbY;
+        float bbW;
+        float bbH;
+};
+
+
 /*
 layouts text span returns total length.
 `text` is expected to point to an array of `length` codepoints.
@@ -46,7 +65,8 @@ width.
 */
 int measure_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int *outPositions);
 
-int draw_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int baselineY);
+int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
+        int size, const uint32_t *text, int length, int initX, int baselineY);
 
 
 

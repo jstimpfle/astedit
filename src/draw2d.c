@@ -10,10 +10,10 @@
 #include <string.h> // memmove()
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
-//static struct TextureVertex2d fontVertexBuffer[3 * 1024];
+static struct TextureVertex2d alphaVertexBuffer[3 * 1024];
 
 static int colorVertexCount;
-static int fontVertexCount;
+static int alphaVertexCount;
 
 
 
@@ -34,13 +34,11 @@ void flush_color_vertices(void)
         }
 }
 
-void flush_font_texture_vertices(void)
+void flush_alpha_texture_vertices(void)
 {
-        if (fontVertexCount > 0) {
-                /*XXX TODO
-                draw_alpha_texture_vertices(atlasTexture, fontVertexBuffer, fontVertexCount);
-                */
-                fontVertexCount = 0;
+        if (alphaVertexCount > 0) {
+                draw_alpha_texture_vertices(alphaVertexBuffer, alphaVertexCount);
+                alphaVertexCount = 0;
         }
 }
 
@@ -63,27 +61,42 @@ void push_color_vertices(struct ColorVertex2d *verts, int length)
 void push_alpha_texture_vertices(struct TextureVertex2d *verts, int length)
 {
         flush_color_vertices();
-        draw_alpha_texture_vertices(verts, length);
+
+        int i = 0;
+        while (i < length) {
+                int remainingBytes = LENGTH(alphaVertexBuffer) - alphaVertexCount;
+                int n = length - i;
+                if (n > remainingBytes)
+                        n = remainingBytes;
+
+                COPY_ARRAY(alphaVertexBuffer + alphaVertexCount, verts + i, n);
+                alphaVertexCount += n;
+                i += n;
+
+                if (alphaVertexCount == LENGTH(alphaVertexBuffer))
+                        flush_alpha_texture_vertices();
+        }
 }
 
 void push_rgba_texture_vertices(struct TextureVertex2d *verts, int length)
 {
         flush_color_vertices();
-        flush_font_texture_vertices();
+        flush_alpha_texture_vertices();
         draw_rgba_texture_vertices(verts, length);
 }
 
 void begin_frame(int x, int y, int w, int h)
 {
         ENSURE(colorVertexCount == 0);
-        ENSURE(fontVertexCount == 0);
+        ENSURE(alphaVertexCount == 0);
         set_viewport_in_pixels(x, y, w, h);
 }
 
 void end_frame(void)
 {
         flush_color_vertices();
-        flush_font_texture_vertices();
+        flush_alpha_texture_vertices();
+        //flush_rgba_texture_vertices();
 }
 
 static void fill_texture2d_rect(struct TextureVertex2d *rp,
@@ -150,39 +163,40 @@ void draw_alpha_texture_rect(int x, int y, int w, int h,
         push_alpha_texture_vertices(rp, LENGTH(rp));
 }
 
-struct DrawCursor {
-        int xLeft;
-        int fontSize;
-        int ascender;
-        int lineHeight;
-        int x;
-        int y;
-        int codepointpos;
-};
-
 enum {
         DRAWSTRING_NORMAL,
         DRAWSTRING_HIGHLIGHT,
 };
 
-void draw_region(struct DrawCursor *cursor, uint32_t *text, int start, int end, int drawstringKind)
+static void draw_text_span(
+        struct DrawCursor *cursor,
+        const struct BoundingBox *boundingBox,
+        const uint32_t *text,
+        int start, int end, int drawstringKind)
 {
         int i = start;
         while (i < end) {
                 int j = i;
-                while (j < end && text[j] != '\n')
+                while (j < end && text[j] != '\r' && text[j] != '\n')
                         j++;
 
-                int xEnd = draw_glyph_span(FONTFACE_REGULAR,
+                int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox, 
                         cursor->fontSize, text + i, j - i,
                         cursor->x, cursor->y);
-                if (drawstringKind == DRAWSTRING_HIGHLIGHT)
+
+                if (drawstringKind == DRAWSTRING_HIGHLIGHT) {
                         draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
                                 xEnd - cursor->x, cursor->lineHeight,
                                 0, 0, 192, 32);
+                }
+
                 cursor->x = xEnd;
 
                 i = j;
+
+                if (i < end && text[i] == '\r')
+                        i++;
+
                 if (i < end && text[i] == '\n') {
                         i++;
                         cursor->x = cursor->xLeft;
@@ -191,53 +205,11 @@ void draw_region(struct DrawCursor *cursor, uint32_t *text, int start, int end, 
         }
 }
 
-void draw_text_file(const char *text, int length, int markStart, int markEnd)
-{
-        struct DrawCursor cursor;
-        cursor.xLeft = 20;
-        cursor.fontSize = 25;
-        cursor.ascender = 20;
-        cursor.lineHeight = 30;
-        cursor.x = cursor.xLeft;
-        cursor.y = 20;
-
-        if (length == 0) return;  // for debugging
-        
-        if (markStart < 0) markStart = 0;
-        if (markEnd < 0) markEnd = 0;
-        if (markStart >= length) markStart = length;
-        if (markEnd >= length) markEnd = length;
-
-        ENSURE(markStart <= markEnd);
-
-        int textpos = 0;
-        int codepointpos = 0;
-        uint32_t buffer[64];
-        int bufferFill = 0;
-        while (textpos < length) {
-                int drawstringKind;
-                int maxCodepoints;
-                if (codepointpos < markStart) {
-                        drawstringKind = DRAWSTRING_NORMAL;
-                        maxCodepoints = minInt(markStart - codepointpos, LENGTH(buffer));
-                }
-                else if (codepointpos < markEnd) {
-                        drawstringKind = DRAWSTRING_HIGHLIGHT;
-                        maxCodepoints = minInt(LENGTH(buffer), markEnd - markStart);
-                }
-                else {
-                        drawstringKind = DRAWSTRING_NORMAL;
-                        maxCodepoints = LENGTH(buffer);
-                }
-
-                decode_utf8_span(text, textpos, length, &buffer[0], maxCodepoints, &textpos, &bufferFill);
-                draw_region(&cursor, &buffer[0], 0, bufferFill, drawstringKind);
-                codepointpos += bufferFill;
-        }
-}
-
-
-static void draw_codepoints_with_cursor(struct DrawCursor *cursor, uint32_t *codepoints, int length, int markStart, int markEnd)
+static void draw_codepoints_with_cursor(
+        struct DrawCursor *cursor,
+        const struct BoundingBox *boundingBox,
+        const uint32_t *codepoints,
+        int length, int markStart, int markEnd)
 {
         int start = 0;
         while (start < length) {
@@ -256,7 +228,7 @@ static void draw_codepoints_with_cursor(struct DrawCursor *cursor, uint32_t *cod
                         drawstringKind = DRAWSTRING_NORMAL;
                         numCodepoints = numCodepointsRemain;
                 }
-                draw_region(cursor, codepoints, start, start + numCodepoints, drawstringKind);
+                draw_text_span(cursor, boundingBox, codepoints, start, start + numCodepoints, drawstringKind);
                 start += numCodepoints;
                 cursor->codepointpos += numCodepoints;
         }
@@ -272,6 +244,16 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
         cursor.x = cursor.xLeft;
         cursor.y = 20;
         cursor.codepointpos = 0;
+
+        // XXX: Need to compute dynamically!
+        struct BoundingBox boundingBox;
+        boundingBox.bbX = 0;
+        boundingBox.bbY = 0;
+        boundingBox.bbW = 1280;
+        boundingBox.bbH = 1024;
+
+        draw_colored_rect(boundingBox.bbX, boundingBox.bbY, boundingBox.bbW, boundingBox.bbH,
+                224, 224, 224, 224);
 
         int length = textedit_length_in_bytes(edit);
 
@@ -290,13 +272,7 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
         int readbufferFill = 0;
         int readPositionInBytes = 0;  // textedit
 
-        for (;;) {
-                // for development / debugging (we still need to make the
-                // drawing more effective and also introduce bounding boxes for
-                // font culling)
-                if (readPositionInBytes > 512)
-                        break;
-
+        while (cursor.y - cursor.ascender < boundingBox.bbY + boundingBox.bbH) {
                 {
                         int remainingSpace = LENGTH(readbuffer) - readbufferFill;
                         int texteditLengthInBytes = textedit_length_in_bytes(edit);
@@ -322,7 +298,9 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
                 decode_utf8_span_and_move_rest_to_front(readbuffer, readbufferFill,
                         codepointBuffer, &readbufferFill, &numCodepointsDecoded);
 
-                draw_codepoints_with_cursor(&cursor, codepointBuffer, numCodepointsDecoded, markStart, markEnd);
+                draw_codepoints_with_cursor(&cursor, &boundingBox,
+                        codepointBuffer, numCodepointsDecoded,
+                        markStart, markEnd);
         }
 }
 
