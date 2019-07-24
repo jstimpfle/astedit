@@ -3,36 +3,37 @@
 #endif
 #define RB3PTR_H_INCLUDED
 
-#include <stdint.h>  // uintptr_t
-
-
-#ifdef _MSC_VER
-#define _RB3_NEVERINLINE __declspec(noinline)
-#define _RB3_COLD
-#else
-#define _RB3_NEVERINLINE __attribute__((noinline))
-#define _RB3_COLD __attribute__((cold))
+#ifndef UINTPTR_MAX  /* detect stdint.h */
+#include <stdint.h>  /* uintptr_t */
 #endif
 
-
-/* don't want no assert.h dependency */
-#define RB3_DEBUG 1
-#ifndef RB3_DEBUG
-#define _RB3_ASSERT(cond)
-#else
+#ifndef _RB3_ASSERT
+#ifndef assert
 #include <assert.h>
-#define _RB3_ASSERT assert
+#endif
+#define _RB3_ASSERT(x) assert(x)
 #endif
 
-/* don't want no stddef.h dependency */
-#ifdef __cplusplus
-#define _RB3_NULL 0
-#else
-#define _RB3_NULL ((void *)0)
+#ifndef _RB3_NULL
+#ifndef NULL
+#include <stddef.h>
 #endif
-#define _RB3_offsetof(st, m) ((char *)&(((st *)0)->m)-((char *)0))
+#define _RB3_NULL NULL
+#endif
 
 
+#ifdef __cplusplus   // not yet tested
+extern "C" {
+#endif
+
+
+/**
+ * Directions for navigation in the tree.
+ */
+enum rb3_dir {
+        RB3_LEFT = 0,
+        RB3_RIGHT = 1,
+};
 
 /**
  * This type is used to efficiently store a pointer (at least 4-byte aligned)
@@ -41,25 +42,13 @@
 typedef uintptr_t rb3_ptr;
 
 /**
- * Directions for navigation in the tree.
- */
-enum {
-        RB3_LEFT = 0,
-        RB3_RIGHT = 1,
-};
-
-/**
  * Node type for 3-pointer Red-black trees.
+ * Contains left, right, and parent pointers.
+ * The left and right pointers have additional color bits.
+ * The parent pointer contains a direction bit indicating the direction
+ * to this child.
  */
 struct rb3_head {
-        /*
-         * Left, right, and parent pointers.
-         *
-         * The left and right pointers have additional color bits.
-         *
-         * The parent pointer contains a direction bit indicating the direction
-         * to this child.
-         */
         rb3_ptr child[2];
         rb3_ptr parent;
 };
@@ -89,11 +78,32 @@ typedef int rb3_cmp(struct rb3_head *head, void *data);
 typedef void rb3_augment_func(struct rb3_head *head /*, void *data */);
 
 /**
- * Get fake base of tree.
+ * Initialize an rb3_head.
+ * After initialization, rb3_is_head_linked() will return false.
+ */
+static inline void rb3_reset_head(struct rb3_head *head)
+{
+        head->child[RB3_LEFT] = 0;
+        head->child[RB3_RIGHT] = 0;
+        head->parent = 0;
+}
+
+/**
+ * Initialize an rb3_tree.
+ */
+static inline void rb3_reset_tree(struct rb3_tree *tree)
+{
+        tree->base.child[RB3_LEFT] = 0;
+        /* ! see doc of rb3_is_base(). */
+        tree->base.child[RB3_RIGHT] = 3;
+        tree->base.parent = 0;
+}
+
+/**
+ * Get base head of tree.
  *
- * Warning: the special base element is never embedded in a client payload
- * structure. It's just a link to host the real root of the tree as its left
- * child.
+ * Warning: the base head is never embedded in a client payload structure.
+ * It's just a link to host the real root of the tree as its left child.
  */
 static inline struct rb3_head *rb3_get_base(struct rb3_tree *tree)
 {
@@ -101,30 +111,45 @@ static inline struct rb3_head *rb3_get_base(struct rb3_tree *tree)
 }
 
 /**
- * Test if given head is fake base of tree.
+ * Test if given head is base of tree.
  */
 static inline int rb3_is_base(struct rb3_head *head)
 {
-        /*
-         * We could check for the parent pointer being null, but by having
+        /* We could check for the parent pointer being null, but by having
          * a special sentinel right child value instead, we can make this
          * function distinguish the base from unlinked pointers as well.
          *
          * A side effect is that this breaks programs with trees that are not
          * initialized with rb3_init(), which could be a good or a bad thing,
-         * I don't know.
-         */
+         * I don't know. */
         return head->child[RB3_RIGHT] == 3;
 }
 
 /**
  * Check if a non-base head is linked in a (any) tree.
- *
- * Time complexity: O(1)
  */
-static inline int rb3_is_node_linked(struct rb3_head *head)
+static inline int rb3_is_head_linked(struct rb3_head *head)
 {
         return head->parent != 0;
+}
+
+/**
+ * Get child in given direction, or NULL if there is no such child. `dir`
+ * must be RB3_LEFT or RB3_RIGHT.
+ */
+static inline struct rb3_head *rb3_get_child(struct rb3_head *head, int dir)
+{
+        return (struct rb3_head *)((head->child[dir]) & ~3);
+}
+
+/*
+ * Test if a (left or right) child exists.
+ * This is slightly more efficient than calling rb3_get_child() and comparing
+ * to NULL.
+ */
+static inline int rb3_has_child(struct rb3_head *head, int dir)
+{
+        return head->child[dir] != 0;
 }
 
 /**
@@ -144,138 +169,50 @@ static inline int rb3_get_parent_dir(struct rb3_head *head)
 }
 
 /**
- * Get parent head, or NULL if given node is the base node.
+ * Get parent head, or NULL if given node is the base head.
  *
- * Note that normally you don't want to visit the base node but stop already
+ * Note that normally you don't want to visit the base head but stop already
  * at the root node.
- *
- * Time complexity: O(1)
  */
 static inline struct rb3_head *rb3_get_parent(struct rb3_head *head)
 {
         return (struct rb3_head *)(head->parent & ~3);
 }
 
-/*
- * Test if a (left or right) child exists.
- *
- * This is slightly more efficient than calling rb3_get_child() and comparing
- * to NULL.
- *
- * Time complexity: O(1)
- */
-static inline int rb3_has_child(struct rb3_head *head, int dir)
-{
-        return head->child[dir] != 0;
-}
-
-/**
- * Get child in given direction, or NULL if there is no such child. `dir`
- * must be RB3_LEFT or RB3_RIGHT.
- *
- * Time complexity: O(1)
- */
-static inline struct rb3_head *rb3_get_child(struct rb3_head *head, int dir)
-{
-        return (struct rb3_head *)((head->child[dir]) & ~3);
-}
-
-/*
- * ---------------------------------------------------------------------------
- * Inline implementations
- * ---------------------------------------------------------------------------
- */
-
-/*
- * ---------------------------------------------------------------------------
- * Internal API
- *
- * These functions expose some of the more stable implementation details that
- * might be useful in other places. They are generally unsafe to use. Make
- * sure to read the assumptions that must hold before calling them.
- * ---------------------------------------------------------------------------
- */
-
-/**
- * Find suitable insertion point for a new node in a subtree, directed by the
- * given search function. The subtree is given by its parent node `parent` and
- * child direction `dir`. The insertion point and its child direction are
- * returned in `parent_out` and `dir_out`.
- *
- * If the searched node is already in the tree (the compare function returns
- * 0), it is returned. In this case `parent_out` and `dir_out` are left
- * untouched. Otherwise NULL is returned.
- */
-extern struct rb3_head *rb3_find_parent_in_subtree(struct rb3_head *parent, int dir, rb3_cmp cmp, void *data, struct rb3_head **parent_out, int *dir_out);
-
-
-/* this interface is meant for code generation, not for casual consumption */
-static inline struct rb3_head *rb3_INLINE_find(struct rb3_head *parent, int dir, rb3_cmp cmp, void *data, struct rb3_head **parent_out, int *dir_out)
-{
-        int r;
-
-        _RB3_ASSERT(parent != _RB3_NULL);
-        while (rb3_has_child(parent, dir)) {
-                parent = rb3_get_child(parent, dir);
-                r = cmp(parent, data);
-                if (r == 0)
-                        return parent;
-                dir = (r < 0) ? RB3_RIGHT : RB3_LEFT;
-        }
-        if (parent_out)
-                *parent_out = parent;
-        if (dir_out)
-                *dir_out = dir;
-        return _RB3_NULL;
-}
-
-/*
- * ---------------------------------------------------------------------------
- * Navigational API
- *
- * These functions provide advanced functionality for navigation in a
- * binary search tree.
- * ---------------------------------------------------------------------------
- */
-
 /**
  * Get topmost element of tree (or NULL if empty)
- *
- * Time complexity: O(1)
  */
-static inline struct rb3_head *rb3_get_root(struct rb3_tree *tree);
+static inline struct rb3_head *rb3_get_root(struct rb3_tree *tree)
+{
+        return rb3_get_child(&tree->base, RB3_LEFT);
+}
 
 /**
- * Get previous in-order descendant (maximal descendant node that sorts before
- * the given element) or NULL if no such element is in the tree.
+ * Check if tree is empty.
+ */
+static inline int rb3_is_empty(struct rb3_tree *tree)
+{
+        struct rb3_head *base = rb3_get_base(tree);
+        return !rb3_has_child(base, RB3_LEFT);
+}
+
+/**
+ * Get minimum or maximum node in the tree, depending on the value of `dir`
+ * (RB3_LEFT or RB3_RIGHT)
  *
  * Time complexity: O(log n)
  */
-static inline struct rb3_head *rb3_get_prev_descendant(struct rb3_head *head);
+extern struct rb3_head *rb3_get_minmax(struct rb3_tree *tree, int dir);
 
 /**
- * Get next in-order descendant (minimal descendant node that sorts after the
- * given element) or NULL if no such element is in the tree.
+ * Get minimum (leftmost) element, or NULL if tree is empty.
  *
  * Time complexity: O(log n)
  */
-static inline struct rb3_head *rb3_get_next_descendant(struct rb3_head *head);
-
-/**
- * Get previous in-order ancestor (maximal ancestor node that sorts before the
- * given element) or NULL if no such element is in the tree.
- *
- * Time complexity: O(log n)
- */
-static inline struct rb3_head *rb3_get_prev_ancestor(struct rb3_head *head);
-
-/**
- * Get next in-order ancestor (minimal ancestor node that sorts after the
- * given element) or NULL if no such element is in the tree.
- *
- * Time complexity: O(log n)
- */
-static inline struct rb3_head *rb3_get_next_ancestor(struct rb3_head *head);
+static inline struct rb3_head *rb3_get_min(struct rb3_tree *tree)
+{
+        return rb3_get_minmax(tree, RB3_LEFT);
+}
 
 /**
  * Get previous or next in-order descendant, depending on the value of `dir`
@@ -293,65 +230,88 @@ extern struct rb3_head *rb3_get_prevnext_descendant(struct rb3_head *head, int d
  */
 extern struct rb3_head *rb3_get_prevnext_ancestor(struct rb3_head *head, int dir);
 
-/*
- * Inline implementations
- */
-
-static inline struct rb3_head *rb3_get_root(struct rb3_tree *tree)
-{
-        return rb3_get_child(&tree->base, RB3_LEFT);
-}
-
-static inline struct rb3_head *rb3_get_prev_descendant(struct rb3_head *head)
-{
-        return rb3_get_prevnext_descendant(head, RB3_LEFT);
-}
-
-static inline struct rb3_head *rb3_get_next_descendant(struct rb3_head *head)
-{
-        return rb3_get_prevnext_descendant(head, RB3_RIGHT);
-}
-
-static inline struct rb3_head *rb3_get_prev_ancestor(struct rb3_head *head)
-{
-        return rb3_get_prevnext_ancestor(head, RB3_LEFT);
-}
-
-static inline struct rb3_head *rb3_get_next_ancestor(struct rb3_head *head)
-{
-        return rb3_get_prevnext_ancestor(head, RB3_RIGHT);
-}
-
-/*
- * ---------------------------------------------------------------------------
- * BASIC API
- *
- * These functions provide basic usability as an abstract ordered container.
- * Often they are all you need to know.
- * ---------------------------------------------------------------------------
- */
-
-/**
- * Initialize an rb3_tree.
- *
- * Time complexity: O(1)
- */
-extern void rb3_reset_tree(struct rb3_tree *tree);
-
-/**
- * Get minimum or maximum, depending on the value of `dir` (RB3_LEFT or
- * RB3_RIGHT)
- *
- * Time complexity: O(log n)
- */
-extern struct rb3_head *rb3_get_minmax(struct rb3_tree *tree, int dir);
-
 /**
  * Get previous or next in-order node, depending on the value of `dir`.
  *
  * Time complexity: O(log n), amortized over sequential scan: O(1)
  */
 extern struct rb3_head *rb3_get_prevnext(struct rb3_head *head, int dir);
+
+/**
+ * Get maximum (rightmost) element, or NULL if tree is empty
+ *
+ * Time complexity: O(log n)
+ */
+static inline struct rb3_head *rb3_get_max(struct rb3_tree *tree)
+{
+        return rb3_get_minmax(tree, RB3_RIGHT);
+}
+
+/**
+ * Get previous in-order node (maximal node in the tree that sorts before the
+ * given element) or NULL if no such element is in the tree.
+ *
+ * Time complexity: O(log n), amortized over sequential scan: O(1)
+ */
+static inline struct rb3_head *rb3_get_prev(struct rb3_head *head)
+{
+        return rb3_get_prevnext(head, RB3_LEFT);
+}
+
+/**
+ * Get next in-order node (minimal node in the tree that sorts after the given
+ * element) or NULL if no such element is in the tree.
+ *
+ * Time complexity: O(log n), amortized over sequential scan: O(1)
+ */
+static inline struct rb3_head *rb3_get_next(struct rb3_head *head)
+{
+        return rb3_get_prevnext(head, RB3_RIGHT);
+}
+
+/**
+ * Get previous in-order descendant (maximal descendant node that sorts before
+ * the given element) or NULL if no such element is in the tree.
+ *
+ * Time complexity: O(log n)
+ */
+static inline struct rb3_head *rb3_get_prev_descendant(struct rb3_head *head)
+{
+        return rb3_get_prevnext_descendant(head, RB3_LEFT);
+}
+
+/**
+ * Get next in-order descendant (minimal descendant node that sorts after the
+ * given element) or NULL if no such element is in the tree.
+ *
+ * Time complexity: O(log n)
+ */
+static inline struct rb3_head *rb3_get_next_descendant(struct rb3_head *head)
+{
+        return rb3_get_prevnext_descendant(head, RB3_RIGHT);
+}
+
+/**
+ * Get previous in-order ancestor (maximal ancestor node that sorts before the
+ * given element) or NULL if no such element is in the tree.
+ *
+ * Time complexity: O(log n)
+ */
+static inline struct rb3_head *rb3_get_prev_ancestor(struct rb3_head *head)
+{
+        return rb3_get_prevnext_ancestor(head, RB3_LEFT);
+}
+
+/**
+ * Get next in-order ancestor (minimal ancestor node that sorts after the
+ * given element) or NULL if no such element is in the tree.
+ *
+ * Time complexity: O(log n)
+ */
+static inline struct rb3_head *rb3_get_next_ancestor(struct rb3_head *head)
+{
+        return rb3_get_prevnext_ancestor(head, RB3_RIGHT);
+}
 
 /**
  * Find a node in `tree` using `cmp` to direct the search. At each visited
@@ -421,12 +381,17 @@ extern void rb3_replace_and_augment(struct rb3_head *head, struct rb3_head *newh
  */
 extern void rb3_update_augment(struct rb3_head *head, rb3_augment_func *augment);
 
-
-extern void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *head, struct rb3_head *parent, int dir, rb3_augment_func *augment);
-extern void rb3_unlink_and_rebalance_and_maybe_augment(struct rb3_head *head, rb3_augment_func *augment);
-extern void rb3_replace_and_maybe_augment(struct rb3_head *head, struct rb3_head *newhead, rb3_augment_func *augment);
-
-
+/**
+ * Find suitable insertion point for a new node in a subtree, directed by the
+ * given search function. The subtree is given by its parent node `parent` and
+ * child direction `dir`. The insertion point and its child direction are
+ * returned in `parent_out` and `dir_out`.
+ *
+ * If the searched node is already in the tree (the compare function returns
+ * 0), it is returned. In this case `parent_out` and `dir_out` are left
+ * untouched. Otherwise NULL is returned.
+ */
+extern struct rb3_head *rb3_find_parent_in_subtree(struct rb3_head *parent, int dir, rb3_cmp cmp, void *data, struct rb3_head **parent_out, int *dir_out);
 
 /**
  * Insert `head` into `tree` using `cmp` and `data` to direct the search. At
@@ -457,59 +422,30 @@ extern struct rb3_head *rb3_delete(struct rb3_tree *tree, rb3_cmp cmp, void *dat
 extern struct rb3_tree *rb3_get_containing_tree(struct rb3_head *head);
 
 
-/**
- * Check if tree is empty.
- *
- * Time complexity: O(1)
- */
-static inline int rb3_isempty(struct rb3_tree *tree)
+/*
+XXX: is inlining the search function advantageous?
+*/
+static inline struct rb3_head *rb3_INLINE_find(struct rb3_head *parent, int dir, rb3_cmp cmp, void *data, struct rb3_head **parent_out, int *dir_out)
 {
-        return !rb3_has_child(rb3_get_base(tree), RB3_LEFT);
+        _RB3_ASSERT(parent != _RB3_NULL);
+        while (rb3_has_child(parent, dir)) {
+                parent = rb3_get_child(parent, dir);
+                int r = cmp(parent, data);
+                if (r == 0)
+                        return parent;
+                dir = (r < 0) ? RB3_RIGHT : RB3_LEFT;
+        }
+        if (parent_out)
+                *parent_out = parent;
+        if (dir_out)
+                *dir_out = dir;
+        return _RB3_NULL;
 }
-
-/**
- * Get minimum (leftmost) element, or NULL if tree is empty.
- *
- * Time complexity: O(log n)
- */
-static inline struct rb3_head *rb3_get_min(struct rb3_tree *tree)
-{
-        return rb3_get_minmax(tree, RB3_LEFT);
-}
-
-/**
- * Get maximum (rightmost) element, or NULL if tree is empty
- *
- * Time complexity: O(log n)
- */
-static inline struct rb3_head *rb3_get_max(struct rb3_tree *tree)
-{
-        return rb3_get_minmax(tree, RB3_RIGHT);
-}
-
-/**
- * Get previous in-order node (maximal node in the tree that sorts before the
- * given element) or NULL if no such element is in the tree.
- *
- * Time complexity: O(log n), amortized over sequential scan: O(1)
- */
-static inline struct rb3_head *rb3_get_prev(struct rb3_head *head)
-{
-        return rb3_get_prevnext(head, RB3_LEFT);
-}
-
-/**
- * Get next in-order node (minimal node in the tree that sorts after the given
- * element) or NULL if no such element is in the tree.
- *
- * Time complexity: O(log n), amortized over sequential scan: O(1)
- */
-static inline struct rb3_head *rb3_get_next(struct rb3_head *head)
-{
-        return rb3_get_prevnext(head, RB3_RIGHT);
-}
-
-
 
 /**************** DEBUG STUFF *******************/
 int rb3_check_tree(struct rb3_tree *tree);
+/************************************************/
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
