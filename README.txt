@@ -4,9 +4,7 @@ and basic IDE functionality.
 A bare bones text editor is already in a working state:
 
 - Rope data structure that can efficiently insert or remove chunks of text
-- UTF-8 encoding/decoding. Pushing 1G of data through the
-     decode -> encode -> rope
-  pipeline takes about 1 sec (code not optimized), which is already pretty good.
+- UTF-8 encoding/decoding.
 - Basic graphics
 - Cursor can only go 1 character left/right at a time, currently.
 
