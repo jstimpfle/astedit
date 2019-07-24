@@ -227,12 +227,12 @@ static void augment_textnode_head(struct rb3_head *head)
 
 static void link_textnode_head(struct rb3_head *child, struct rb3_head *parent, int linkDir)
 {
-        rb3_link_and_rebalance_and_maybe_augment(child, parent, linkDir, &augment_textnode_head);
+        rb3_link_and_rebalance_and_augment(child, parent, linkDir, &augment_textnode_head);
 }
 
 static void unlink_textnode_head(struct rb3_head *head)
 {
-        rb3_unlink_and_rebalance_and_maybe_augment(head, &augment_textnode_head);
+        rb3_unlink_and_rebalance_and_augment(head, &augment_textnode_head);
 }
 
 static void link_textnode_head_next_to(struct rb3_head *newNode, struct rb3_head *head, int dir)
