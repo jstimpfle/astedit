@@ -79,7 +79,7 @@
       <AdditionalIncludeDirectories>$(AdditionalIncludeDirectories);..\include;..\libs\opengl\include;..\libs\freetype-2.9.1\include\;..\libs\glfw-3.2.1\include\</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level4</WarningLevel>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
