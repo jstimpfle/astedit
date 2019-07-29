@@ -4,10 +4,12 @@
 #include <astedit/window.h>
 #include <astedit/font.h>
 #include <astedit/gfx.h>
+#include <astedit/textrope.h>
 #include <astedit/textedit.h>
 #include <astedit/utf8.h>
 #include <astedit/draw2d.h>
-#include <string.h> // memmove()
+#include <stdio.h> // snprintf
+#include <string.h> // strlen()
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d alphaVertexBuffer[3 * 1024];
@@ -103,12 +105,12 @@ static void fill_texture2d_rect(struct TextureVertex2d *rp,
         int x, int y, int w, int h,
         float texX, float texY, float texW, float texH)
 {
-        rp[0].x = x;     rp[0].y = y;       rp[0].z = 0;
-        rp[1].x = x;     rp[1].y = y + h;   rp[1].z = 0;
-        rp[2].x = x + w; rp[2].y = y + h;   rp[2].z = 0;
-        rp[3].x = x;     rp[3].y = y;       rp[3].z = 0;
-        rp[4].x = x + w; rp[4].y = y + h;   rp[4].z = 0;
-        rp[5].x = x + w; rp[5].y = y;       rp[5].z = 0;
+        rp[0].x = (float) x;     rp[0].y = (float) y;       rp[0].z = 0;
+        rp[1].x = (float) x;     rp[1].y = (float) y + h;   rp[1].z = 0;
+        rp[2].x = (float) x + w; rp[2].y = (float) y + h;   rp[2].z = 0;
+        rp[3].x = (float) x;     rp[3].y = (float) y;       rp[3].z = 0;
+        rp[4].x = (float) x + w; rp[4].y = (float) y + h;   rp[4].z = 0;
+        rp[5].x = (float) x + w; rp[5].y = (float) y;       rp[5].z = 0;
 
         rp[0].texX = texX;        rp[0].texY = texY;
         rp[1].texX = texX;        rp[1].texY = texY + texH;
@@ -122,12 +124,12 @@ void draw_colored_rect(int x, int y, int w, int h,
         unsigned r, unsigned g, unsigned b, unsigned a)
 {
         static struct ColorVertex2d rectpoints[6];
-        rectpoints[0].x = x;     rectpoints[0].y = y;       rectpoints[0].z = 0;
-        rectpoints[1].x = x;     rectpoints[1].y = y + h;   rectpoints[1].z = 0;
-        rectpoints[2].x = x + w; rectpoints[2].y = y + h;   rectpoints[2].z = 0;
-        rectpoints[3].x = x;     rectpoints[3].y = y;       rectpoints[3].z = 0;
-        rectpoints[4].x = x + w; rectpoints[4].y = y + h;   rectpoints[4].z = 0;
-        rectpoints[5].x = x + w; rectpoints[5].y = y;       rectpoints[5].z = 0;
+        rectpoints[0].x = (float) x;     rectpoints[0].y = (float) y;       rectpoints[0].z = 0;
+        rectpoints[1].x = (float) x;     rectpoints[1].y = (float) y + h;   rectpoints[1].z = 0;
+        rectpoints[2].x = (float) x + w; rectpoints[2].y = (float) y + h;   rectpoints[2].z = 0;
+        rectpoints[3].x = (float) x;     rectpoints[3].y = (float) y;       rectpoints[3].z = 0;
+        rectpoints[4].x = (float) x + w; rectpoints[4].y = (float) y + h;   rectpoints[4].z = 0;
+        rectpoints[5].x = (float) x + w; rectpoints[5].y = (float) y;       rectpoints[5].z = 0;
         for (int i = 0; i < 6; i++) {
                 rectpoints[i].r = r / 255.0f;
                 rectpoints[i].g = g / 255.0f;
@@ -168,6 +170,19 @@ enum {
         DRAWSTRING_HIGHLIGHT,
 };
 
+
+
+void next_line(struct DrawCursor *cursor)
+{
+        cursor->x = cursor->xLeft;
+        cursor->y += cursor->lineHeight;
+}
+
+
+
+
+
+
 static void draw_text_span(
         struct DrawCursor *cursor,
         const struct BoundingBox *boundingBox,
@@ -179,6 +194,7 @@ static void draw_text_span(
                 int j = i;
                 while (j < end && text[j] != '\r' && text[j] != '\n')
                         j++;
+
 
                 int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox, 
                         cursor->fontSize, text + i, j - i,
@@ -199,8 +215,7 @@ static void draw_text_span(
 
                 if (i < end && text[i] == '\n') {
                         i++;
-                        cursor->x = cursor->xLeft;
-                        cursor->y += cursor->lineHeight;
+                        next_line(cursor);
                 }
         }
 }
@@ -234,57 +249,102 @@ static void draw_codepoints_with_cursor(
         }
 }
 
-void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
+static void draw_text_with_cursor(
+        struct DrawCursor *cursor,
+        const struct BoundingBox *boundingBox,
+        const char *text, int length,
+        int markStart, int markEnd)
 {
+        uint32_t codepoints[512];
+
+        int i = 0;
+        while (i < length) {
+                int n = LENGTH(codepoints);
+                if (n > length - i)
+                        n = length - i;
+
+                int numCodepointsDecoded;
+                decode_utf8_span(text, i, length, codepoints, LENGTH(codepoints), &i, &numCodepointsDecoded);
+
+                draw_codepoints_with_cursor(cursor, boundingBox,
+                        codepoints, numCodepointsDecoded,
+                        markStart, markEnd);
+        }
+
+}
+
+static void draw_line_numbers(int firstLine, int numberOfLines, int x, int y, int w, int h)
+{
+        struct BoundingBox box;
+        box.bbX = x;
+        box.bbY = y;
+        box.bbW = w;
+        box.bbH = h;
+
+        struct DrawCursor drawCursor;
+        drawCursor.xLeft = x;
+        drawCursor.fontSize = 25;
+        drawCursor.ascender = 20;
+        drawCursor.lineHeight = 30;
+        drawCursor.x = x;
+        drawCursor.y = y + drawCursor.lineHeight;
+        drawCursor.codepointpos = 0;
+        drawCursor.lineNumber = 0;
+        struct DrawCursor *cursor = &drawCursor;
+
+        for (int i = firstLine; i < firstLine + numberOfLines; i++) {
+                char buf[16];
+                snprintf(buf, sizeof buf, "%4d", i + 1);
+                draw_text_with_cursor(cursor, &box, buf, strlen(buf), -1, -1);
+                next_line(cursor);
+        }
+}
+
+static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNumberOfLines,
+        int x, int y, int w, int h, int markStart, int markEnd)
+{
+        struct BoundingBox box;
+        box.bbX = x;
+        box.bbY = y;
+        box.bbW = w;
+        box.bbH = h;
+        struct BoundingBox *boundingBox = &box;
+
         struct DrawCursor cursor;
-        cursor.xLeft = 20;
+        cursor.xLeft = x;
         cursor.fontSize = 25;
         cursor.ascender = 20;
         cursor.lineHeight = 30;
-        cursor.x = cursor.xLeft;
-        cursor.y = 20;
+        cursor.x = x;
+        cursor.y = y + cursor.lineHeight;
         cursor.codepointpos = 0;
-
-        // XXX: Need to compute dynamically!
-        struct BoundingBox boundingBox;
-        boundingBox.bbX = 0;
-        boundingBox.bbY = 0;
-        boundingBox.bbW = 1280;
-        boundingBox.bbH = 1024;
-
-        draw_colored_rect(boundingBox.bbX, boundingBox.bbY, boundingBox.bbW, boundingBox.bbH,
-                224, 224, 224, 224);
-
-        int length = textedit_length_in_bytes(edit);
-
-        if (length == 0) return;  // for debugging
-
-        if (markStart < 0) markStart = 0;
-        if (markEnd < 0) markEnd = 0;
-        if (markStart >= length) markStart = length;
-        if (markEnd >= length) markEnd = length;
-
-        ENSURE(markStart <= markEnd);
+        cursor.lineNumber = 0;
 
         char readbuffer[256];
         uint32_t codepointBuffer[LENGTH(readbuffer)];
 
         int readbufferFill = 0;
-        int readPositionInBytes = 0;  // textedit
 
-        while (cursor.y - cursor.ascender < boundingBox.bbY + boundingBox.bbH) {
+        int numberOfLines = maxNumberOfLines;
+        if (numberOfLines > firstLine + textrope_number_of_lines(edit->rope))
+                numberOfLines = firstLine + textrope_number_of_lines(edit->rope);
+
+        int readPositionInBytes = compute_pos_of_line(edit->rope, firstLine);
+        int lastPositionInBytes = compute_pos_of_line(edit->rope, firstLine + numberOfLines); //XXX
+
+        while (cursor.y - cursor.ascender < boundingBox->bbY + boundingBox->bbH) {
+                if (readPositionInBytes >= lastPositionInBytes)
+                        break;
+
                 {
                         int remainingSpace = LENGTH(readbuffer) - readbufferFill;
-                        int texteditLengthInBytes = textedit_length_in_bytes(edit);
-                        // (This is only true if the textedit doesn't change during the lifetime of this read buffer)
-                        ENSURE(readPositionInBytes <= texteditLengthInBytes);
-                        int editBytesAvailable = texteditLengthInBytes - readPositionInBytes;
+                        int editBytesAvailable = lastPositionInBytes - readPositionInBytes;
 
                         int maxReadLength = remainingSpace;
                         if (maxReadLength > editBytesAvailable)
-                                remainingSpace = editBytesAvailable;
+                                maxReadLength = editBytesAvailable;
 
-                        int numBytesRead = read_from_textedit(edit, readPositionInBytes,
+                        int numBytesRead = copy_text_from_textrope(edit->rope, readPositionInBytes,
                                 readbuffer + readbufferFill, maxReadLength);
                         readbufferFill += numBytesRead;
                         readPositionInBytes += numBytesRead;
@@ -298,10 +358,51 @@ void draw_TextEdit(struct TextEdit *edit, int markStart, int markEnd)
                 decode_utf8_span_and_move_rest_to_front(readbuffer, readbufferFill,
                         codepointBuffer, &readbufferFill, &numCodepointsDecoded);
 
-                draw_codepoints_with_cursor(&cursor, &boundingBox,
+                draw_codepoints_with_cursor(&cursor, boundingBox,
                         codepointBuffer, numCodepointsDecoded,
                         markStart, markEnd);
         }
+
+        {//XXX
+                int pos = edit->cursorBytePosition;
+                int codepointPos = compute_codepoint_position(edit->rope, pos);
+                char posBuf[32];
+                char codepointPosBuf[32];
+                snprintf(posBuf, sizeof posBuf, "%d", pos);
+                snprintf(codepointPosBuf, sizeof codepointPosBuf, "%d", codepointPos);
+                draw_text_with_cursor(&cursor, boundingBox, "pos ", 4, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, posBuf, strlen(posBuf), 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "codepointPos ", 12, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, codepointPosBuf, strlen(codepointPosBuf), 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
+        }
+}
+
+void draw_TextEdit(struct TextEdit *edit, int firstLine, int numberOfLines, int markStart, int markEnd)
+{
+        //log_postf("Drawing lines %d - %d\n", firstLine + 1, firstLine + numberOfLines);
+        int x = 0;
+        int y = 0;
+        int linesW = 200;
+        int textW = 1080;
+        int h = 1024;
+
+        draw_colored_rect(x, y, linesW + textW, h, 224, 224, 224, 224);
+
+        int length = textrope_length(edit->rope);
+
+        if (length == 0) return;  // for debugging
+
+        if (markStart < 0) markStart = 0;
+        if (markEnd < 0) markEnd = 0;
+        if (markStart >= length) markStart = length;
+        if (markEnd >= length) markEnd = length;
+
+        ENSURE(markStart <= markEnd);
+
+        draw_line_numbers(firstLine, numberOfLines, x, y, linesW, h);
+        draw_textedit_lines(edit, firstLine, numberOfLines, x + linesW, y, textW, h, markStart, markEnd);
 }
 
 void testdraw(struct TextEdit *edit)
@@ -314,8 +415,12 @@ void testdraw(struct TextEdit *edit)
         //draw_colored_rect(200, 200, 200, 200, 128, 128, 128, 224);
         //draw_text_file(edit->contents, edit->length, 3, 5);
 
-        draw_TextEdit(edit, edit->cursorCodepointPosition, edit->cursorCodepointPosition + 1);
-        
+        int codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        draw_TextEdit(edit,
+                edit->firstLineDisplayed,
+                15 /*XXX*/,
+                codepointPos,
+                codepointPos + 1);
 
         end_frame();
         swap_buffers();

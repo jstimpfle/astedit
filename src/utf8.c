@@ -2,6 +2,17 @@
 #include <astedit/bytes.h>
 #include <astedit/utf8.h>
 
+int get_utf8_sequence_length_from_leader_byte(int c)
+{
+        if (!(c & 0x80))
+                return 1;
+        if (!(c & 0xc0))
+                return 2;
+        if (!(c & 0xe0))
+                return 3;
+        return 4;
+}
+
 int encode_codepoint_as_utf8(unsigned codepoint, char *str, int start, int end)
 {
         unsigned char *s = (void *)&str[start]; //XXX

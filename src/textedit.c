@@ -8,25 +8,22 @@
 #include <string.h>  // XXX memcpy()
 
 
-static struct Textrope *textrope;
-
-
 int textedit_length_in_bytes(struct TextEdit *edit)
 {
         UNUSED(edit);
-        return textrope_length(textrope);
+        return textrope_length(edit->rope);
 }
 
 int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size)
 {
         UNUSED(edit);
-        return copy_text_from_textrope(textrope, offset, dstBuffer, size);
+        return copy_text_from_textrope(edit->rope, offset, dstBuffer, size);
 }
 
 void erase_from_textedit(struct TextEdit *edit, int offset, int length)
 {
         UNUSED(edit);
-        erase_text_from_textrope(textrope, offset, length);
+        erase_text_from_textrope(edit->rope, offset, length);
 }
 
 int read_character_from_textedit(struct TextEdit *edit, int pos)
@@ -38,47 +35,90 @@ int read_character_from_textedit(struct TextEdit *edit, int pos)
 }
 
 
-static int find_previous_utf8_sequence(struct TextEdit *edit, int pos)
+static int compute_pos_of_previous_codepoint(struct Textrope *rope, int pos)
 {
-        while (pos > 0) {
-                pos--;
-                int c = read_character_from_textedit(edit, pos);
-                if (is_utf8_leader_byte(c))
-                        break;
-        }
-        return pos;
+        int codepointPos = compute_codepoint_position(rope, pos);
+        ENSURE(codepointPos > 0);
+        return compute_pos_of_codepoint(rope, codepointPos - 1);
 }
 
-static int find_next_utf8_sequence(struct TextEdit *edit, int pos)
+static int compute_pos_of_next_codepoint(struct Textrope *rope, int pos)
 {
-        int length = textedit_length_in_bytes(edit);
-        while (pos < length) {
-                pos++;
-                if (pos == length)
-                        break;
-                int c = read_character_from_textedit(edit, pos);
-                if (is_utf8_leader_byte(c))
-                        break;
-        }
-        return pos;
+        int codepointPos = compute_codepoint_position(rope, pos);
+        ENSURE(codepointPos < textrope_number_of_codepoints(rope));
+        return compute_pos_of_codepoint(rope, codepointPos + 1);
 }
 
 static void move_cursor_left(struct TextEdit *edit)
 {
         if (edit->cursorBytePosition > 0) {
-                int offset = find_previous_utf8_sequence(edit, edit->cursorBytePosition);
-                edit->cursorBytePosition = offset;
-                edit->cursorCodepointPosition -= 1;
+                int pos = compute_pos_of_previous_codepoint(edit->rope, edit->cursorBytePosition);
+                edit->cursorBytePosition = pos;
+                log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
         }
 }
 
 static void move_cursor_right(struct TextEdit *edit)
 {
-        if (edit->cursorBytePosition < textedit_length_in_bytes(edit)) {
-                int offset = find_next_utf8_sequence(edit, edit->cursorBytePosition);
-                edit->cursorBytePosition = offset;
-                edit->cursorCodepointPosition += 1;
+        int textLength = textedit_length_in_bytes(edit);
+        if (edit->cursorBytePosition < textLength) {
+                int pos = compute_pos_of_next_codepoint(edit->rope, edit->cursorBytePosition);
+                edit->cursorBytePosition = pos;
+                log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
         }
+}
+
+
+
+static void move_to_line_and_column(struct TextEdit *edit, int lineNumber, int codepointColumn)
+{
+        int linePos = compute_pos_of_line(edit->rope, lineNumber);
+        int lineCodepointPosition = compute_codepoint_position(edit->rope, linePos);
+        int nextLinePos = compute_pos_of_line(edit->rope, lineNumber + 1);
+        int nextLineCodepointPosition = compute_codepoint_position(edit->rope, nextLinePos);
+
+        int codepointsInLine = nextLineCodepointPosition - lineCodepointPosition;
+        ENSURE(codepointsInLine > 0);  // at least '\n'
+        if (codepointColumn >= codepointsInLine - 1) {
+                codepointColumn = codepointsInLine - 1;
+                if (codepointColumn > 0)  /* don't place on the last column (newline) but on the column before that. Good idea? */
+                        codepointColumn--;
+        }
+
+        int newPos = compute_pos_of_codepoint(edit->rope, lineCodepointPosition + codepointColumn);
+        edit->cursorBytePosition = newPos;
+
+        if (edit->firstLineDisplayed > lineNumber)
+                edit->firstLineDisplayed = lineNumber;
+        if (edit->firstLineDisplayed < lineNumber - edit->numberOfLinesDisplayed + 1)
+                edit->firstLineDisplayed = lineNumber - edit->numberOfLinesDisplayed + 1;
+}
+
+
+static void move_lines_relative(struct TextEdit *edit, int linesDiff)
+{
+        int oldLineNumber;
+        int oldCodepointPosition;
+        compute_line_number_and_codepoint_position(edit->rope, edit->cursorBytePosition,
+                &oldLineNumber, &oldCodepointPosition);
+
+        int newLineNumber = oldLineNumber + linesDiff;
+        if (0 <= newLineNumber && newLineNumber < textrope_number_of_lines(edit->rope)) {
+                int oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
+                int oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
+                int codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
+                move_to_line_and_column(edit, newLineNumber, codepointColumn);
+        }
+}
+
+static void move_cursor_up(struct TextEdit *edit)
+{
+        move_lines_relative(edit, -1);
+}
+
+static void move_cursor_down(struct TextEdit *edit)
+{
+        move_lines_relative(edit, +1);
 }
 
 void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint32_t *codepoints, int numCodepoints)
@@ -89,7 +129,7 @@ void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint3
         int pos = 0;
         while (pos < numCodepoints) {
                 encode_utf8_span(codepoints, pos, numCodepoints, buf, sizeof buf, &pos, &bufFill);
-                insert_text_into_textrope(textrope, insertPos, &buf[0], bufFill);
+                insert_text_into_textrope(edit->rope, insertPos, &buf[0], bufFill);
                 insertPos += bufFill;
         }
 }
@@ -103,16 +143,18 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoi
         int insertPos = edit->cursorBytePosition;
         //int insertPos = textrope_length(textrope);
 
-        insert_text_into_textrope(textrope, insertPos, &tmp[0], numBytes);
+        insert_text_into_textrope(edit->rope, insertPos, &tmp[0], numBytes);
         move_cursor_right(edit);
 }
 
 static void erase_forwards(struct TextEdit *edit)
 {
         int start = edit->cursorBytePosition;
-        int end = find_next_utf8_sequence(edit, start);
+        move_cursor_right(edit);
+        int end = edit->cursorBytePosition;
         if (start < end)
                 erase_from_textedit(edit, start, end - start);
+        move_cursor_left(edit);
 }
 
 static void erase_backwards(struct TextEdit *edit)
@@ -137,6 +179,12 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                 case KEY_CURSORRIGHT:
                         move_cursor_right(edit);
                         break;
+                case KEY_CURSORUP:
+                        move_cursor_up(edit);
+                        break;
+                case KEY_CURSORDOWN:
+                        move_cursor_down(edit);
+                        break;
                 case KEY_DELETE:
                         erase_forwards(edit);
                         break;
@@ -147,6 +195,7 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                         if (input->data.tKey.hasCodepoint) {
                                 unsigned long codepoint = input->data.tKey.codepoint;
                                 insert_codepoint_into_textedit(edit, codepoint);
+                                debug_check_textrope(edit->rope);
                         }
                         break;
                 }
@@ -158,13 +207,16 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
 void init_TextEdit(struct TextEdit *edit)
 {
         UNUSED(edit);
-        textrope = create_textrope();
+        edit->rope = create_textrope();
+        edit->cursorBytePosition = 0;
+        edit->firstLineDisplayed = 0;
+        edit->numberOfLinesDisplayed = 15;  // XXX need some mechanism to set and update this
 }
 
 void exit_TextEdit(struct TextEdit *edit)
 {
         UNUSED(edit);
-        destroy_textrope(textrope);
+        destroy_textrope(edit->rope);
 }
 
 #include <stdio.h>
@@ -189,7 +241,7 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
                 int utf8Fill;
 
                 decode_utf8_span_and_move_rest_to_front(buf, bufFill, utf8buf, &bufFill, &utf8Fill);
-                insert_codepoints_into_textedit(edit, textrope_length(textrope), utf8buf, utf8Fill);
+                insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
         }
         if (ferror(f))
                 fatalf("Errors while reading from file %s\n", filepath);
@@ -198,7 +250,6 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
         fclose(f);
 
         edit->cursorBytePosition = 0;
-        edit->cursorCodepointPosition = 0;
 
-        print_textrope_statistics(textrope);
+        print_textrope_statistics(edit->rope);
 }

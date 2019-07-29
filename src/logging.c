@@ -67,7 +67,7 @@ NORETURN void _fatalf(const char *filename, int line, const char *fmt, ...)
         va_list ap;
         va_start(ap, fmt);
         _fatalfv(filename, line, fmt, ap);
-        va_end(ap);
+        //va_end(ap);
 }
 
 NORETURN void _fatal(const char *filename, int line, const char *text)

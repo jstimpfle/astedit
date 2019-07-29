@@ -3,12 +3,13 @@
 
 #include <astedit/astedit.h>
 #include <astedit/window.h>
-
-/* for now - simplicity! */
+#include <astedit/textrope.h>
 
 struct TextEdit {
+        struct Textrope *rope;
         int cursorBytePosition;
-        int cursorCodepointPosition;
+        int firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
+        int numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
 };
 
 

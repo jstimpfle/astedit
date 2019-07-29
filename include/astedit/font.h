@@ -46,13 +46,14 @@ struct DrawCursor {
         int x;
         int y;
         int codepointpos;
+        int lineNumber;  // not sure if that's a good idea
 };
 
 struct BoundingBox {
-        float bbX;
-        float bbY;
-        float bbW;
-        float bbH;
+        int bbX;
+        int bbY;
+        int bbW;
+        int bbH;
 };
 
 

@@ -480,6 +480,7 @@ void upload_alpha_texture_data(Texture texture, const unsigned char *data, int s
 
 void update_alpha_texture_subimage(Texture texture, int row, int numRows, int rowWidth, int stride, const unsigned char *data)
 {
+        UNUSED(stride);
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, row, rowWidth, numRows, GL_RED, GL_UNSIGNED_BYTE, data);
         glBindTexture(GL_TEXTURE_2D, 0);

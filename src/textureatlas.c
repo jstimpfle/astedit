@@ -83,6 +83,7 @@ static struct AtlasTexture *alloc_AtlasTexture(void)
 
 static struct AtlasTextureRow *alloc_row(struct AtlasTexture *a, int y, int w, int h)
 {
+        UNUSED(w);
         ENSURE(h <= ATLASTEXTURE_HEIGHT - y);
         int index = a->numRows++;
         REALLOC_MEMORY(&a->rows, a->numRows);

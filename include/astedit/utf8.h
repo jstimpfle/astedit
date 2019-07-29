@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 static inline int is_utf8_leader_byte(int c) { return (c & 0xc0) != 0x80; }
+
+int get_utf8_sequence_length_from_leader_byte(int c);
+
 int encode_codepoint_as_utf8(unsigned codepoint, char *str, int start, int end);
 int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_next, unsigned *out_codepoint);
 
