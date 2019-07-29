@@ -67,7 +67,8 @@ width.
 int measure_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int *outPositions);
 
 int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
-        int size, const uint32_t *text, int length, int initX, int baselineY);
+        int size, const uint32_t *text, int length, int initX, int baselineY,
+        int r, int g, int b, int a);
 
 
 

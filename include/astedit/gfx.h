@@ -26,6 +26,10 @@ struct ColorVertex2d {
 
 struct TextureVertex2d {
         Texture tex;
+        float r;
+        float g;
+        float b;
+        float a;
         float x;
         float y;
         float z;

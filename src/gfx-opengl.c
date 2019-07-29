@@ -102,6 +102,7 @@ enum {
         ATTRIB_VARYINGCOLOR_pos,
         ATTRIB_VARYINGCOLOR_color,
         ATTRIB_TEXTUREALPHA_pos,
+        ATTRIB_TEXTUREALPHA_color,
         ATTRIB_TEXTUREALPHA_texPos,
         ATTRIB_TEXTURERGBA_pos,
         ATTRIB_TEXTURERGBA_texPos,
@@ -156,22 +157,26 @@ const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
         MAKE(SHADER_VERTEXTEXTURE, GL_VERTEX_SHADER,
               "#version 130\n"
               "in vec3 pos;\n"
+              "in vec4 color;\n"
               "in vec2 texPos;\n"
               "uniform mat4 mat;\n"
+              "out vec4 colorF;\n"
               "out vec2 texPosF;\n"
               "void main()\n"
               "{\n"
+              "    colorF = color;\n"
               "    texPosF = texPos;\n"
               "    gl_Position = mat * vec4(pos, 1.0);\n"
               "}\n"),
         MAKE(SHADER_FRAGMENTTEXTUREALPHA, GL_FRAGMENT_SHADER,
               "#version 130\n"
+              "in vec4 colorF;\n"
               "in vec2 texPosF;\n"
               "uniform sampler2D sampler;\n"
               "void main()\n"
               "{\n"
               "    float alpha = texture(sampler, texPosF).x;\n"
-              "    gl_FragColor = vec4(0, 0, 0, alpha);\n"
+              "    gl_FragColor = colorF * alpha;\n"
               "}\n"),
         MAKE(SHADER_FRAGMENTTEXTURERGBA, GL_FRAGMENT_SHADER,
               "#version 130\n"
@@ -213,12 +218,11 @@ const struct AttribInfo attribInfo[NUM_ATTRIB_KINDS] = {
         [ATTRIB_VARYINGCOLOR_pos] = { PROGRAM_VARYINGCOLOR, "pos" },
         [ATTRIB_VARYINGCOLOR_color] = { PROGRAM_VARYINGCOLOR, "color" },
         [ATTRIB_TEXTUREALPHA_pos] = { PROGRAM_TEXTUREALPHA, "pos" },
+        [ATTRIB_TEXTUREALPHA_color] = { PROGRAM_TEXTUREALPHA, "color" },
         [ATTRIB_TEXTUREALPHA_texPos] = { PROGRAM_TEXTUREALPHA, "texPos" },
         [ATTRIB_TEXTURERGBA_pos] = { PROGRAM_TEXTURERGBA, "pos" },
         [ATTRIB_TEXTURERGBA_texPos] = { PROGRAM_TEXTURERGBA, "texPos" },
 };
-
-
 
 
 static GLuint vaoOfProgram[NUM_PROGRAM_KINDS];
@@ -241,7 +245,7 @@ static void check_gl_errors(const char *filename, int line)
                         gluErrorString(err));
 }
 
-static int get_compile_status(GLint shader)
+static int get_compile_status(GLint shader, const char *name)
 {
         GLint compileStatus;
         glGetShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
@@ -249,8 +253,8 @@ static int get_compile_status(GLint shader)
                 GLchar errorBuf[1024];
                 GLsizei length;
                 glGetShaderInfoLog(shader, sizeof errorBuf, &length, errorBuf);
-                fatalf("Warning: shader %d failed to compile: %s\n",
-                        shader, errorBuf);
+                fatalf("Warning: shader %s failed to compile: %s\n",
+                        name, errorBuf);
         }
         return compileStatus == GL_TRUE;
 }
@@ -294,7 +298,7 @@ void setup_gfx(void)
         CHECK_GL_ERRORS();
 
         for (int i = 0; i < NUM_SHADER_KINDS; i++) {
-                if (!get_compile_status(shader_GL_id[i])) {
+                if (!get_compile_status(shader_GL_id[i], shaderInfo[i].shaderName)) {
                         CHECK_GL_ERRORS();
                         fatalf("Failed to compile vertex shader: %s!\n",
                                 shaderInfo[i].shaderName);
@@ -375,27 +379,27 @@ void setup_gfx(void)
         glEnableVertexAttribArray(attribLocation[ATTRIB_VARYINGCOLOR_color]);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexAttribPointer(attribLocation[ATTRIB_VARYINGCOLOR_pos],
-                3, GL_FLOAT, GL_FALSE,
-                sizeof(struct ColorVertex2d),
+                3, GL_FLOAT, GL_FALSE, sizeof(struct ColorVertex2d),
                 (char *)0 + offsetof(struct ColorVertex2d, x));
         glVertexAttribPointer(attribLocation[ATTRIB_VARYINGCOLOR_color],
-                4, GL_FLOAT, GL_FALSE,
-                sizeof(struct ColorVertex2d),
+                4, GL_FLOAT, GL_FALSE, sizeof(struct ColorVertex2d),
                 (char *)0 + offsetof(struct ColorVertex2d, r));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
 
         glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]);
         glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTUREALPHA_pos]);
+        glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTUREALPHA_color]);
         glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTUREALPHA_texPos]);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexAttribPointer(attribLocation[ATTRIB_TEXTUREALPHA_pos],
-                3, GL_FLOAT, GL_FALSE,
-                sizeof(struct TextureVertex2d),
+                3, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
                 (char *)0 + offsetof(struct TextureVertex2d, x));
+        glVertexAttribPointer(attribLocation[ATTRIB_TEXTUREALPHA_color],
+                4, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
+                (char *)0 + offsetof(struct TextureVertex2d, r));
         glVertexAttribPointer(attribLocation[ATTRIB_TEXTUREALPHA_texPos],
-                2, GL_FLOAT, GL_FALSE,
-                sizeof(struct TextureVertex2d),
+                2, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
                 (char *)0 + offsetof(struct TextureVertex2d, texX));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
@@ -405,12 +409,10 @@ void setup_gfx(void)
         glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTURERGBA_texPos]);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexAttribPointer(attribLocation[ATTRIB_TEXTURERGBA_pos],
-                3, GL_FLOAT, GL_FALSE,
-                sizeof(struct TextureVertex2d),
+                3, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
                 (char *)0 + offsetof(struct TextureVertex2d, x));
         glVertexAttribPointer(attribLocation[ATTRIB_TEXTURERGBA_texPos],
-                2, GL_FLOAT, GL_FALSE,
-                sizeof(struct TextureVertex2d),
+                2, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
                 (char *)0 + offsetof(struct TextureVertex2d, texX));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);

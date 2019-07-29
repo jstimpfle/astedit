@@ -102,9 +102,17 @@ void end_frame(void)
 }
 
 static void fill_texture2d_rect(struct TextureVertex2d *rp,
+        int r, int g, int b, int a,
         int x, int y, int w, int h,
         float texX, float texY, float texW, float texH)
 {
+        for (int i = 0; i < 6; i++) {
+                rp[i].r = r / 255.0f;
+                rp[i].g = g / 255.0f;
+                rp[i].b = b / 255.0f;
+                rp[i].a = a / 255.0f;
+        }
+
         rp[0].x = (float) x;     rp[0].y = (float) y;       rp[0].z = 0;
         rp[1].x = (float) x;     rp[1].y = (float) y + h;   rp[1].z = 0;
         rp[2].x = (float) x + w; rp[2].y = (float) y + h;   rp[2].z = 0;
@@ -139,12 +147,13 @@ void draw_colored_rect(int x, int y, int w, int h,
         push_color_vertices(rectpoints, LENGTH(rectpoints));
 }
 
-void draw_rgba_texture_rect(int x, int y, int w, int h,
-        float texX, float texY, float texW, float texH, Texture texture)
+void draw_rgba_texture_rect(Texture texture,
+        int x, int y, int w, int h,
+        float texX, float texY, float texW, float texH)
 {
         static struct TextureVertex2d rp[6];
 
-        fill_texture2d_rect(&rp[0], x, y, w, h, texX, texY, texW, texH);
+        fill_texture2d_rect(&rp[0], 0, 0, 0, 0, /*TODO*/ x, y, w, h, texX, texY, texW, texH);
 
         for (int i = 0; i < 6; i++)
                 rp[i].tex = texture;
@@ -152,12 +161,14 @@ void draw_rgba_texture_rect(int x, int y, int w, int h,
         push_rgba_texture_vertices(rp, LENGTH(rp));
 }
 
-void draw_alpha_texture_rect(int x, int y, int w, int h,
-        float texX, float texY, float texW, float texH, Texture texture)
+void draw_alpha_texture_rect(Texture texture,
+        int r, int g, int b, int a,
+        int x, int y, int w, int h,
+        float texX, float texY, float texW, float texH)
 {
         static struct TextureVertex2d rp[6];
 
-        fill_texture2d_rect(&rp[0], x, y, w, h, texX, texY, texW, texH);
+        fill_texture2d_rect(&rp[0], r, g, b, a, x, y, w, h, texX, texY, texW, texH);
 
         for (int i = 0; i < 6; i++)
                 rp[i].tex = texture;
@@ -187,7 +198,8 @@ static void draw_text_span(
         struct DrawCursor *cursor,
         const struct BoundingBox *boundingBox,
         const uint32_t *text,
-        int start, int end, int drawstringKind)
+        int start, int end, int drawstringKind,
+        int r, int g, int b, int a)
 {
         int i = start;
         while (i < end) {
@@ -198,7 +210,8 @@ static void draw_text_span(
 
                 int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox, 
                         cursor->fontSize, text + i, j - i,
-                        cursor->x, cursor->y);
+                        cursor->x, cursor->y,
+                        r, g, b, a);
 
                 if (drawstringKind == DRAWSTRING_HIGHLIGHT) {
                         draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
@@ -231,19 +244,24 @@ static void draw_codepoints_with_cursor(
                 int numCodepointsRemain = length - start;
                 int drawstringKind;
                 int numCodepoints;
+                int r, g, b, a;
                 if (cursor->codepointpos < markStart) {
                         drawstringKind = DRAWSTRING_NORMAL;
                         numCodepoints = minInt(numCodepointsRemain, markStart - cursor->codepointpos);
+                        r = 0; g = 0; b = 0; a = 255;
                 }
                 else if (cursor->codepointpos < markEnd) {
                         drawstringKind = DRAWSTRING_HIGHLIGHT;
                         numCodepoints = minInt(numCodepointsRemain, markEnd - cursor->codepointpos);
+                        r = 0; g = 128; b = 0; a = 255;
                 }
                 else {
                         drawstringKind = DRAWSTRING_NORMAL;
                         numCodepoints = numCodepointsRemain;
+                        r = 0; g = 0; b = 0; a = 255;
                 }
-                draw_text_span(cursor, boundingBox, codepoints, start, start + numCodepoints, drawstringKind);
+                draw_text_span(cursor, boundingBox, codepoints, start, start + numCodepoints, drawstringKind,
+                        r, g, b, a);
                 start += numCodepoints;
                 cursor->codepointpos += numCodepoints;
         }
@@ -359,6 +377,7 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
                 }
 
                 int numCodepointsDecoded;
+
                 decode_utf8_span_and_move_rest_to_front(readbuffer, readbufferFill,
                         codepointBuffer, &readbufferFill, &numCodepointsDecoded);
 
@@ -432,8 +451,8 @@ void testdraw(struct TextEdit *edit)
         draw_TextEdit(edit,
                 edit->firstLineDisplayed,
                 15 /*XXX*/,
-                codepointPos,
-                codepointPos + 1);
+                2/*codepointPos*/,
+                4/*codepointPos + 1*/);
 
         end_frame();
         swap_buffers();
