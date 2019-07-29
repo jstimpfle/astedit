@@ -7,6 +7,12 @@ int textrope_length(struct Textrope *rope);
 int textrope_number_of_lines(struct Textrope *rope);
 int textrope_number_of_codepoints(struct Textrope *rope);
 
+/*
+this will return one more than the actual number of '\n' characters
+in the text if the text length is > 0 and the last character isn't '\n'
+*/
+int textrope_number_of_lines_quirky(struct Textrope *rope);
+
 
 void compute_line_number_and_codepoint_position(struct Textrope *rope, int pos, int *outLinenumber, int *outCodepointPosition);
 int compute_line_number(struct Textrope *rope, int pos);

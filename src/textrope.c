@@ -170,6 +170,19 @@ int textrope_number_of_lines(struct Textrope *rope)
         return total_lines(root);
 }
 
+int textrope_number_of_lines_quirky(struct Textrope *rope)
+{
+        int numLines = textrope_number_of_lines(rope);
+        int textLength = textrope_length(rope);
+        if (textLength > 0) {
+                char c;
+                copy_text_from_textrope(rope, textLength - 1, &c, 1);
+                if (c != '\n')
+                        return numLines + 1;
+        }
+        return numLines;
+}
+
 int textrope_number_of_codepoints(struct Textrope *rope)
 {
         struct rb3_head *root = rb3_get_root(&rope->tree);
@@ -398,6 +411,10 @@ int compute_line_number(struct Textrope *rope, int pos)
 
 int compute_pos_of_line(struct Textrope *rope, int lineNumber)
 {
+        //XXX special case
+        if (lineNumber >= textrope_number_of_lines_quirky(rope))
+                return textrope_length(rope);
+
         struct Textiter textiter = find_first_node_that_contains_the_given_line(rope, lineNumber);
         struct Textiter *iter = &textiter;
         struct Textnode *node = textnode_from_head(iter->current);

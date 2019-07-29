@@ -152,9 +152,9 @@ static void erase_forwards(struct TextEdit *edit)
         int start = edit->cursorBytePosition;
         move_cursor_right(edit);
         int end = edit->cursorBytePosition;
+        move_cursor_left(edit);
         if (start < end)
                 erase_from_textedit(edit, start, end - start);
-        move_cursor_left(edit);
 }
 
 static void erase_backwards(struct TextEdit *edit)

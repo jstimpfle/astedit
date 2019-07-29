@@ -273,7 +273,7 @@ static void draw_text_with_cursor(
 
 }
 
-static void draw_line_numbers(int firstLine, int numberOfLines, int x, int y, int w, int h)
+static void draw_line_numbers(struct TextEdit *edit, int firstLine, int maxNumberOfLines, int x, int y, int w, int h)
 {
         struct BoundingBox box;
         box.bbX = x;
@@ -292,7 +292,11 @@ static void draw_line_numbers(int firstLine, int numberOfLines, int x, int y, in
         drawCursor.lineNumber = 0;
         struct DrawCursor *cursor = &drawCursor;
 
-        for (int i = firstLine; i < firstLine + numberOfLines; i++) {
+        int onePastLastLine = textrope_number_of_lines_quirky(edit->rope);
+        if (onePastLastLine >= firstLine + maxNumberOfLines)
+                onePastLastLine = firstLine + maxNumberOfLines;
+
+        for (int i = firstLine; i < onePastLastLine; i++) {
                 char buf[16];
                 snprintf(buf, sizeof buf, "%4d", i + 1);
                 draw_text_with_cursor(cursor, &box, buf, strlen(buf), -1, -1);
@@ -325,9 +329,9 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
 
         int readbufferFill = 0;
 
-        int numberOfLines = maxNumberOfLines;
-        if (numberOfLines > firstLine + textrope_number_of_lines(edit->rope))
-                numberOfLines = firstLine + textrope_number_of_lines(edit->rope);
+        int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
+        if (numberOfLines > maxNumberOfLines)
+                numberOfLines = maxNumberOfLines;
 
         int readPositionInBytes = compute_pos_of_line(edit->rope, firstLine);
         int lastPositionInBytes = compute_pos_of_line(edit->rope, firstLine + numberOfLines); //XXX
@@ -363,18 +367,27 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
                         markStart, markEnd);
         }
 
+        // TODO: make new line only if missing in text?
+        next_line(&cursor);
+
         {//XXX
                 int pos = edit->cursorBytePosition;
                 int codepointPos = compute_codepoint_position(edit->rope, pos);
+                int lineNumber = compute_line_number(edit->rope, pos);
                 char posBuf[32];
                 char codepointPosBuf[32];
+                char lineBuf[32];
                 snprintf(posBuf, sizeof posBuf, "%d", pos);
                 snprintf(codepointPosBuf, sizeof codepointPosBuf, "%d", codepointPos);
+                snprintf(lineBuf, sizeof lineBuf, "%d", lineNumber);
                 draw_text_with_cursor(&cursor, boundingBox, "pos ", 4, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, posBuf, strlen(posBuf), 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, "codepointPos ", 12, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, codepointPosBuf, strlen(codepointPosBuf), 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "Line ", 5, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, lineBuf, strlen(lineBuf), 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
         }
 }
@@ -401,7 +414,7 @@ void draw_TextEdit(struct TextEdit *edit, int firstLine, int numberOfLines, int 
 
         ENSURE(markStart <= markEnd);
 
-        draw_line_numbers(firstLine, numberOfLines, x, y, linesW, h);
+        draw_line_numbers(edit, firstLine, numberOfLines, x, y, linesW, h);
         draw_textedit_lines(edit, firstLine, numberOfLines, x + linesW, y, textW, h, markStart, markEnd);
 }
 
