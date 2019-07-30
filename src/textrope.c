@@ -283,19 +283,6 @@ static int is_first_line_start(struct rb3_head *head)
         return prev == NULL || is_last_line_end(prev);
 }
 
-static int is_first_codepoint_start(struct rb3_head *head)
-{
-        struct Textnode *node = textnode_from_head(head);
-        ENSURE(node->ownLength > 0);
-        return is_utf8_leader_byte(node->text[0]);
-}
-
-static int is_last_codepoint_end(struct rb3_head *head)
-{
-        struct rb3_head *next = rb3_get_next(head);
-        return next == NULL || is_first_codepoint_start(next);
-}
-
 
 static struct Textiter find_first_node_that_contains_the_character_at_pos(struct Textrope *rope, int pos)
 {
@@ -341,11 +328,7 @@ static struct Textiter find_first_node_that_contains_the_given_codepointPos(stru
         while (iter->current != NULL) {
                 if (iter->codepointPosition > codepointPos)
                         go_to_left_child(iter);
-                else if (iter->codepointPosition == codepointPos && !is_first_codepoint_start(iter->current))
-                        go_to_left_child(iter);
-                else if (iter->codepointPosition + own_codepoints(iter->current) < codepointPos)
-                        go_to_right_child(iter);
-                else if (iter->codepointPosition + own_codepoints(iter->current) == codepointPos && is_last_codepoint_end(iter->current))
+                else if (iter->codepointPosition + own_codepoints(iter->current) <= codepointPos)
                         go_to_right_child(iter);
                 else
                         break;
