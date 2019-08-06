@@ -175,25 +175,12 @@ static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int 
         (void)scancode;
 
         if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-
-                /* XXX: avoid duplicate events: alphabetic unicode input will be covered through unicode events. Those will have the `tKey` field set as well (-1 if not A-Z) */
-                if (GLFW_KEY_A <= key && key <= GLFW_KEY_Z)
-                        if ((mods & ~GLFW_MOD_SHIFT) == 0)
-                                return;
-
                 for (int i = 0; i < LENGTH(keymap); i++) {
                         if (key == keymap[i].glfwKey) {
                                 int keyKind = keymap[i].keyKind;
                                 int modifiers = glfwmods_to_modifiers(mods);
                                 int hasCodepoint = 0;
                                 unsigned codepoint = 0;
-                                if (GLFW_KEY_A <= key && key <= GLFW_KEY_Z) {
-                                        hasCodepoint = 1;
-                                        if (mods & GLFW_MOD_SHIFT)
-                                                codepoint = 65 + key - GLFW_KEY_A;
-                                        else
-                                                codepoint = 97 + key - GLFW_KEY_A;
-                                }
                                 enqueue_key_input(keyKind, modifiers, hasCodepoint, codepoint);
                                 return;
                         }
