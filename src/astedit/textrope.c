@@ -18,7 +18,7 @@ static inline int is_utf8_leader_byte(int c) { return (c & 0xc0) != 0x80; }
 We do this by combining adjacent nodes whose combined size does not exceed
 this. This means that each node will always be at least half that size. */
 enum {
-        TARGET_LENGTH = 7,  /* for testing purposes. Later, switch back to 1024 or so. */
+        TARGET_LENGTH = 3,  /* for testing purposes. Later, switch back to 1024 or so. */
 };
 
 struct Textnode {
@@ -510,42 +510,75 @@ static void link_textnode_head_next_to(struct rb3_head *newNode, struct rb3_head
 }
 
 
-struct CopyFromTwo {
-        const char *text1;
-        const char *text2;
-        int *readpos1;
-        int *readpos2;
-        int length1;
-        int length2;
+
+
+
+struct ChainStream {
+        const char *text;
+        int readpos;
+        int endpos;
+        struct ChainStream *next;
 };
 
+struct StreamsChain {
+        struct ChainStream *streams;
+        int remainingBytes;
+        int totalLength;
+};
 
-static void copy_one(char *dst, int *offStart, int offEndMax, const char *text, int *readpos, int length)
+static void init_StreamsChain(struct StreamsChain *sc)
 {
-        int nw = offEndMax - *offStart;
-        if (nw > length - *readpos)
-                nw = length - *readpos;
-        copy_memory(dst + *offStart, text + *readpos, nw);
-        *offStart += nw;
-        *readpos += nw;
+        sc->streams = NULL;
+        sc->remainingBytes = 0;
+        sc->totalLength = 0;
 }
 
-static int remaining_bytes_in_CopyFromTwo(struct CopyFromTwo *two)
+static void append_to_StreamsChain(struct StreamsChain *sc, struct ChainStream *stream)
 {
-        return two->length1 - *two->readpos1
-                + two->length2 - *two->readpos2;
+        ENSURE(stream->next == NULL);
+        struct ChainStream **ptr = &sc->streams;
+        while (*ptr)
+                ptr = &(*ptr)->next;
+        *ptr = stream;
+        sc->totalLength += stream->endpos - stream->readpos;
+        sc->remainingBytes += stream->endpos - stream->readpos;
 }
 
-static void copy_from_two(struct CopyFromTwo *two,
-        struct Textnode *node, int offStart, int maxLength)
+static void copy_from_StreamsChain(struct StreamsChain *sc, char *dst, int nbytes)
 {
-        int oldOffStart = offStart;
-        int offEndMax = offStart + maxLength;
-        copy_one(node->text, &offStart, offEndMax, two->text1, two->readpos1, two->length1);
-        copy_one(node->text, &offStart, offEndMax, two->text2, two->readpos2, two->length2);
-        added_range(node, node->text + oldOffStart, offStart - oldOffStart);
-        node->ownLength += offStart - oldOffStart;
+        ENSURE(sc->remainingBytes >= nbytes);
+        int todoBytes = nbytes;
+        while (todoBytes > 0) {
+                struct ChainStream *stream = sc->streams;
+                ENSURE(stream != NULL);
+                int n = stream->endpos - stream->readpos;
+                if (n > todoBytes)
+                        n = todoBytes;
+                copy_memory(dst, stream->text + stream->readpos, n);
+                dst += n;
+                todoBytes -= n;
+                stream->readpos += n;
+                if (stream->readpos == stream->endpos)
+                        sc->streams = stream->next;
+        }
+        sc->remainingBytes -= nbytes;
 }
+
+
+static void copy_from_StreamsChain_to_Textnode(struct StreamsChain *sc, struct Textnode *node, int offset, int length)
+{
+        //XXX
+        if (length > sc->remainingBytes)
+                length = sc->remainingBytes;
+        copy_from_StreamsChain(sc, node->text + offset, length);
+        added_range(node, node->text + offset, length);
+        node->ownLength += length;
+}
+
+
+
+
+
 
 
 void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text, int length)
@@ -584,25 +617,28 @@ void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text,
 
         /* move the data after the insert position to temporary storage. */
         char tuck[TARGET_LENGTH];
-        int tuckStart = 0;
-        int tuckEnd = node->ownLength - internalPos;
-        ENSURE(0 <= tuckEnd && tuckEnd <= TARGET_LENGTH);
-        copy_memory(tuck, node->text + internalPos, tuckEnd);
-        erased_range(node, node->text + internalPos, tuckEnd);
+        int tuckLength = node->ownLength - internalPos;
+        ENSURE(0 <= tuckLength && tuckLength <= TARGET_LENGTH);
+        copy_memory(tuck, node->text + internalPos, tuckLength);
+        erased_range(node, node->text + internalPos, tuckLength);
         node->ownLength = internalPos;
 
-        int readpos = 0;
+        struct ChainStream stream1;
+        stream1.text = text;
+        stream1.readpos = 0;
+        stream1.endpos = length;
+        stream1.next = NULL;
 
-        struct CopyFromTwo copyFromTwo;
-        copyFromTwo.text1 = text;
-        copyFromTwo.text2 = tuck;
-        copyFromTwo.readpos1 = &readpos;
-        copyFromTwo.readpos2 = &tuckStart;
-        copyFromTwo.length1 = length;
-        copyFromTwo.length2 = tuckEnd;
+        struct ChainStream stream2;
+        stream2.text = tuck;
+        stream2.readpos = 0;
+        stream2.endpos = length;
+        stream2.next = NULL;
 
-        copy_from_two(&copyFromTwo, node, node->ownLength, TARGET_LENGTH - node->ownLength);
-        rb3_update_augment(head, &augment_textnode_head);
+        struct StreamsChain chain;
+        init_StreamsChain(&chain);
+        append_to_StreamsChain(&chain, &stream1);
+        append_to_StreamsChain(&chain, &stream2);
 
         int finalBytesAvailable;
         {
@@ -610,23 +646,24 @@ void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text,
                 finalBytesAvailable = succ == NULL ? 0 : TARGET_LENGTH - own_length(succ);
         }
 
-        while (remaining_bytes_in_CopyFromTwo(&copyFromTwo) > finalBytesAvailable) {
+        copy_from_StreamsChain_to_Textnode(&chain, node, node->ownLength, TARGET_LENGTH - node->ownLength);
+        rb3_update_augment(head, &augment_textnode_head);
+
+        while (chain.remainingBytes > finalBytesAvailable) {
                 struct rb3_head *lastHead = head;
                 node = create_textnode();
                 head = &node->head;
-
-                copy_from_two(&copyFromTwo, node, node->ownLength, TARGET_LENGTH - node->ownLength);
+                copy_from_StreamsChain_to_Textnode(&chain, node, node->ownLength, TARGET_LENGTH - node->ownLength);
                 link_textnode_head_next_to(head, lastHead, RB3_RIGHT);
         }
 
-        int remainingBytes = remaining_bytes_in_CopyFromTwo(&copyFromTwo);
-        if (remainingBytes > 0) {
-                ENSURE(remainingBytes <= finalBytesAvailable);
+        if (chain.remainingBytes > 0) {
+                ENSURE(chain.remainingBytes <= finalBytesAvailable);
                 head = rb3_get_next(head);
                 node = textnode_from_head(head);
                 ENSURE(TARGET_LENGTH - node->ownLength == finalBytesAvailable);
-                move_memory(node->text, remainingBytes, node->ownLength);
-                copy_from_two(&copyFromTwo, node, 0, remainingBytes);
+                move_memory(node->text, chain.remainingBytes, node->ownLength);
+                copy_from_StreamsChain_to_Textnode(&chain, node, 0, chain.remainingBytes);
                 rb3_update_augment(head, &augment_textnode_head);
         }
 }
