@@ -49,6 +49,14 @@ static void move_minimally_to_display_cursor(struct TextEdit *edit)
         move_minimally_to_display_line(edit, lineNumber);
 }
 
+
+static void move_cursor_to_codepoint(struct TextEdit *edit, int codepointPos)
+{
+        int pos = compute_pos_of_codepoint(edit->rope, codepointPos);
+        edit->cursorBytePosition = pos;
+        move_minimally_to_display_cursor(edit);
+}
+
 static void move_cursor_left(struct TextEdit *edit)
 {
         int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
@@ -123,6 +131,26 @@ static void move_cursor_down(struct TextEdit *edit)
         move_lines_relative(edit, +1);
 }
 
+static void move_cursor_to_beginning_of_line(struct TextEdit *edit)
+{
+        int lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+        int pos = compute_pos_of_line(edit->rope, lineNumber);
+        edit->cursorBytePosition = pos;
+        move_minimally_to_display_cursor(edit);
+}
+
+static void move_cursor_to_end_of_line(struct TextEdit *edit)
+{
+        int numberOfLines = textrope_number_of_lines_quirky(edit->rope);
+        int lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+        if (lineNumber >= numberOfLines)
+                return;  // i think this happens when the cursor is editing at the ending position of the text
+        int pos = compute_pos_of_line(edit->rope, lineNumber + 1);
+        int codepointPos = compute_codepoint_position(edit->rope, pos);
+        ENSURE(codepointPos > 0);
+        move_cursor_to_codepoint(edit, codepointPos - 1);
+}
+
 void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint32_t *codepoints, int numCodepoints)
 {
         UNUSED(edit);
@@ -188,6 +216,12 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                         break;
                 case KEY_CURSORDOWN:
                         move_cursor_down(edit);
+                        break;
+                case KEY_HOME:
+                        move_cursor_to_beginning_of_line(edit);
+                        break;
+                case KEY_END:
+                        move_cursor_to_end_of_line(edit);
                         break;
                 case KEY_DELETE:
                         erase_forwards(edit);

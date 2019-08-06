@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>  // NULL
+#include <stdint.h>  // uint32_t and friends
 
 
 #ifdef _MSC_VER

@@ -5,8 +5,8 @@ A bare bones text editor is already in a working state:
 
 - Rope data structure that can efficiently insert or remove chunks of text
 - UTF-8 encoding/decoding.
-- Basic graphics
-- Cursor can only go 1 character left/right at a time, currently.
+- Basic windowing and OpenGL access using GLFW library
+- Text rendering using FreeType library.
 
 Now I want to include a parser for a simple programming language that has a
 valid parse tree for any text that is buffered in the editor.
