@@ -34,6 +34,31 @@ int read_character_from_textedit(struct TextEdit *edit, int pos)
 }
 
 
+
+void get_selected_range_in_bytes(struct TextEdit *edit, int *outStart, int *outOnePastEnd)
+{
+        ENSURE(edit->isSelectionMode);
+        if (edit->cursorBytePosition < edit->selectionStartBytePosition) {
+                *outStart = edit->cursorBytePosition;
+                *outOnePastEnd = edit->selectionStartBytePosition;
+        }
+        else {
+                *outStart = edit->selectionStartBytePosition;
+                *outOnePastEnd = edit->cursorBytePosition;
+        };
+}
+
+void get_selected_range_in_codepoints(struct TextEdit *edit, int *outStart, int *outOnePastEnd)
+{
+        int start;
+        int onePastEnd;
+        get_selected_range_in_bytes(edit, &start, &onePastEnd);
+        *outStart = compute_codepoint_position(edit->rope, start);
+        *outOnePastEnd = compute_codepoint_position(edit->rope, onePastEnd);
+}
+
+
+
 static void move_minimally_to_display_line(struct TextEdit *edit, int lineNumber)
 {
         if (edit->firstLineDisplayed > lineNumber)
@@ -170,6 +195,17 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
         move_cursor_right(edit, 0);  // XXX
 }
 
+static void erase_selected(struct TextEdit *edit)
+{
+        ENSURE(edit->isSelectionMode);
+        int start;
+        int onePastEnd;
+        get_selected_range_in_bytes(edit, &start, &onePastEnd);
+        erase_from_textedit(edit, start, onePastEnd - start);
+        edit->isSelectionMode = 0;
+        edit->cursorBytePosition = start;
+}
+
 static void erase_forwards(struct TextEdit *edit)
 {
         int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
@@ -218,13 +254,21 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                         move_cursor_to_end_of_line(edit, isSelecting);
                         break;
                 case KEY_DELETE:
-                        erase_forwards(edit);
+                        if (edit->isSelectionMode)
+                                erase_selected(edit);
+                        else
+                                erase_forwards(edit);
                         break;
                 case KEY_BACKSPACE:
-                        erase_backwards(edit);
+                        if (edit->isSelectionMode)
+                                erase_selected(edit);
+                        else
+                                erase_backwards(edit);
                         break;
                 default:
                         if (input->data.tKey.hasCodepoint) {
+                                if (edit->isSelectionMode)
+                                        erase_selected(edit);
                                 unsigned long codepoint = input->data.tKey.codepoint;
                                 insert_codepoint_into_textedit(edit, codepoint);
                                 debug_check_textrope(edit->rope);

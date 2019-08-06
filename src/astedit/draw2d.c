@@ -386,10 +386,21 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
                         markStart, markEnd);
         }
 
-        // TODO: make new line only if missing in text?
-        next_line(&cursor);
-
         {//XXX
+                //XXX repeated code
+                box.bbX = 0;
+                box.bbY = 0;
+                box.bbW = windowWidthInPixels;
+                box.bbH = windowHeightInPixels;
+                cursor.xLeft = x;
+                cursor.fontSize = 25;
+                cursor.ascender = 20;
+                cursor.lineHeight = 30;
+                cursor.x = x;
+                cursor.y = y + h + cursor.lineHeight;
+                cursor.codepointpos = 0;
+                cursor.lineNumber = 0;
+
                 int pos = edit->cursorBytePosition;
                 int codepointPos = compute_codepoint_position(edit->rope, pos);
                 int lineNumber = compute_line_number(edit->rope, pos);
@@ -399,18 +410,18 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
                 snprintf(posBuf, sizeof posBuf, "%d", pos);
                 snprintf(codepointPosBuf, sizeof codepointPosBuf, "%d", codepointPos);
                 snprintf(lineBuf, sizeof lineBuf, "%d", lineNumber);
-                draw_text_with_cursor(&cursor, boundingBox, "pos ", 4, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, posBuf, strlen(posBuf), 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "codepointPos ", 13, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, codepointPosBuf, strlen(codepointPosBuf), 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "Line ", 5, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, lineBuf, strlen(lineBuf), 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "selecting: ", 11, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, edit->isSelectionMode ? "1" : "0", 1, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "pos ", 4, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, posBuf, strlen(posBuf), -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, "codepointPos ", 13, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, codepointPosBuf, strlen(codepointPosBuf), -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, "Line ", 5, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, lineBuf, strlen(lineBuf), -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, "selecting: ", 11, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, edit->isSelectionMode ? "1" : "0", 1, -1, -1);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
         }
 }
 
@@ -451,20 +462,19 @@ void testdraw(struct TextEdit *edit)
         //draw_text_file(edit->contents, edit->length, 3, 5);
 
 
-
-        int codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
-        int markFirst = edit->isSelectionMode ? edit->selectionStartBytePosition : codepointPos;
-        int markLast = codepointPos;
-        if (markFirst > markLast) {
-                int tmp = markFirst;
-                markFirst = markLast;
-                markLast = tmp;
+        int markStart;
+        int markEnd;
+        if (edit->isSelectionMode)
+                get_selected_range_in_codepoints(edit, &markStart, &markEnd);
+        else {
+                markStart = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+                markEnd = markStart + 1;
         }
 
         draw_TextEdit(edit,
                 edit->firstLineDisplayed,
                 15 /*XXX*/,
-                markFirst, markLast + 1);
+                markStart, markEnd);
 
         end_frame();
         swap_buffers();

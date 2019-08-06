@@ -28,6 +28,10 @@ int textedit_length_in_bytes(struct TextEdit *edit);
 int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size);
 
 
+void get_selected_range_in_bytes(struct TextEdit *edit, int *outStart, int *outOnePastEnd);
+void get_selected_range_in_codepoints(struct TextEdit *edit, int *outStart, int *outOnePastEnd);
+
+
 void erase_from_textedit(struct TextEdit *edit, int offset, int length);
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint);
 
