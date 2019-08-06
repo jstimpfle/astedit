@@ -18,7 +18,7 @@ static inline int is_utf8_leader_byte(int c) { return (c & 0xc0) != 0x80; }
 We do this by combining adjacent nodes whose combined size does not exceed
 this. This means that each node will always be at least half that size. */
 enum {
-        TARGET_LENGTH = 1024,  /* for testing purposes. Later, switch back to 1024 or so. */
+        TARGET_LENGTH = 7,  /* for testing purposes. Later, switch back to 1024 or so. */
 };
 
 struct Textnode {
@@ -46,10 +46,9 @@ static inline struct Textnode *textnode_from_head(struct rb3_head *head)
 }
 
 
-
-
 static struct Textnode *create_textnode(void)
 {
+        log_postf("alloc node!\n");
         // TODO optimization
         struct Textnode *textnode;
         ALLOC_MEMORY(&textnode, 1);
@@ -190,11 +189,6 @@ int textrope_number_of_codepoints(struct Textrope *rope)
                 return 0;
         return total_codepoints(root);
 }
-
-
-
-
-
 
 
 
@@ -516,7 +510,42 @@ static void link_textnode_head_next_to(struct rb3_head *newNode, struct rb3_head
 }
 
 
+struct CopyFromTwo {
+        const char *text1;
+        const char *text2;
+        int *readpos1;
+        int *readpos2;
+        int length1;
+        int length2;
+};
 
+
+static void copy_one(char *dst, int *offStart, int offEndMax, const char *text, int *readpos, int length)
+{
+        int nw = offEndMax - *offStart;
+        if (nw > length - *readpos)
+                nw = length - *readpos;
+        copy_memory(dst + *offStart, text + *readpos, nw);
+        *offStart += nw;
+        *readpos += nw;
+}
+
+static int remaining_bytes_in_CopyFromTwo(struct CopyFromTwo *two)
+{
+        return two->length1 - *two->readpos1
+                + two->length2 - *two->readpos2;
+}
+
+static void copy_from_two(struct CopyFromTwo *two,
+        struct Textnode *node, int offStart, int maxLength)
+{
+        int oldOffStart = offStart;
+        int offEndMax = offStart + maxLength;
+        copy_one(node->text, &offStart, offEndMax, two->text1, two->readpos1, two->length1);
+        copy_one(node->text, &offStart, offEndMax, two->text2, two->readpos2, two->length2);
+        added_range(node, node->text + oldOffStart, offStart - oldOffStart);
+        node->ownLength += offStart - oldOffStart;
+}
 
 
 void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text, int length)
@@ -527,7 +556,7 @@ void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text,
         struct Textiter *iter = &textiter;
         init_textiter(iter, rope);
 
-        /* if the tree is currently empty, make an node with content length 0. */
+        /* if the tree is currently empty, make a node with content length 0. */
         if (iter->current == NULL) {
                 ENSURE(pos == 0);
                 struct Textnode *node = create_textnode();
@@ -553,105 +582,54 @@ void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text,
         int internalPos = pos - iter->pos;
         ENSURE(0 <= internalPos && internalPos <= node->ownLength);
 
-        /*
-        If the found node can hold all the new text, we'll just insert it there.
-        */
-        if (node->ownLength + length <= TARGET_LENGTH) {
-                move_memory(node->text + internalPos, length, node->ownLength - internalPos);
-                copy_memory(node->text + internalPos, text, length);
-                added_range(node, text, length);
-                node->ownLength += length;
-                rb3_update_augment(&node->head, &augment_textnode_head);
-                return;
-        }
-
-        /*
-        Otherwise, we need to tuck away the data in that position.
-        */
+        /* move the data after the insert position to temporary storage. */
         char tuck[TARGET_LENGTH];
-        int tuckbytes = node->ownLength - internalPos;
-        ENSURE(0 <= tuckbytes && tuckbytes <= TARGET_LENGTH);
-        copy_memory(tuck, node->text + internalPos, tuckbytes);
-        erased_range(node, node->text + internalPos, tuckbytes);
+        int tuckStart = 0;
+        int tuckEnd = node->ownLength - internalPos;
+        ENSURE(0 <= tuckEnd && tuckEnd <= TARGET_LENGTH);
+        copy_memory(tuck, node->text + internalPos, tuckEnd);
+        erased_range(node, node->text + internalPos, tuckEnd);
         node->ownLength = internalPos;
 
-        /* position of remaining text to insert */
         int readpos = 0;
 
-        /* we can use the freed space to store some of the data already */
+        struct CopyFromTwo copyFromTwo;
+        copyFromTwo.text1 = text;
+        copyFromTwo.text2 = tuck;
+        copyFromTwo.readpos1 = &readpos;
+        copyFromTwo.readpos2 = &tuckStart;
+        copyFromTwo.length1 = length;
+        copyFromTwo.length2 = tuckEnd;
+
+        copy_from_two(&copyFromTwo, node, node->ownLength, TARGET_LENGTH - node->ownLength);
+        rb3_update_augment(head, &augment_textnode_head);
+
+        int finalBytesAvailable;
         {
-                int nw = TARGET_LENGTH - internalPos;
-                if (nw > length - readpos)
-                        nw = length - readpos;
-                copy_memory(node->text + internalPos, text + readpos, nw);
-                added_range(node, text + readpos, nw);
-                node->ownLength += nw;
-                readpos += nw;
+                struct rb3_head *succ = rb3_get_next(head);
+                finalBytesAvailable = succ == NULL ? 0 : TARGET_LENGTH - own_length(succ);
         }
 
-        /*
-        Now we look at the next (successor) node to store more data.
-        */
-        struct Textnode *succNode;
-        struct rb3_head *succ = rb3_get_next(head);
-        if (succ != NULL)
-                succNode = textnode_from_head(succ);
-        else {
-                /* If there is no successor node, we create one. */
-                succNode = create_textnode();
-                succ = &succNode->head;
-                link_textnode_head_next_to(succ, head, RB3_RIGHT);
-        }
-
-        /*
-        We use the successor node to potentially hold the remaining data.
-        Whenever the free space there isn't sufficient to store all of it,
-        we create a new node just before it.
-        */
-        while (readpos < length
-                && (TARGET_LENGTH - succNode->ownLength < length - readpos + tuckbytes)) {
-                /* Create new node before (previous) successor. */
+        while (remaining_bytes_in_CopyFromTwo(&copyFromTwo) > finalBytesAvailable) {
+                struct rb3_head *lastHead = head;
                 node = create_textnode();
                 head = &node->head;
 
-                int nw = TARGET_LENGTH;
-                if (nw > length - readpos)
-                        nw = length - readpos;
-                copy_memory(node->text, text + readpos, nw);
-                added_range(node, text + readpos, nw);
-                node->ownLength = nw;
-                readpos += nw;
-
-                link_textnode_head_next_to(head, succ, RB3_LEFT);
+                copy_from_two(&copyFromTwo, node, node->ownLength, TARGET_LENGTH - node->ownLength);
+                link_textnode_head_next_to(head, lastHead, RB3_RIGHT);
         }
 
-        if (readpos < length) {
-                /* we can store everything in the successor node. */
-                node = succNode;
-                move_memory(node->text, length - readpos + tuckbytes, node->ownLength);
-                copy_memory(node->text, text + readpos, length - readpos);
-                added_range(node, text + readpos, length - readpos);
-                node->ownLength += length - readpos;
-                copy_memory(node->text + length - readpos, tuck, tuckbytes);
-                added_range(node, tuck, tuckbytes);
-                node->ownLength += tuckbytes;
-                readpos += length - readpos + tuckbytes;
-                rb3_update_augment(&node->head, &augment_textnode_head);
-        }
-        else {
-                /* we only need to store the tuckbytes. TODO: optimize this by
-                filling the current node first (then maybe we don't have to
-                create a new node). */
-                node = create_textnode();
-                head = &node->head;
-                copy_memory(node->text, tuck, tuckbytes);
-                added_range(node, tuck, tuckbytes);
-                node->ownLength = tuckbytes;
-                link_textnode_head_next_to(head, succ, RB3_LEFT);
+        int remainingBytes = remaining_bytes_in_CopyFromTwo(&copyFromTwo);
+        if (remainingBytes > 0) {
+                ENSURE(remainingBytes <= finalBytesAvailable);
+                head = rb3_get_next(head);
+                node = textnode_from_head(head);
+                ENSURE(TARGET_LENGTH - node->ownLength == finalBytesAvailable);
+                move_memory(node->text, remainingBytes, node->ownLength);
+                copy_from_two(&copyFromTwo, node, 0, remainingBytes);
+                rb3_update_augment(head, &augment_textnode_head);
         }
 }
-
-
 
 void erase_text_from_textrope(struct Textrope *rope, int pos, int length)
 {
@@ -661,68 +639,83 @@ void erase_text_from_textrope(struct Textrope *rope, int pos, int length)
         struct Textiter textiter = find_first_node_that_contains_the_character_at_pos(rope, pos);
         struct Textiter *iter = &textiter;
 
-        struct rb3_head *firstHead = iter->current;
-        struct Textnode *firstNode = textnode_from_head(firstHead);
-        int internalPos = pos - iter->pos;
-        ENSURE(0 <= internalPos && internalPos < firstNode->ownLength);
-
+        struct rb3_head *head = iter->current;
         int numDeleted = 0;
-        /* delete from the first head with offset */
-        {
+
+        /* partial delete from left node of range */
+        if (pos != iter->pos) {
+                struct Textnode *node = textnode_from_head(head);
+                int internalPos = pos - iter->pos;
+                ENSURE(0 <= internalPos && internalPos < node->ownLength);
                 int nd = length - numDeleted;
-                if (nd > firstNode->ownLength - internalPos)
-                        nd = firstNode->ownLength - internalPos;
-                
-                erased_range(firstNode, firstNode->text + internalPos, nd);
-                move_memory(firstNode->text + internalPos + nd, -nd,
-                        firstNode->ownLength - internalPos - nd);
+                if (nd > node->ownLength - internalPos)
+                        nd = node->ownLength - internalPos;
+
+                erased_range(node, node->text + internalPos, nd);
+                move_memory(node->text + internalPos + nd, -nd,
+                        node->ownLength - internalPos - nd);
                 numDeleted += nd;
-                firstNode->ownLength -= nd;
+                node->ownLength -= nd;
                 /* We might optimize this augmentation away:
                 Maybe we need to augment this node again later anyway. */
-                rb3_update_augment(firstHead, &augment_textnode_head);
-        }
+                rb3_update_augment(head, &augment_textnode_head);
 
-        struct rb3_head *head = firstHead;
-        struct Textnode *node = firstNode;
+                /* move to next node. */
+                head = rb3_get_next(head);
+        }
 
         /* Unlink/delete all nodes whose contents are completely in the
         to-be-deleted range. */
-        for (;;) {
-                head = rb3_get_next(head);
-                node = textnode_from_head(head);
+        while (length != numDeleted) {
+                if (head == NULL) {
+                        log_postf("AAAH!\n");
+                }
+                ENSURE(head != NULL);
 
-                if (numDeleted == length)
+                struct Textnode *node = textnode_from_head(head);
+
+                if (node->ownLength > length - numDeleted)
                         break;
 
+                numDeleted += node->ownLength;
+
+                struct rb3_head *nextHead = rb3_get_next(head);
+                unlink_textnode_head(head);
+                destroy_textnode(node);
+                head = nextHead;
+        }
+
+        /* partial delete from last node */
+        if (length > numDeleted) {
+                ENSURE(head != NULL);
+                struct Textnode *node = textnode_from_head(head);
                 int nd = length - numDeleted;
-                if (nd < node->ownLength)
-                        break;
-
-                unlink_textnode_head(head);
-                destroy_textnode(node);
-        }
-
-        /* delete text from last node */
-        int nd = length - numDeleted;
-        ENSURE(nd == 0 || node != NULL);
-        if (node != NULL && firstNode->ownLength + node->ownLength - nd <= TARGET_LENGTH) {
-                /* We can move remaining text from last node to previous node.
-                Then we can delete the last node */
-                ENSURE(nd <= node->ownLength);
-                copy_memory(firstNode->text + firstNode->ownLength, node->text + nd, node->ownLength - nd);
-                added_range(node, node->text + nd, node->ownLength - nd);
-                firstNode->ownLength += node->ownLength - nd;
-                unlink_textnode_head(head);
-                destroy_textnode(node);
-                rb3_update_augment(firstHead, &augment_textnode_head);
-        }
-        else if (nd > 0) {
+                ENSURE(numDeleted + node->ownLength >= nd);
                 /* Just erase the last chunk of text inside the last node */
                 erased_range(node, node->text, nd);
                 move_memory(node->text + nd, -nd, node->ownLength - nd);
                 node->ownLength -= nd;
                 rb3_update_augment(head, &augment_textnode_head);
+        }
+
+        /* maybe merge last visited node with previous */
+        if (head != NULL) {
+                struct Textnode *node = textnode_from_head(head);
+                /* this may or may not be (depending on if we did a partial erase)
+                the first node that we visited */
+                struct rb3_head *prevHead = rb3_get_prev(head);
+                if (prevHead != NULL) {
+                        struct Textnode *prevNode = textnode_from_head(prevHead);
+                        if (prevNode->ownLength + node->ownLength <= TARGET_LENGTH) {
+                                copy_memory(prevNode->text + prevNode->ownLength,
+                                        node->text, node->ownLength);
+                                added_range(prevNode, node->text, node->ownLength);
+                                prevNode->ownLength += node->ownLength;
+                                rb3_update_augment(prevHead, &augment_textnode_head);
+                                unlink_textnode_head(head);
+                                destroy_textnode(node);
+                        }
+                }
         }
 }
 
@@ -786,6 +779,9 @@ static void check_node_values(struct rb3_head *head)
         check_node_values(rb3_get_child(head, RB3_LEFT));
         check_node_values(rb3_get_child(head, RB3_RIGHT));
         struct Textnode *node = textnode_from_head(head);
+
+        if (node->ownLength == 0)
+                fatal("Zero length node.\n");
 
         if (node->ownLength < 0 || node->ownLength > TARGET_LENGTH)
                 fatal("Bad length.\n");

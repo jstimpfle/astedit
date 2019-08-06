@@ -451,8 +451,8 @@ void testdraw(struct TextEdit *edit)
         draw_TextEdit(edit,
                 edit->firstLineDisplayed,
                 15 /*XXX*/,
-                2/*codepointPos*/,
-                4/*codepointPos + 1*/);
+                codepointPos,
+                codepointPos + 1);
 
         end_frame();
         swap_buffers();

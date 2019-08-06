@@ -133,24 +133,26 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\bytes.c" />
-    <ClCompile Include="..\src\clock-win32.c" />
-    <ClCompile Include="..\src\data.c" />
-    <ClCompile Include="..\src\draw2d.c" />
-    <ClCompile Include="..\src\font-freetype.c" />
-    <ClCompile Include="..\src\font.c" />
-    <ClCompile Include="..\src\gfx-opengl.c" />
-    <ClCompile Include="..\src\logging.c" />
-    <ClCompile Include="..\src\main.c" />
-    <ClCompile Include="..\src\memoryalloc.c" />
+    <ClCompile Include="..\src\astedit\bytes.c" />
+    <ClCompile Include="..\src\astedit\clock-win32.c" />
+    <ClCompile Include="..\src\astedit\data.c" />
+    <ClCompile Include="..\src\astedit\draw2d.c" />
+    <ClCompile Include="..\src\astedit\font-freetype.c" />
+    <ClCompile Include="..\src\astedit\font.c" />
+    <ClCompile Include="..\src\astedit\gfx-opengl.c" />
+    <ClCompile Include="..\src\astedit\logging.c" />
+    <ClCompile Include="..\src\astedit\main.c" />
+    <ClCompile Include="..\src\astedit\memoryalloc.c" />
+    <ClCompile Include="..\src\astedit\stringpool.c" />
+    <ClCompile Include="..\src\astedit\textedit.c" />
+    <ClCompile Include="..\src\astedit\textrope.c" />
+    <ClCompile Include="..\src\astedit\textureatlas.c" />
+    <ClCompile Include="..\src\astedit\utf8.c" />
+    <ClCompile Include="..\src\astedit\window-glfw.c" />
+    <ClCompile Include="..\src\astedit\window.c" />
+    <ClCompile Include="..\src\blunt\lex.c" />
+    <ClCompile Include="..\src\blunt\parse.c" />
     <ClCompile Include="..\src\rb3ptr.c" />
-    <ClCompile Include="..\src\stringpool.c" />
-    <ClCompile Include="..\src\textedit.c" />
-    <ClCompile Include="..\src\textrope.c" />
-    <ClCompile Include="..\src\textureatlas.c" />
-    <ClCompile Include="..\src\utf8.c" />
-    <ClCompile Include="..\src\window-glfw.c" />
-    <ClCompile Include="..\src\window.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\astedit\astedit.h" />
@@ -167,6 +169,7 @@
     <ClInclude Include="..\include\astedit\textureatlas.h" />
     <ClInclude Include="..\include\astedit\utf8.h" />
     <ClInclude Include="..\include\astedit\window.h" />
+    <ClInclude Include="..\include\blunt\lex.h" />
     <ClInclude Include="..\include\rb3ptr.h" />
     <ClInclude Include="..\include\stringpool.h" />
   </ItemGroup>

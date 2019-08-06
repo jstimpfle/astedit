@@ -35,35 +35,40 @@ int read_character_from_textedit(struct TextEdit *edit, int pos)
 }
 
 
-static int compute_pos_of_previous_codepoint(struct Textrope *rope, int pos)
+static void move_minimally_to_display_line(struct TextEdit *edit, int lineNumber)
 {
-        int codepointPos = compute_codepoint_position(rope, pos);
-        ENSURE(codepointPos > 0);
-        return compute_pos_of_codepoint(rope, codepointPos - 1);
+        if (edit->firstLineDisplayed > lineNumber)
+                edit->firstLineDisplayed = lineNumber;
+        if (edit->firstLineDisplayed < lineNumber - edit->numberOfLinesDisplayed + 1)
+                edit->firstLineDisplayed = lineNumber - edit->numberOfLinesDisplayed + 1;
 }
 
-static int compute_pos_of_next_codepoint(struct Textrope *rope, int pos)
+static void move_minimally_to_display_cursor(struct TextEdit *edit)
 {
-        int codepointPos = compute_codepoint_position(rope, pos);
-        ENSURE(codepointPos < textrope_number_of_codepoints(rope));
-        return compute_pos_of_codepoint(rope, codepointPos + 1);
+        int lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+        move_minimally_to_display_line(edit, lineNumber);
 }
 
 static void move_cursor_left(struct TextEdit *edit)
 {
-        if (edit->cursorBytePosition > 0) {
-                int pos = compute_pos_of_previous_codepoint(edit->rope, edit->cursorBytePosition);
+        int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        //int totalCodepoints = textrope_number_of_codepoints(edit->rope);
+        if (codepointPosition > 0) {
+                int pos = compute_pos_of_codepoint(edit->rope, codepointPosition - 1);
                 edit->cursorBytePosition = pos;
+                move_minimally_to_display_cursor(edit);
                 log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
         }
 }
 
 static void move_cursor_right(struct TextEdit *edit)
 {
-        int textLength = textedit_length_in_bytes(edit);
-        if (edit->cursorBytePosition < textLength) {
-                int pos = compute_pos_of_next_codepoint(edit->rope, edit->cursorBytePosition);
+        int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        int totalCodepoints = textrope_number_of_codepoints(edit->rope);
+        if (codepointPosition < totalCodepoints) {  // we may move one past end
+                int pos = compute_pos_of_codepoint(edit->rope, codepointPosition + 1);
                 edit->cursorBytePosition = pos;
+                move_minimally_to_display_cursor(edit);
                 log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
         }
 }
@@ -88,10 +93,7 @@ static void move_to_line_and_column(struct TextEdit *edit, int lineNumber, int c
         int newPos = compute_pos_of_codepoint(edit->rope, lineCodepointPosition + codepointColumn);
         edit->cursorBytePosition = newPos;
 
-        if (edit->firstLineDisplayed > lineNumber)
-                edit->firstLineDisplayed = lineNumber;
-        if (edit->firstLineDisplayed < lineNumber - edit->numberOfLinesDisplayed + 1)
-                edit->firstLineDisplayed = lineNumber - edit->numberOfLinesDisplayed + 1;
+        move_minimally_to_display_line(edit, lineNumber);
 }
 
 
@@ -103,7 +105,7 @@ static void move_lines_relative(struct TextEdit *edit, int linesDiff)
                 &oldLineNumber, &oldCodepointPosition);
 
         int newLineNumber = oldLineNumber + linesDiff;
-        if (0 <= newLineNumber && newLineNumber < textrope_number_of_lines(edit->rope)) {
+        if (0 <= newLineNumber && newLineNumber < textrope_number_of_lines_quirky(edit->rope)) {
                 int oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
                 int oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
                 int codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
@@ -134,7 +136,7 @@ void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint3
         }
 }
 
-void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoint)
+void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
 {
         char tmp[16];
         int numBytes = encode_codepoint_as_utf8(codepoint, &tmp[0], 0, sizeof tmp);
@@ -149,12 +151,14 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, unsigned long codepoi
 
 static void erase_forwards(struct TextEdit *edit)
 {
-        int start = edit->cursorBytePosition;
-        move_cursor_right(edit);
-        int end = edit->cursorBytePosition;
-        move_cursor_left(edit);
-        if (start < end)
-                erase_from_textedit(edit, start, end - start);
+        int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        int totalCodepoints = textrope_number_of_codepoints(edit->rope);
+        if (codepointPosition < totalCodepoints) {
+                int start = edit->cursorBytePosition;
+                int end = compute_pos_of_codepoint(edit->rope, codepointPosition + 1);
+                if (start < end)
+                        erase_from_textedit(edit, start, end - start);
+        }
 }
 
 static void erase_backwards(struct TextEdit *edit)
