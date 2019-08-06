@@ -402,11 +402,14 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
                 draw_text_with_cursor(&cursor, boundingBox, "pos ", 4, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, posBuf, strlen(posBuf), 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
-                draw_text_with_cursor(&cursor, boundingBox, "codepointPos ", 12, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "codepointPos ", 13, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, codepointPosBuf, strlen(codepointPosBuf), 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, "Line ", 5, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, lineBuf, strlen(lineBuf), 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, "selecting: ", 11, 2, 4);
+                draw_text_with_cursor(&cursor, boundingBox, edit->isSelectionMode ? "1" : "0", 1, 2, 4);
                 draw_text_with_cursor(&cursor, boundingBox, "\n", 1, 2, 4);
         }
 }
@@ -447,12 +450,21 @@ void testdraw(struct TextEdit *edit)
         //draw_colored_rect(200, 200, 200, 200, 128, 128, 128, 224);
         //draw_text_file(edit->contents, edit->length, 3, 5);
 
+
+
         int codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        int markFirst = edit->isSelectionMode ? edit->selectionStartBytePosition : codepointPos;
+        int markLast = codepointPos;
+        if (markFirst > markLast) {
+                int tmp = markFirst;
+                markFirst = markLast;
+                markLast = tmp;
+        }
+
         draw_TextEdit(edit,
                 edit->firstLineDisplayed,
                 15 /*XXX*/,
-                codepointPos,
-                codepointPos + 1);
+                markFirst, markLast + 1);
 
         end_frame();
         swap_buffers();

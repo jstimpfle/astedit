@@ -10,6 +10,9 @@ struct TextEdit {
         int cursorBytePosition;
         int firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
         int numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
+
+        int isSelectionMode;
+        int selectionStartBytePosition;
 };
 
 
