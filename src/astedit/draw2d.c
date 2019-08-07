@@ -325,6 +325,18 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int maxNumbe
 static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNumberOfLines,
         int x, int y, int w, int h, int markStart, int markEnd)
 {
+        char readbuffer[256];
+        uint32_t codepointBuffer[LENGTH(readbuffer)];
+
+        int readbufferFill = 0;
+
+        int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
+        if (numberOfLines > maxNumberOfLines)
+                numberOfLines = maxNumberOfLines;
+
+        int readPositionInBytes = compute_pos_of_line(edit->rope, firstLine);
+        int lastPositionInBytes = compute_pos_of_line(edit->rope, firstLine + numberOfLines); //XXX
+
         struct BoundingBox box;
         box.bbX = x;
         box.bbY = y;
@@ -339,20 +351,8 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
         cursor.lineHeight = 30;
         cursor.x = x;
         cursor.y = y + cursor.lineHeight;
-        cursor.codepointpos = 0;
-        cursor.lineNumber = 0;
-
-        char readbuffer[256];
-        uint32_t codepointBuffer[LENGTH(readbuffer)];
-
-        int readbufferFill = 0;
-
-        int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
-        if (numberOfLines > maxNumberOfLines)
-                numberOfLines = maxNumberOfLines;
-
-        int readPositionInBytes = compute_pos_of_line(edit->rope, firstLine);
-        int lastPositionInBytes = compute_pos_of_line(edit->rope, firstLine + numberOfLines); //XXX
+        cursor.codepointpos = compute_codepoint_position(edit->rope, readPositionInBytes);
+        cursor.lineNumber = firstLine;
 
         while (cursor.y - cursor.ascender < boundingBox->bbY + boundingBox->bbH) {
                 if (readPositionInBytes >= lastPositionInBytes)
