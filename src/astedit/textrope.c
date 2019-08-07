@@ -632,7 +632,7 @@ void insert_text_into_textrope(struct Textrope *rope, int pos, const char *text,
         struct ChainStream stream2;
         stream2.text = tuck;
         stream2.readpos = 0;
-        stream2.endpos = length;
+        stream2.endpos = tuckLength;
         stream2.next = NULL;
 
         struct StreamsChain chain;
@@ -758,6 +758,9 @@ void erase_text_from_textrope(struct Textrope *rope, int pos, int length)
 
 int copy_text_from_textrope(struct Textrope *rope, int offset, char *dstBuffer, int length)
 {
+        ENSURE(0 <= offset);
+        ENSURE(offset + length <= textrope_length(rope));
+
         struct Textiter textiter;
         struct Textiter *iter = &textiter;
         init_textiter(iter, rope);
