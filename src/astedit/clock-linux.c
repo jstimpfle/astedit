@@ -26,10 +26,11 @@ void sleep_milliseconds(int ms)
         int r;
         for (;;) {
                 r = nanosleep(&ts, &remain);
-                if (r != EINTR)
+                if (r == 0)
                         break;
+                ENSURE(r == -1);
+                if (errno != EINTR)
+                        fatalf("nanosleep() failed: %s\n", strerror(errno));
                 ts = remain;
         }
-        if (r != 0)
-                fatalf("nanosleep() failed: %s\n", strerror(errno));
 }
