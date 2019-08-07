@@ -307,7 +307,7 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                                         erase_selected(edit);
                                 unsigned long codepoint = input->data.tKey.codepoint;
                                 insert_codepoint_into_textedit(edit, codepoint);
-                                debug_check_textrope(edit->rope);
+                                //debug_check_textrope(edit->rope);
                         }
                         break;
                 }
