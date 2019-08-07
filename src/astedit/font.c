@@ -161,10 +161,14 @@ int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
 
                 commit_all_dirty_textures(); //XXX
 
-                if (rectX + rectW >= boundingBox->bbX &&
-                        rectY + rectH >= boundingBox->bbY &&
-                        rectX <= boundingBox->bbX + boundingBox->bbW &&
-                        rectY <= boundingBox->bbY + boundingBox->bbH) {
+                if (rectX + rectW < boundingBox->bbX)
+                        continue;
+
+                if (rectX >= boundingBox->bbX + boundingBox->bbW)
+                        break;
+
+                if (rectY + rectH >= boundingBox->bbY &&
+                    rectY <= boundingBox->bbY + boundingBox->bbH) {
                         draw_alpha_texture_rect(texture, r, g, b, a,
                                 rectX, rectY, rectW, rectH,
                                 texX, texY, texW, texH);
