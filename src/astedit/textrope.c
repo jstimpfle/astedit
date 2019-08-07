@@ -18,7 +18,7 @@ static inline int is_utf8_leader_byte(int c) { return (c & 0xc0) != 0x80; }
 We do this by combining adjacent nodes whose combined size does not exceed
 this. This means that each node will always be at least half that size. */
 enum {
-        TARGET_LENGTH = 3,  /* for testing purposes. Later, switch back to 1024 or so. */
+        TARGET_LENGTH = 1024,
 };
 
 struct Textnode {
@@ -48,8 +48,6 @@ static inline struct Textnode *textnode_from_head(struct rb3_head *head)
 
 static struct Textnode *create_textnode(void)
 {
-        log_postf("alloc node!\n");
-        // TODO optimization
         struct Textnode *textnode;
         ALLOC_MEMORY(&textnode, 1);
         ALLOC_MEMORY(&textnode->text, TARGET_LENGTH);
@@ -68,7 +66,6 @@ static struct Textnode *create_textnode(void)
 
 static void destroy_textnode(struct Textnode *textnode)
 {
-        // TODO optimization
         FREE_MEMORY(&textnode->text);
         FREE_MEMORY(&textnode);
 }
