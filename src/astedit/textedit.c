@@ -81,7 +81,7 @@ static void move_cursor_to_byte_position(struct TextEdit *edit, int pos, int isS
 
         edit->cursorBytePosition = pos;
         move_minimally_to_display_cursor(edit);
-        log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
+        //log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
 }
 
 static void move_cursor_to_codepoint(struct TextEdit *edit, int codepointPos, int isSelecting)
@@ -114,9 +114,8 @@ static void move_to_line_and_column(struct TextEdit *edit, int lineNumber, int c
         int nextLineCodepointPosition = compute_codepoint_position(edit->rope, nextLinePos);
 
         int codepointsInLine = nextLineCodepointPosition - lineCodepointPosition;
-        ENSURE(codepointsInLine > 0);  // at least '\n'
-        if (codepointColumn >= codepointsInLine - 1) {
-                codepointColumn = codepointsInLine - 1;
+        if (codepointColumn > codepointsInLine) {
+                codepointColumn = codepointsInLine;
                 if (codepointColumn > 0)  /* don't place on the last column (newline) but on the column before that. Good idea? */
                         codepointColumn--;
         }
@@ -167,6 +166,30 @@ static void move_cursor_to_end_of_line(struct TextEdit *edit, int isSelecting)
         int codepointPos = compute_codepoint_position(edit->rope, pos);
         ENSURE(codepointPos > 0);
         move_cursor_to_codepoint(edit, codepointPos - 1, isSelecting);
+}
+
+static void move_to_first_line(struct TextEdit *edit, int isSelecting)
+{
+        move_to_line_and_column(edit, 0, 0, isSelecting);
+}
+
+static void move_to_last_line(struct TextEdit *edit, int isSelecting)
+{
+        move_to_line_and_column(edit,
+                                textrope_number_of_lines(edit->rope),
+                                0, isSelecting);
+}
+
+enum { LINES_PER_PAGE = 15 };
+
+static void scroll_up_one_page(struct TextEdit *edit, int isSelecting)
+{
+        move_lines_relative(edit, -LINES_PER_PAGE, isSelecting);
+}
+
+static void scroll_down_one_page(struct TextEdit *edit, int isSelecting)
+{
+        move_lines_relative(edit, LINES_PER_PAGE, isSelecting);
 }
 
 void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint32_t *codepoints, int numCodepoints)
@@ -230,7 +253,8 @@ static void erase_backwards(struct TextEdit *edit)
 void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
 {
         if (input->inputKind == INPUT_KEY) {
-                int isSelecting = input->data.tKey.modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
+                int modifiers = input->data.tKey.modifiers;
+                int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
                 switch (input->data.tKey.keyKind) {
                 case KEY_ENTER:
                         insert_codepoint_into_textedit(edit, 0x0a);
@@ -248,10 +272,22 @@ void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
                         move_cursor_down(edit, isSelecting);
                         break;
                 case KEY_HOME:
-                        move_cursor_to_beginning_of_line(edit, isSelecting);
+                        if (modifiers & MODIFIER_CONTROL)
+                                move_to_first_line(edit, isSelecting);
+                        else
+                                move_cursor_to_beginning_of_line(edit, isSelecting);
                         break;
                 case KEY_END:
-                        move_cursor_to_end_of_line(edit, isSelecting);
+                        if (modifiers & MODIFIER_CONTROL)
+                                move_to_last_line(edit, isSelecting);
+                        else
+                                move_cursor_to_end_of_line(edit, isSelecting);
+                        break;
+                case KEY_PAGEUP:
+                        scroll_up_one_page(edit, isSelecting);
+                        break;
+                case KEY_PAGEDOWN:
+                        scroll_down_one_page(edit, isSelecting);
                         break;
                 case KEY_DELETE:
                         if (edit->isSelectionMode)
