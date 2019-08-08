@@ -131,12 +131,16 @@ static void move_lines_relative(struct TextEdit *edit, int linesDiff, int isSele
                 &oldLineNumber, &oldCodepointPosition);
 
         int newLineNumber = oldLineNumber + linesDiff;
-        if (0 <= newLineNumber && newLineNumber < textrope_number_of_lines_quirky(edit->rope)) {
-                int oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
-                int oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
-                int codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
-                move_to_line_and_column(edit, newLineNumber, codepointColumn, isSelecting);
-        }
+
+        if (newLineNumber < 0)
+                newLineNumber = 0;
+        else if (newLineNumber >= textrope_number_of_lines(edit->rope))
+                newLineNumber = textrope_number_of_lines(edit->rope);
+
+        int oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
+        int oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
+        int codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
+        move_to_line_and_column(edit, newLineNumber, codepointColumn, isSelecting);
 }
 
 static void move_cursor_up(struct TextEdit *edit, int isSelecting)
