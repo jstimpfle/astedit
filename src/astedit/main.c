@@ -10,6 +10,9 @@
 
 static struct TextEdit globalTextEdit;
 
+static Timer *keyinputTimer;
+
+
 void handle_events(void)
 {
 
@@ -28,7 +31,11 @@ void handle_events(void)
                                 shouldWindowClose = 1;
                         }
                         else {
+                                start_timer(keyinputTimer);
                                 process_input_in_textEdit(&input, &globalTextEdit);
+                                stop_timer(keyinputTimer);
+                                log_postf("Time spent in editing operation: %d us\n",
+                                        (int)get_elapsed_microseconds(keyinputTimer));
                         }
                 }
                 else if (input.inputKind == INPUT_MOUSEBUTTON) {
@@ -66,6 +73,7 @@ int main(int argc, const char **argv)
         setup_gfx();
 
         init_TextEdit(&globalTextEdit);
+        keyinputTimer = create_timer();
 
         if (argc == 2)
                 textedit_test_init(&globalTextEdit, argv[1]);
@@ -79,6 +87,7 @@ int main(int argc, const char **argv)
                 sleep_milliseconds(13);
         }
 
+        destroy_timer(keyinputTimer);
         exit_TextEdit(&globalTextEdit);
 
         teardown_gfx();
