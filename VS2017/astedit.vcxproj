@@ -118,6 +118,7 @@
     <Link>
       <AdditionalLibraryDirectories>..\libs\freetype-2.9.1\x64;..\libs\glfw-3.2.1\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3.lib;freetype.lib;glu32.lib;opengl32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -137,6 +138,7 @@
     <ClCompile Include="..\src\astedit\clock-win32.c" />
     <ClCompile Include="..\src\astedit\data.c" />
     <ClCompile Include="..\src\astedit\draw2d.c" />
+    <ClCompile Include="..\src\astedit\eventhandling.c" />
     <ClCompile Include="..\src\astedit\font-freetype.c" />
     <ClCompile Include="..\src\astedit\font.c" />
     <ClCompile Include="..\src\astedit\gfx-opengl.c" />
@@ -159,6 +161,7 @@
     <ClInclude Include="..\include\astedit\bytes.h" />
     <ClInclude Include="..\include\astedit\clock.h" />
     <ClInclude Include="..\include\astedit\draw2d.h" />
+    <ClInclude Include="..\include\astedit\eventhandling.h" />
     <ClInclude Include="..\include\astedit\font.h" />
     <ClInclude Include="..\include\astedit\gfx.h" />
     <ClInclude Include="..\include\astedit\logging.h" />

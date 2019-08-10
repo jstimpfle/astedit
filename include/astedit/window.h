@@ -123,7 +123,7 @@ struct KeyInput {
 
         int modifiers;  // OR'ed MODIFIER_??'s. Only valid if keyKind != KEY_NONE
         int hasCodepoint;
-        unsigned long codepoint;
+        uint32_t codepoint;
 };
 
 struct MousebuttonInput {

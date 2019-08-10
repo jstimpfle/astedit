@@ -249,7 +249,7 @@ void setup_window(void)
         glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         //glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);  // window size dependent on monitor scale
 
-        windowGlfw = glfwCreateWindow(128, 128, "Astedit", NULL, NULL);
+        windowGlfw = glfwCreateWindow(800, 600, "Astedit", NULL, NULL);
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
 

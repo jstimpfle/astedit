@@ -92,6 +92,7 @@ void begin_frame(int x, int y, int w, int h)
         ENSURE(colorVertexCount == 0);
         ENSURE(alphaVertexCount == 0);
         set_viewport_in_pixels(x, y, w, h);
+        set_2d_coordinate_system(x, y, w, h);
 }
 
 void end_frame(void)
@@ -179,6 +180,7 @@ void draw_alpha_texture_rect(Texture texture,
 enum {
         DRAWSTRING_NORMAL,
         DRAWSTRING_HIGHLIGHT,
+        DRAWSTRING_CURSOR_BEFORE,
 };
 
 
@@ -201,6 +203,12 @@ static void draw_text_span(
         int start, int end, int drawstringKind,
         int r, int g, int b, int a)
 {
+
+        if (drawstringKind == DRAWSTRING_CURSOR_BEFORE)
+                draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
+                        3.0f, cursor->lineHeight,
+                        192, 0, 0, 224);
+
         int i = start;
         while (i < end) {
                 int j = i;
@@ -251,7 +259,7 @@ static void draw_codepoints_with_cursor(
                         r = 0; g = 0; b = 0; a = 255;
                 }
                 else if (cursor->codepointpos < markEnd) {
-                        drawstringKind = DRAWSTRING_HIGHLIGHT;
+                        drawstringKind = DRAWSTRING_CURSOR_BEFORE;
                         numCodepoints = minInt(numCodepointsRemain, markEnd - cursor->codepointpos);
                         r = 0; g = 128; b = 0; a = 255;
                 }
@@ -265,6 +273,10 @@ static void draw_codepoints_with_cursor(
                 start += numCodepoints;
                 cursor->codepointpos += numCodepoints;
         }
+        /* quick hack to get cursor at end */
+        if (start == markStart)
+                draw_text_span(cursor, boundingBox, codepoints, start, 0, DRAWSTRING_CURSOR_BEFORE,
+                        0, 128, 0, 255);
 }
 
 static void draw_text_with_cursor(
@@ -291,7 +303,7 @@ static void draw_text_with_cursor(
 
 }
 
-static void draw_line_numbers(struct TextEdit *edit, int firstLine, int maxNumberOfLines, int x, int y, int w, int h)
+static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOfLines, int x, int y, int w, int h)
 {
         struct BoundingBox box;
         box.bbX = x;
@@ -310,9 +322,7 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int maxNumbe
         drawCursor.lineNumber = 0;
         struct DrawCursor *cursor = &drawCursor;
 
-        int onePastLastLine = textrope_number_of_lines_quirky(edit->rope);
-        if (onePastLastLine >= firstLine + maxNumberOfLines)
-                onePastLastLine = firstLine + maxNumberOfLines;
+        int onePastLastLine = firstLine + numberOfLines;
 
         for (int i = firstLine; i < onePastLastLine; i++) {
                 char buf[16];
@@ -322,17 +332,16 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int maxNumbe
         }
 }
 
-static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNumberOfLines,
+
+static const int LINE_HEIGHT = 30;
+
+static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int numberOfLines,
         int x, int y, int w, int h, int markStart, int markEnd)
 {
         char readbuffer[256];
         uint32_t codepointBuffer[LENGTH(readbuffer)];
 
         int readbufferFill = 0;
-
-        int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
-        if (numberOfLines > maxNumberOfLines)
-                numberOfLines = maxNumberOfLines;
 
         int readPositionInBytes = compute_pos_of_line(edit->rope, firstLine);
         int lastPositionInBytes = compute_pos_of_line(edit->rope, firstLine + numberOfLines); //XXX
@@ -348,7 +357,7 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
         cursor.xLeft = x;
         cursor.fontSize = 25;
         cursor.ascender = 20;
-        cursor.lineHeight = 30;
+        cursor.lineHeight = LINE_HEIGHT;
         cursor.x = x;
         cursor.y = y + cursor.lineHeight;
         cursor.codepointpos = compute_codepoint_position(edit->rope, readPositionInBytes);
@@ -385,56 +394,67 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int maxNum
                         codepointBuffer, numCodepointsDecoded,
                         markStart, markEnd);
         }
-
-        {//XXX
-                //XXX repeated code
-                box.bbX = 0;
-                box.bbY = 0;
-                box.bbW = windowWidthInPixels;
-                box.bbH = windowHeightInPixels;
-                cursor.xLeft = x;
-                cursor.fontSize = 25;
-                cursor.ascender = 20;
-                cursor.lineHeight = 30;
-                cursor.x = x;
-                cursor.y = y + h + cursor.lineHeight;
-                cursor.codepointpos = 0;
-                cursor.lineNumber = 0;
-
-                int pos = edit->cursorBytePosition;
-                int codepointPos = compute_codepoint_position(edit->rope, pos);
-                int lineNumber = compute_line_number(edit->rope, pos);
-                char posBuf[32];
-                char codepointPosBuf[32];
-                char lineBuf[32];
-                snprintf(posBuf, sizeof posBuf, "%d", pos);
-                snprintf(codepointPosBuf, sizeof codepointPosBuf, "%d", codepointPos);
-                snprintf(lineBuf, sizeof lineBuf, "%d", lineNumber);
-                draw_text_with_cursor(&cursor, boundingBox, "pos ", 4, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, posBuf, strlen(posBuf), -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, "codepointPos ", 13, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, codepointPosBuf, strlen(codepointPosBuf), -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, "Line ", 5, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, lineBuf, strlen(lineBuf), -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, "selecting: ", 11, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, edit->isSelectionMode ? "1" : "0", 1, -1, -1);
-                draw_text_with_cursor(&cursor, boundingBox, "\n", 1, -1, -1);
-        }
 }
 
-void draw_TextEdit(struct TextEdit *edit, int firstLine, int numberOfLines, int markStart, int markEnd)
+static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)
 {
-        //log_postf("Drawing lines %d - %d\n", firstLine + 1, firstLine + numberOfLines);
-        int x = 0;
-        int y = 0;
-        int linesW = 200;
-        int textW = 1080;
-        int h = 1024;
+        draw_colored_rect(x, y, w, h, 128, 160, 128, 224);
 
-        draw_colored_rect(x, y, linesW + textW, h, 224, 224, 224, 224);
+        // no actual bounding box currently.
+        struct BoundingBox box;
+        box.bbX = 0;
+        box.bbY = 0;
+        box.bbW = windowWidthInPixels;
+        box.bbH = windowHeightInPixels;
+
+        struct DrawCursor cursor;
+        cursor.xLeft = x;
+        cursor.fontSize = 25;
+        cursor.ascender = 20;
+        cursor.lineHeight = LINE_HEIGHT;
+        cursor.x = x;
+        cursor.y = y + LINE_HEIGHT*2/3;
+        cursor.codepointpos = 0;
+        cursor.lineNumber = 0;
+
+        int pos = edit->cursorBytePosition;
+        int codepointPos = compute_codepoint_position(edit->rope, pos);
+        int lineNumber = compute_line_number(edit->rope, pos);
+        char posBuf[32];
+        char codepointPosBuf[32];
+        char lineBuf[32];
+        snprintf(posBuf, sizeof posBuf, "%d", pos);
+        snprintf(codepointPosBuf, sizeof codepointPosBuf, "%d", codepointPos);
+        snprintf(lineBuf, sizeof lineBuf, "%d", lineNumber);
+        draw_text_with_cursor(&cursor, &box, "pos: ", 5, -1, -1);
+        draw_text_with_cursor(&cursor, &box, posBuf, strlen(posBuf), -1, -1);
+        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
+        draw_text_with_cursor(&cursor, &box, "codepointPos: ", 14, -1, -1);
+        draw_text_with_cursor(&cursor, &box, codepointPosBuf, strlen(codepointPosBuf), -1, -1);
+        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
+        draw_text_with_cursor(&cursor, &box, "Line: ", 6, -1, -1);
+        draw_text_with_cursor(&cursor, &box, lineBuf, strlen(lineBuf), -1, -1);
+        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
+        draw_text_with_cursor(&cursor, &box, "selecting: ", 11, -1, -1);
+        draw_text_with_cursor(&cursor, &box, edit->isSelectionMode ? "1" : "0", 1, -1, -1);
+        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
+}
+
+static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
+        struct TextEdit *edit, int firstLine, int markStart, int markEnd)
+{
+        draw_colored_rect(canvasX, canvasY, canvasW, canvasH,
+                224, 224, 224, 224);
+
+        int statusLineH = 30;
+
+        //log_postf("Drawing lines %d - %d\n", firstLine + 1, firstLine + numberOfLines);
+        int x = canvasX;
+        int y = canvasY;
+        int linesW = 200;
+        int textW = canvasW < linesW ? 0 : canvasW - linesW;
+        int h = canvasH < statusLineH ? 0 : canvasH - statusLineH;
+
 
         int length = textrope_length(edit->rope);
 
@@ -447,18 +467,29 @@ void draw_TextEdit(struct TextEdit *edit, int firstLine, int numberOfLines, int 
 
         ENSURE(markStart <= markEnd);
 
+        int maxNumberOfLines = h / LINE_HEIGHT;
+        int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
+        if (numberOfLines > maxNumberOfLines)
+                numberOfLines = maxNumberOfLines;
+
         draw_line_numbers(edit, firstLine, numberOfLines, x, y, linesW, h);
         draw_textedit_lines(edit, firstLine, numberOfLines, x + linesW, y, textW, h, markStart, markEnd);
+        draw_textedit_statusline(edit, x, y + h, canvasW, canvasH - h);
 }
+
+static int maxInt(int x, int y) { return x > y ? x : y; }
 
 void testdraw(struct TextEdit *edit)
 {
-        begin_frame(100, 100, windowWidthInPixels - 100, windowHeightInPixels - 100);
+        int canvasX = 100;
+        int canvasY = 100;
+        int canvasW = maxInt(windowWidthInPixels - 200, 0);
+        int canvasH = maxInt(windowHeightInPixels - 200, 0);
+
         clear_screen_and_drawing_state();
+        begin_frame(canvasX, canvasY, canvasW, canvasH);
 
-        set_2d_coordinate_system(0.0f, 0.0f, (float)(windowWidthInPixels - 100), (float)(windowHeightInPixels - 100));
-
-        //draw_colored_rect(200, 200, 200, 200, 128, 128, 128, 224);
+        draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, 128, 128, 128, 255);
         //draw_text_file(edit->contents, edit->length, 3, 5);
 
 
@@ -471,11 +502,9 @@ void testdraw(struct TextEdit *edit)
                 markEnd = markStart + 1;
         }
 
-        draw_TextEdit(edit,
-                edit->firstLineDisplayed,
-                15 /*XXX*/,
+        draw_TextEdit(0, 0, canvasW, canvasH,
+                edit, edit->firstLineDisplayed,
                 markStart, markEnd);
 
         end_frame();
-        swap_buffers();
 }

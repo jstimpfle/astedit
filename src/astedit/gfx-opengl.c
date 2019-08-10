@@ -524,7 +524,7 @@ void destroy_alpha_texture(Texture texHandle)
 }
 
 
-void set_2d_coordinate_system(float x, float y, float w, float h)
+void set_2d_coordinate_system(int x, int y, int w, int h)
 {
         (void)x;
         (void)y;
@@ -574,6 +574,12 @@ void clear_screen_and_drawing_state(void)
         glDisable(GL_SCISSOR_TEST);
         glDepthFunc(GL_GEQUAL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        CHECK_GL_ERRORS();
+}
+
+void flush_gfx(void)
+{
+        glFlush();
         CHECK_GL_ERRORS();
 }
 

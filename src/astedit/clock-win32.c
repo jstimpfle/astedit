@@ -36,6 +36,7 @@ struct TimerStruct {
 };
 
 #include <astedit/memoryalloc.h>
+#include <astedit/logging.h>
 
 static LARGE_INTEGER performanceFrequency;
 static double microsecondsPerTick;
@@ -66,6 +67,12 @@ void start_timer(Timer *timer)
 void stop_timer(Timer *timer)
 {
         QueryPerformanceCounter(&timer->stopTime);
+}
+
+void report_timer(Timer *timer, const char *description)
+{
+        log_postf("%s: %lld us", description,
+                (long long)get_elapsed_microseconds(timer));
 }
 
 uint64_t get_elapsed_microseconds(Timer *timer)

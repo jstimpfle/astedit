@@ -42,7 +42,8 @@ void setup_gfx(void);
 void teardown_gfx(void);
 
 void clear_screen_and_drawing_state(void);
-void set_2d_coordinate_system(float x, float y, float w, float h);
+void flush_gfx(void);
+void set_2d_coordinate_system(int x, int y, int w, int h);
 void set_viewport_in_pixels(int x, int y, int w, int h);
 void set_clipping_rect_in_pixels(int x, int y, int w, int h);
 void clear_clipping_rect(void);

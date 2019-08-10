@@ -59,7 +59,7 @@ void get_selected_range_in_codepoints(struct TextEdit *edit, int *outStart, int 
 
 
 
-static void move_minimally_to_display_line(struct TextEdit *edit, int lineNumber)
+void move_view_minimally_to_display_line(struct TextEdit *edit, int lineNumber)
 {
         if (edit->firstLineDisplayed > lineNumber)
                 edit->firstLineDisplayed = lineNumber;
@@ -67,30 +67,30 @@ static void move_minimally_to_display_line(struct TextEdit *edit, int lineNumber
                 edit->firstLineDisplayed = lineNumber - edit->numberOfLinesDisplayed + 1;
 }
 
-static void move_minimally_to_display_cursor(struct TextEdit *edit)
+void move_view_minimally_to_display_cursor(struct TextEdit *edit)
 {
         int lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
-        move_minimally_to_display_line(edit, lineNumber);
+        move_view_minimally_to_display_line(edit, lineNumber);
 }
 
-static void move_cursor_to_byte_position(struct TextEdit *edit, int pos, int isSelecting)
+void move_cursor_to_byte_position(struct TextEdit *edit, int pos, int isSelecting)
 {
         if (!edit->isSelectionMode && isSelecting)
                 edit->selectionStartBytePosition = edit->cursorBytePosition;
         edit->isSelectionMode = isSelecting;
 
         edit->cursorBytePosition = pos;
-        move_minimally_to_display_cursor(edit);
+        move_view_minimally_to_display_cursor(edit);
         //log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
 }
 
-static void move_cursor_to_codepoint(struct TextEdit *edit, int codepointPos, int isSelecting)
+void move_cursor_to_codepoint(struct TextEdit *edit, int codepointPos, int isSelecting)
 {
         int pos = compute_pos_of_codepoint(edit->rope, codepointPos);
         move_cursor_to_byte_position(edit, pos, isSelecting);
 }
 
-static void move_cursor_left(struct TextEdit *edit, int isSelecting)
+void move_cursor_left(struct TextEdit *edit, int isSelecting)
 {
         int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
         //int totalCodepoints = textrope_number_of_codepoints(edit->rope);
@@ -98,7 +98,7 @@ static void move_cursor_left(struct TextEdit *edit, int isSelecting)
                 move_cursor_to_codepoint(edit, codepointPosition - 1, isSelecting);
 }
 
-static void move_cursor_right(struct TextEdit *edit, int isSelecting)
+void move_cursor_right(struct TextEdit *edit, int isSelecting)
 {
         int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
         int totalCodepoints = textrope_number_of_codepoints(edit->rope);
@@ -106,7 +106,7 @@ static void move_cursor_right(struct TextEdit *edit, int isSelecting)
                 move_cursor_to_codepoint(edit, codepointPosition + 1, isSelecting);
 }
 
-static void move_to_line_and_column(struct TextEdit *edit, int lineNumber, int codepointColumn, int isSelecting)
+void move_cursor_to_line_and_column(struct TextEdit *edit, int lineNumber, int codepointColumn, int isSelecting)
 {
         int linePos = compute_pos_of_line(edit->rope, lineNumber);
         int lineCodepointPosition = compute_codepoint_position(edit->rope, linePos);
@@ -123,7 +123,7 @@ static void move_to_line_and_column(struct TextEdit *edit, int lineNumber, int c
         move_cursor_to_codepoint(edit, lineCodepointPosition + codepointColumn, isSelecting);
 }
 
-static void move_lines_relative(struct TextEdit *edit, int linesDiff, int isSelecting)
+void move_cursor_lines_relative(struct TextEdit *edit, int linesDiff, int isSelecting)
 {
         int oldLineNumber;
         int oldCodepointPosition;
@@ -140,27 +140,27 @@ static void move_lines_relative(struct TextEdit *edit, int linesDiff, int isSele
         int oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
         int oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
         int codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
-        move_to_line_and_column(edit, newLineNumber, codepointColumn, isSelecting);
+        move_cursor_to_line_and_column(edit, newLineNumber, codepointColumn, isSelecting);
 }
 
-static void move_cursor_up(struct TextEdit *edit, int isSelecting)
+void move_cursor_up(struct TextEdit *edit, int isSelecting)
 {
-        move_lines_relative(edit, -1, isSelecting);
+        move_cursor_lines_relative(edit, -1, isSelecting);
 }
 
-static void move_cursor_down(struct TextEdit *edit, int isSelecting)
+void move_cursor_down(struct TextEdit *edit, int isSelecting)
 {
-        move_lines_relative(edit, +1, isSelecting);
+        move_cursor_lines_relative(edit, +1, isSelecting);
 }
 
-static void move_cursor_to_beginning_of_line(struct TextEdit *edit, int isSelecting)
+void move_cursor_to_beginning_of_line(struct TextEdit *edit, int isSelecting)
 {
         int lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
         int pos = compute_pos_of_line(edit->rope, lineNumber);
         move_cursor_to_byte_position(edit, pos, isSelecting);
 }
 
-static void move_cursor_to_end_of_line(struct TextEdit *edit, int isSelecting)
+void move_cursor_to_end_of_line(struct TextEdit *edit, int isSelecting)
 {
         int numberOfLines = textrope_number_of_lines_quirky(edit->rope);
         int lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
@@ -172,28 +172,28 @@ static void move_cursor_to_end_of_line(struct TextEdit *edit, int isSelecting)
         move_cursor_to_codepoint(edit, codepointPos - 1, isSelecting);
 }
 
-static void move_to_first_line(struct TextEdit *edit, int isSelecting)
+void move_to_first_line(struct TextEdit *edit, int isSelecting)
 {
-        move_to_line_and_column(edit, 0, 0, isSelecting);
+        move_cursor_to_line_and_column(edit, 0, 0, isSelecting);
 }
 
-static void move_to_last_line(struct TextEdit *edit, int isSelecting)
+void move_to_last_line(struct TextEdit *edit, int isSelecting)
 {
-        move_to_line_and_column(edit,
+        move_cursor_to_line_and_column(edit,
                                 textrope_number_of_lines(edit->rope),
                                 0, isSelecting);
 }
 
 enum { LINES_PER_PAGE = 15 };
 
-static void scroll_up_one_page(struct TextEdit *edit, int isSelecting)
+void scroll_up_one_page(struct TextEdit *edit, int isSelecting)
 {
-        move_lines_relative(edit, -LINES_PER_PAGE, isSelecting);
+        move_cursor_lines_relative(edit, -LINES_PER_PAGE, isSelecting);
 }
 
-static void scroll_down_one_page(struct TextEdit *edit, int isSelecting)
+void scroll_down_one_page(struct TextEdit *edit, int isSelecting)
 {
-        move_lines_relative(edit, LINES_PER_PAGE, isSelecting);
+        move_cursor_lines_relative(edit, LINES_PER_PAGE, isSelecting);
 }
 
 void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint32_t *codepoints, int numCodepoints)
@@ -222,7 +222,7 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
         move_cursor_right(edit, 0);  // XXX
 }
 
-static void erase_selected(struct TextEdit *edit)
+void erase_selected_in_TextEdit(struct TextEdit *edit)
 {
         ENSURE(edit->isSelectionMode);
         int start;
@@ -233,7 +233,7 @@ static void erase_selected(struct TextEdit *edit)
         edit->cursorBytePosition = start;
 }
 
-static void erase_forwards(struct TextEdit *edit)
+void erase_forwards_in_TextEdit(struct TextEdit *edit)
 {
         int codepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
         int totalCodepoints = textrope_number_of_codepoints(edit->rope);
@@ -245,79 +245,13 @@ static void erase_forwards(struct TextEdit *edit)
         }
 }
 
-static void erase_backwards(struct TextEdit *edit)
+void erase_backwards_in_TextEdit(struct TextEdit *edit)
 {
         int end = edit->cursorBytePosition;
         move_cursor_left(edit, 0); //XXX
         int start = edit->cursorBytePosition;
         if (start < end)
                 erase_from_textedit(edit, start, end - start);
-}
-
-void process_input_in_textEdit(struct Input *input, struct TextEdit *edit)
-{
-        if (input->inputKind == INPUT_KEY) {
-                int modifiers = input->data.tKey.modifiers;
-                int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
-                switch (input->data.tKey.keyKind) {
-                case KEY_ENTER:
-                        insert_codepoint_into_textedit(edit, 0x0a);
-                        break;
-                case KEY_CURSORLEFT:
-                        move_cursor_left(edit, isSelecting);
-                        break;
-                case KEY_CURSORRIGHT:
-                        move_cursor_right(edit, isSelecting);
-                        break;
-                case KEY_CURSORUP:
-                        move_cursor_up(edit, isSelecting);
-                        break;
-                case KEY_CURSORDOWN:
-                        move_cursor_down(edit, isSelecting);
-                        break;
-                case KEY_HOME:
-                        if (modifiers & MODIFIER_CONTROL)
-                                move_to_first_line(edit, isSelecting);
-                        else
-                                move_cursor_to_beginning_of_line(edit, isSelecting);
-                        break;
-                case KEY_END:
-                        if (modifiers & MODIFIER_CONTROL)
-                                move_to_last_line(edit, isSelecting);
-                        else
-                                move_cursor_to_end_of_line(edit, isSelecting);
-                        break;
-                case KEY_PAGEUP:
-                        scroll_up_one_page(edit, isSelecting);
-                        break;
-                case KEY_PAGEDOWN:
-                        scroll_down_one_page(edit, isSelecting);
-                        break;
-                case KEY_DELETE:
-                        if (edit->isSelectionMode)
-                                erase_selected(edit);
-                        else
-                                erase_forwards(edit);
-                        break;
-                case KEY_BACKSPACE:
-                        if (edit->isSelectionMode)
-                                erase_selected(edit);
-                        else
-                                erase_backwards(edit);
-                        break;
-                default:
-                        if (input->data.tKey.hasCodepoint) {
-                                if (edit->isSelectionMode)
-                                        erase_selected(edit);
-                                unsigned long codepoint = input->data.tKey.codepoint;
-                                insert_codepoint_into_textedit(edit, codepoint);
-                                //debug_check_textrope(edit->rope);
-                        }
-                        break;
-                }
-
-
-        }
 }
 
 void init_TextEdit(struct TextEdit *edit)

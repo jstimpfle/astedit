@@ -37,8 +37,7 @@ computer.
 
 In other words, there is no noticeable latency from the internal data
 structures. That should enable a very good user experience, even for very
-complex operations. (I haven't benchmarked the latency from other parts of the
-code, like drawing).
+complex operations.
 
 Since the rope data structure has no idea about the shape of the data (binary
 files, huge files, files with extremely long lines, etc.), these figures apply
