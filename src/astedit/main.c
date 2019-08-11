@@ -70,6 +70,39 @@ void handle_events(void)
         }
 }
 
+// factored out since it needs to be called from window-glfw.c as a hack.
+void mainloop(void)
+{
+        start_timer(mainloopTimer);
+
+        update_clock();
+
+        start_timer(waitEventsTimer);
+        wait_for_events();
+        stop_timer(waitEventsTimer);
+
+        start_timer(handleEventsTimer);
+        handle_events();
+        stop_timer(handleEventsTimer);
+
+        start_timer(redrawTimer);
+        testdraw(&globalTextEdit);
+        stop_timer(redrawTimer);
+
+        flush_gfx();
+        stop_timer(mainloopTimer);
+
+        /*
+        report_timer(waitEventsTimer, "Wait for events");
+        report_timer(handleEventsTimer, "Handle events");
+        report_timer(redrawTimer, "Redraw frame");
+        report_timer(mainloopTimer, "Main loop");
+        */
+
+        swap_buffers();
+        sleep_milliseconds(13);
+}
+
 int main(int argc, const char **argv)
 {
         setup_window();
@@ -87,32 +120,8 @@ int main(int argc, const char **argv)
         if (argc == 2)
                 textedit_test_init(&globalTextEdit, argv[1]);
 
-        while (!shouldWindowClose) {
-                start_timer(mainloopTimer);
-
-                start_timer(waitEventsTimer);
-                wait_for_events();
-                stop_timer(waitEventsTimer);
-
-                start_timer(handleEventsTimer);
-                handle_events();
-                stop_timer(handleEventsTimer);
-
-                start_timer(redrawTimer);
-                testdraw(&globalTextEdit);
-                stop_timer(redrawTimer);
-
-                flush_gfx();
-                stop_timer(mainloopTimer);
-
-                report_timer(waitEventsTimer, "Wait for events");
-                report_timer(handleEventsTimer, "Handle events");
-                report_timer(redrawTimer, "Redraw frame");
-                report_timer(mainloopTimer, "Main loop");
-
-                swap_buffers();
-                sleep_milliseconds(13);
-        }
+        while (!shouldWindowClose)
+                mainloop();
 
         destroy_timer(keyinputTimer);
         destroy_timer(redrawTimer);

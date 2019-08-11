@@ -13,22 +13,10 @@ int textedit_length_in_bytes(struct TextEdit *edit)
         return textrope_length(edit->rope);
 }
 
-int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size)
-{
-        UNUSED(edit);
-        return copy_text_from_textrope(edit->rope, offset, dstBuffer, size);
-}
-
-void erase_from_textedit(struct TextEdit *edit, int offset, int length)
-{
-        UNUSED(edit);
-        erase_text_from_textrope(edit->rope, offset, length);
-}
-
-int read_character_from_textedit(struct TextEdit *edit, int pos)
+static int read_character_from_textedit(struct TextEdit *edit, int pos)
 {
         char c;
-        int numBytes = read_from_textedit(edit, pos, &c, 1);
+        int numBytes = read_from_textrope(edit->rope, pos, &c, 1);
         ENSURE(numBytes == 1);
         return c;
 }
@@ -228,7 +216,7 @@ void erase_selected_in_TextEdit(struct TextEdit *edit)
         int start;
         int onePastEnd;
         get_selected_range_in_bytes(edit, &start, &onePastEnd);
-        erase_from_textedit(edit, start, onePastEnd - start);
+        erase_text_from_textrope(edit->rope, start, onePastEnd - start);
         edit->isSelectionMode = 0;
         edit->cursorBytePosition = start;
 }
@@ -241,7 +229,7 @@ void erase_forwards_in_TextEdit(struct TextEdit *edit)
                 int start = edit->cursorBytePosition;
                 int end = compute_pos_of_codepoint(edit->rope, codepointPosition + 1);
                 if (start < end)
-                        erase_from_textedit(edit, start, end - start);
+                        erase_text_from_textrope(edit->rope, start, end - start);
         }
 }
 
@@ -251,16 +239,25 @@ void erase_backwards_in_TextEdit(struct TextEdit *edit)
         move_cursor_left(edit, 0); //XXX
         int start = edit->cursorBytePosition;
         if (start < end)
-                erase_from_textedit(edit, start, end - start);
+                erase_text_from_textrope(edit->rope, start, end - start);
 }
 
 void init_TextEdit(struct TextEdit *edit)
 {
         UNUSED(edit);
         edit->rope = create_textrope();
+
         edit->cursorBytePosition = 0;
+
+        edit->isSelectionMode = 0;
+        edit->selectionStartBytePosition = 0;
+
         edit->firstLineDisplayed = 0;
         edit->numberOfLinesDisplayed = 15;  // XXX need some mechanism to set and update this
+
+        edit->isLoading = 0;
+        edit->loadingCompletedBytes = 0;
+        edit->loadingTotalBytes = 0;
 }
 
 void exit_TextEdit(struct TextEdit *edit)
@@ -279,6 +276,10 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
         char buf[1024];
         int bufFill = 0;
 
+        edit->isLoading = 1;
+        edit->loadingCompletedBytes = 0;
+        edit->loadingTotalBytes = 30000000;
+
         for (;;) {
                 size_t n = fread(buf + bufFill, 1, sizeof buf - bufFill, f);
                 bufFill += n;
@@ -292,13 +293,22 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
 
                 decode_utf8_span_and_move_rest_to_front(buf, bufFill, utf8buf, &bufFill, &utf8Fill);
                 insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
+
+                edit->loadingCompletedBytes += utf8Fill;
+
+
+                //XXXX need to be asynchronous
+                extern void mainloop(void);
+                mainloop();
         }
         if (ferror(f))
                 fatalf("Errors while reading from file %s\n", filepath);
         if (bufFill > 0)
                 fatalf("Unconsumed characters at the end!\n");
+
         fclose(f);
 
+        edit->isLoading = 0;
         edit->cursorBytePosition = 0;
 
         print_textrope_statistics(edit->rope);

@@ -223,6 +223,17 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
         inp.data.tWindowresize.width = width;
         inp.data.tWindowresize.height = height;
         enqueue_input(&inp);
+
+        //XXX: there's an issue that glfwPollEvents() blocks on some platforms
+        // during a window move or resize (see notes in GLFW docs).
+        // To work around that, for now we just duplicate drawing in this callback.
+        // it's not nice and likely to break, so consider it a temporary hack.
+        extern long long timeSinceProgramStartupMilliseconds;
+        extern void mainloop(void);
+        if (timeSinceProgramStartupMilliseconds > 2000) { // XXX OpenGL should be set up by now
+                mainloop();
+        }
+
 }
 
 static void windowrefresh_cb_glfw(GLFWwindow *win)

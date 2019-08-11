@@ -259,7 +259,7 @@ static void draw_codepoints_with_cursor(
                         r = 0; g = 0; b = 0; a = 255;
                 }
                 else if (cursor->codepointpos < markEnd) {
-                        drawstringKind = DRAWSTRING_CURSOR_BEFORE;
+                        drawstringKind = DRAWSTRING_HIGHLIGHT;
                         numCodepoints = minInt(numCodepointsRemain, markEnd - cursor->codepointpos);
                         r = 0; g = 128; b = 0; a = 255;
                 }
@@ -300,7 +300,21 @@ static void draw_text_with_cursor(
                         codepoints, numCodepointsDecoded,
                         markStart, markEnd);
         }
+}
 
+static void draw_text_snprintf(
+        struct DrawCursor *cursor,
+        const struct BoundingBox *boundingBox,
+        const char *buffer, int length,
+        const char *fmt, ...
+)
+{
+        va_list ap;
+        va_start(ap, fmt);
+        int numBytes = vsnprintf(buffer, length, fmt, ap);
+        if (numBytes >= 0)
+                draw_text_with_cursor(cursor, boundingBox, buffer, numBytes, -1, -1);
+        va_end(ap);
 }
 
 static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOfLines, int x, int y, int w, int h)
@@ -420,25 +434,41 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         int pos = edit->cursorBytePosition;
         int codepointPos = compute_codepoint_position(edit->rope, pos);
         int lineNumber = compute_line_number(edit->rope, pos);
-        char posBuf[32];
-        char codepointPosBuf[32];
-        char lineBuf[32];
-        snprintf(posBuf, sizeof posBuf, "%d", pos);
-        snprintf(codepointPosBuf, sizeof codepointPosBuf, "%d", codepointPos);
-        snprintf(lineBuf, sizeof lineBuf, "%d", lineNumber);
-        draw_text_with_cursor(&cursor, &box, "pos: ", 5, -1, -1);
-        draw_text_with_cursor(&cursor, &box, posBuf, strlen(posBuf), -1, -1);
-        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
-        draw_text_with_cursor(&cursor, &box, "codepointPos: ", 14, -1, -1);
-        draw_text_with_cursor(&cursor, &box, codepointPosBuf, strlen(codepointPosBuf), -1, -1);
-        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
-        draw_text_with_cursor(&cursor, &box, "Line: ", 6, -1, -1);
-        draw_text_with_cursor(&cursor, &box, lineBuf, strlen(lineBuf), -1, -1);
-        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
-        draw_text_with_cursor(&cursor, &box, "selecting: ", 11, -1, -1);
-        draw_text_with_cursor(&cursor, &box, edit->isSelectionMode ? "1" : "0", 1, -1, -1);
-        draw_text_with_cursor(&cursor, &box, "  ", 1, -1, -1);
+
+        char textbuffer[512];
+        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, "pos: %d", pos);
+        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, ", codepointPos: %d", codepointPos);
+        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, ", lineNumber: %d", lineNumber);
+        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
 }
+
+static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, int h)
+{
+        draw_colored_rect(x, y, w, h, 128, 160, 128, 224);
+
+        // no actual bounding box currently.
+        struct BoundingBox box;
+        box.bbX = 0;
+        box.bbY = 0;
+        box.bbW = windowWidthInPixels;
+        box.bbH = windowHeightInPixels;
+
+        struct DrawCursor cursor;
+        cursor.xLeft = x;
+        cursor.fontSize = 25;
+        cursor.ascender = 20;
+        cursor.lineHeight = LINE_HEIGHT;
+        cursor.x = x;
+        cursor.y = y + LINE_HEIGHT * 2 / 3;
+        cursor.codepointpos = 0;
+        cursor.lineNumber = 0;
+
+        char textbuffer[512];
+        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer,
+                "LOADING %d  (%d / %d bytes)", edit->loadingCompletedBytes * 100 / edit->loadingTotalBytes,
+                edit->loadingCompletedBytes, edit->loadingTotalBytes);
+}
+
 
 static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
         struct TextEdit *edit, int firstLine, int markStart, int markEnd)
@@ -447,18 +477,23 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
                 224, 224, 224, 224);
 
         int statusLineH = 30;
+        
+        int linesX = canvasX;
+        int linesY = canvasY;
+        int linesW = 200;
+        int linesH = canvasH < statusLineH ? 0 : canvasH - statusLineH;
 
         //log_postf("Drawing lines %d - %d\n", firstLine + 1, firstLine + numberOfLines);
-        int x = canvasX;
-        int y = canvasY;
-        int linesW = 200;
-        int textW = canvasW < linesW ? 0 : canvasW - linesW;
-        int h = canvasH < statusLineH ? 0 : canvasH - statusLineH;
+        int textAreaX = linesX + linesW;
+        int textAreaY = linesY;
+        int textAreaW = canvasW < linesW ? 0 : canvasW - linesW;
+        int textAreaH = linesH;
 
+        int statusLineX = linesX;
+        int statusLineY = linesY + linesH;
+        int statusLineW = canvasW;
 
         int length = textrope_length(edit->rope);
-
-        if (length == 0) return;  // for debugging
 
         if (markStart < 0) markStart = 0;
         if (markEnd < 0) markEnd = 0;
@@ -467,14 +502,23 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
 
         ENSURE(markStart <= markEnd);
 
-        int maxNumberOfLines = h / LINE_HEIGHT;
+        int maxNumberOfLines = (textAreaH + LINE_HEIGHT - 1) / LINE_HEIGHT;
         int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
         if (numberOfLines > maxNumberOfLines)
                 numberOfLines = maxNumberOfLines;
 
-        draw_line_numbers(edit, firstLine, numberOfLines, x, y, linesW, h);
-        draw_textedit_lines(edit, firstLine, numberOfLines, x + linesW, y, textW, h, markStart, markEnd);
-        draw_textedit_statusline(edit, x, y + h, canvasW, canvasH - h);
+        // XXX is here the right place to do this?
+        edit->numberOfLinesDisplayed = textAreaH / LINE_HEIGHT;
+
+
+
+        if (edit->isLoading) {
+                draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+        } else {
+                draw_line_numbers(edit, firstLine, numberOfLines, linesX, linesY, linesW, linesH);
+                draw_textedit_lines(edit, firstLine, numberOfLines, textAreaX, textAreaY, textAreaW, textAreaH, markStart, markEnd);
+                draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+        }
 }
 
 static int maxInt(int x, int y) { return x > y ? x : y; }

@@ -15,6 +15,10 @@ struct TextEdit {
 
         int firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
         int numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
+
+        int isLoading;
+        int loadingCompletedBytes;
+        int loadingTotalBytes;
 };
 
 
@@ -23,9 +27,6 @@ void exit_TextEdit(struct TextEdit *edit);
 
 // length of text contents, in bytes
 int textedit_length_in_bytes(struct TextEdit *edit);
-
-/* this costs Log(TextLength) + NumBytes. So try to read larger chunks. Maybe an iteration API would be a good idea */
-int read_from_textedit(struct TextEdit *edit, int offset, char *dstBuffer, int size);
 
 
 void get_selected_range_in_bytes(struct TextEdit *edit, int *outStart, int *outOnePastEnd);
@@ -49,10 +50,6 @@ void move_to_first_line(struct TextEdit *edit, int isSelecting);
 void move_to_last_line(struct TextEdit *edit, int isSelecting);
 void scroll_up_one_page(struct TextEdit *edit, int isSelecting);
 void scroll_down_one_page(struct TextEdit *edit, int isSelecting);
-
-
-
-
 
 
 
