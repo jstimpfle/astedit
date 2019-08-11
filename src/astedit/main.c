@@ -70,7 +70,6 @@ void handle_events(void)
         }
 }
 
-// factored out since it needs to be called from window-glfw.c as a hack.
 void mainloop(void)
 {
         start_timer(mainloopTimer);

@@ -206,7 +206,7 @@ static void draw_text_span(
 
         if (drawstringKind == DRAWSTRING_CURSOR_BEFORE)
                 draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
-                        3.0f, cursor->lineHeight,
+                        3, cursor->lineHeight,
                         192, 0, 0, 224);
 
         int i = start;
@@ -305,9 +305,8 @@ static void draw_text_with_cursor(
 static void draw_text_snprintf(
         struct DrawCursor *cursor,
         const struct BoundingBox *boundingBox,
-        const char *buffer, int length,
-        const char *fmt, ...
-)
+        char *buffer, int length,
+        const char *fmt, ...)
 {
         va_list ap;
         va_start(ap, fmt);
@@ -319,6 +318,8 @@ static void draw_text_snprintf(
 
 static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOfLines, int x, int y, int w, int h)
 {
+        UNUSED(edit);
+
         struct BoundingBox box;
         box.bbX = x;
         box.bbY = y;
@@ -341,7 +342,7 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOf
         for (int i = firstLine; i < onePastLastLine; i++) {
                 char buf[16];
                 snprintf(buf, sizeof buf, "%4d", i + 1);
-                draw_text_with_cursor(cursor, &box, buf, strlen(buf), -1, -1);
+                draw_text_with_cursor(cursor, &box, buf, (int) strlen(buf), -1, -1);
                 next_line(cursor);
         }
 }
@@ -465,7 +466,7 @@ static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, in
 
         char textbuffer[512];
         draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer,
-                "LOADING %d  (%d / %d bytes)", edit->loadingCompletedBytes * 100 / edit->loadingTotalBytes,
+                "LOADING %d  (%d / %d bytes)", edit->loadingCompletedBytes /* *100 / edit->loadingTotalBytes*/,
                 edit->loadingCompletedBytes, edit->loadingTotalBytes);
 }
 
@@ -493,28 +494,26 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
         int statusLineY = linesY + linesH;
         int statusLineW = canvasW;
 
-        int length = textrope_length(edit->rope);
-
-        if (markStart < 0) markStart = 0;
-        if (markEnd < 0) markEnd = 0;
-        if (markStart >= length) markStart = length;
-        if (markEnd >= length) markEnd = length;
-
-        ENSURE(markStart <= markEnd);
-
-        int maxNumberOfLines = (textAreaH + LINE_HEIGHT - 1) / LINE_HEIGHT;
-        int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
-        if (numberOfLines > maxNumberOfLines)
-                numberOfLines = maxNumberOfLines;
-
-        // XXX is here the right place to do this?
-        edit->numberOfLinesDisplayed = textAreaH / LINE_HEIGHT;
-
-
-
         if (edit->isLoading) {
                 draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
         } else {
+                int length = textrope_length(edit->rope);
+
+                if (markStart < 0) markStart = 0;
+                if (markEnd < 0) markEnd = 0;
+                if (markStart >= length) markStart = length;
+                if (markEnd >= length) markEnd = length;
+
+                ENSURE(markStart <= markEnd);
+
+                int maxNumberOfLines = (textAreaH + LINE_HEIGHT - 1) / LINE_HEIGHT;
+                int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
+                if (numberOfLines > maxNumberOfLines)
+                        numberOfLines = maxNumberOfLines;
+
+                // XXX is here the right place to do this?
+                edit->numberOfLinesDisplayed = textAreaH / LINE_HEIGHT;
+
                 draw_line_numbers(edit, firstLine, numberOfLines, linesX, linesY, linesW, linesH);
                 draw_textedit_lines(edit, firstLine, numberOfLines, textAreaX, textAreaY, textAreaW, textAreaH, markStart, markEnd);
                 draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);

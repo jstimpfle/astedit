@@ -437,6 +437,8 @@ void teardown_gfx(void)
 void upload_rgba_texture_data(Texture texture, const unsigned char *data, int size, int w, int h)
 {
         ENSURE(size == w * h * 4);
+        UNUSED(size);
+
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
         /*
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -460,6 +462,8 @@ void upload_alpha_texture_data(Texture texture, const unsigned char *data, int s
         //ENSURE(data != NULL);  // From now on, NULL is valid and means to allocate the texture without any initialization pixel data
         ENSURE(texture >= 0);
         ENSURE(size == w * h);
+        UNUSED(size);
+
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
 
         /*

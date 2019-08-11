@@ -4,6 +4,7 @@
 #include <astedit/astedit.h>
 #include <astedit/window.h>
 #include <astedit/textrope.h>
+#include <astedit/filereadthread.h>
 
 struct TextEdit {
         struct Textrope *rope;
@@ -16,9 +17,11 @@ struct TextEdit {
         int firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
         int numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
 
+        /*XXX this stuff probably must be protected with a mutex */
         int isLoading;
         int loadingCompletedBytes;
         int loadingTotalBytes;
+        struct FilereadThreadCtx *loadingFilereadThreadCtx;
 };
 
 

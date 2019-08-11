@@ -3,6 +3,7 @@
 #include <astedit/memoryalloc.h>
 #include <astedit/utf8.h>
 #include <astedit/logging.h>
+#include <astedit/filereadthread.h>
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 
@@ -13,13 +14,6 @@ int textedit_length_in_bytes(struct TextEdit *edit)
         return textrope_length(edit->rope);
 }
 
-static int read_character_from_textedit(struct TextEdit *edit, int pos)
-{
-        char c;
-        int numBytes = read_from_textrope(edit->rope, pos, &c, 1);
-        ENSURE(numBytes == 1);
-        return c;
-}
 
 
 
@@ -266,50 +260,51 @@ void exit_TextEdit(struct TextEdit *edit)
         destroy_textrope(edit->rope);
 }
 
-#include <stdio.h>
-void textedit_test_init(struct TextEdit *edit, const char *filepath)
+
+static void prepare_reading_from_filereadthread(void *param)
 {
-        FILE *f = fopen(filepath, "rb");
-        if (!f)
-                fatalf("Failed to open file %s\n", filepath);
-
-        char buf[1024];
-        int bufFill = 0;
-
+        struct TextEdit *edit = param;
+        /* TODO: must protect this section */
         edit->isLoading = 1;
         edit->loadingCompletedBytes = 0;
-        edit->loadingTotalBytes = 30000000;
+        edit->loadingTotalBytes = 3000000;  // TODO: from where do we get this information?
+}
 
-        for (;;) {
-                size_t n = fread(buf + bufFill, 1, sizeof buf - bufFill, f);
-                bufFill += n;
-
-                if (n == 0)
-                        /* EOF. Ignore remaining undecoded bytes */
-                        break;
-
-                uint32_t utf8buf[LENGTH(buf)];
-                int utf8Fill;
-
-                decode_utf8_span_and_move_rest_to_front(buf, bufFill, utf8buf, &bufFill, &utf8Fill);
-                insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
-
-                edit->loadingCompletedBytes += utf8Fill;
-
-
-                //XXXX need to be asynchronous
-                extern void mainloop(void);
-                mainloop();
-        }
-        if (ferror(f))
-                fatalf("Errors while reading from file %s\n", filepath);
-        if (bufFill > 0)
-                fatalf("Unconsumed characters at the end!\n");
-
-        fclose(f);
-
+static void finalize_reading_from_filereadthread(void *param)
+{
+        struct TextEdit *edit = param;
+        /* TODO: must protect this section */
         edit->isLoading = 0;
-        edit->cursorBytePosition = 0;
+}
 
-        print_textrope_statistics(edit->rope);
+static int append_chunk_to_textedit_from_filereadthread(const char *buffer, int length, void *param)
+{
+        struct TextEdit *edit = param;
+
+        ENSURE(edit->isLoading);
+
+        //XXX: must be as least as large as buffer length.
+        uint32_t utf8buf[4096];
+        ENSURE(LENGTH(utf8buf) >= length);
+
+        int decoded_up_to;
+        int utf8Fill;
+        decode_utf8_span_and_move_rest_to_front(buffer, length, utf8buf, &decoded_up_to, &utf8Fill);
+        insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
+
+        edit->loadingCompletedBytes += utf8Fill;
+
+        //XXX: TODO: store the undecoded bytes somewhere.
+
+        return 0;  /* report success */
+}
+
+void textedit_test_init(struct TextEdit *edit, const char *filepath)
+{
+        edit->isLoading = 1;  // set the variable in this thread as long as we don't have proper locks and synchronization
+
+        run_file_read_thread(filepath, edit,
+                &prepare_reading_from_filereadthread,
+                &finalize_reading_from_filereadthread,
+                &append_chunk_to_textedit_from_filereadthread);
 }

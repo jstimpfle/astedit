@@ -139,6 +139,7 @@
     <ClCompile Include="..\src\astedit\data.c" />
     <ClCompile Include="..\src\astedit\draw2d.c" />
     <ClCompile Include="..\src\astedit\eventhandling.c" />
+    <ClCompile Include="..\src\astedit\filereadthread-win32.c" />
     <ClCompile Include="..\src\astedit\font-freetype.c" />
     <ClCompile Include="..\src\astedit\font.c" />
     <ClCompile Include="..\src\astedit\gfx-opengl.c" />
@@ -162,6 +163,7 @@
     <ClInclude Include="..\include\astedit\clock.h" />
     <ClInclude Include="..\include\astedit\draw2d.h" />
     <ClInclude Include="..\include\astedit\eventhandling.h" />
+    <ClInclude Include="..\include\astedit\filereadthread.h" />
     <ClInclude Include="..\include\astedit\font.h" />
     <ClInclude Include="..\include\astedit\gfx.h" />
     <ClInclude Include="..\include\astedit\logging.h" />
