@@ -7,12 +7,11 @@
 
 struct FilereadThreadCtx {
         char *filepath;
-        /* thread handle. */
-        HANDLE handle;
+        HANDLE threadHandle;
         /* additional user value that is handed to the flush_buffer() function below */
         void *param;
 
-        void(*prepare)(void *param);
+        void(*prepare)(void *param, int filesizeInBytes);
         void(*finalize)(void *param);
         /* to flush the buffer completely. Return values is 0 for success
         or -1 to indicate error (reader thread should terminate itself in this case */
@@ -22,13 +21,21 @@ struct FilereadThreadCtx {
         int returnStatus;
 };
 
+#include <sys/stat.h>
 static void read_file_thread(struct FilereadThreadCtx *ctx)
 {
-        ctx->prepare(ctx->param);
-
         FILE *f = fopen(ctx->filepath, "rb");
         if (!f)
                 fatalf("Failed to open file %s\n", ctx->filepath);
+
+        {
+                struct _stat _buf;
+                int result = _fstat(_fileno(f), &_buf);
+                if (result != 0)
+                        fatalf("Error determining file size\n");
+                int filesize = _buf.st_size;
+                ctx->prepare(ctx->param, filesize);
+        }
 
         char buf[4096];
 
@@ -65,7 +72,7 @@ static DWORD WINAPI read_file_thread_adapter(LPVOID param)
 
 struct FilereadThreadCtx *run_file_read_thread(
         const char *filepath, void *param,
-        void (*prepare)(void *param),
+        void (*prepare)(void *param, int filesizeInBytes),
         void (*finalize)(void *param),
         int (*flush_buffer)(const char *buffer, int length, void *param))
 {
@@ -83,8 +90,8 @@ struct FilereadThreadCtx *run_file_read_thread(
         ctx->finalize = finalize;
         ctx->flush_buffer = flush_buffer;
 
-        ctx->handle = CreateThread(NULL, 0, &read_file_thread_adapter, ctx, 0, NULL);
-        if (ctx->handle == NULL)
+        ctx->threadHandle = CreateThread(NULL, 0, &read_file_thread_adapter, ctx, 0, NULL);
+        if (ctx->threadHandle == NULL)
                 fatalf("Failed to create thread\n");
 
         return ctx;
@@ -93,7 +100,7 @@ struct FilereadThreadCtx *run_file_read_thread(
 int check_if_file_read_thread_has_exited(struct FilereadThreadCtx *ctx)
 {
         DWORD exitCode;
-        BOOL ret = GetExitCodeThread(ctx->handle, &exitCode);
+        BOOL ret = GetExitCodeThread(ctx->threadHandle, &exitCode);
         ENSURE(ret != 0);
         UNUSED(ret);
         return exitCode != STILL_ACTIVE;
@@ -101,11 +108,11 @@ int check_if_file_read_thread_has_exited(struct FilereadThreadCtx *ctx)
 
 void dispose_file_read_thread(struct FilereadThreadCtx *ctx)
 {
-        ENSURE(check_if_file_read_thread_has_exited(ctx));  // for now
-        BOOL ret = CloseHandle(ctx->handle);
+        WaitForSingleObject(ctx->threadHandle, INFINITE); //XXX INFINITE?
+        BOOL ret = CloseHandle(ctx->threadHandle);
         ENSURE(ret != 0);
         UNUSED(ret);
 
-        FREE_MEMORY(ctx->filepath);
-        FREE_MEMORY(ctx);
+        FREE_MEMORY(&ctx->filepath);
+        FREE_MEMORY(&ctx);
 }

@@ -80,7 +80,7 @@ struct Textrope *create_textrope(void)
 
 void destroy_textrope(struct Textrope *textrope)
 {
-        FREE_MEMORY(textrope);
+        FREE_MEMORY(&textrope);
         // TODO destroy all nodes
 }
 

@@ -69,10 +69,16 @@ void stop_timer(Timer *timer)
         QueryPerformanceCounter(&timer->stopTime);
 }
 
-void report_timer(Timer *timer, const char *description)
+void report_timer(Timer *timer, const char *descriptionFmt, ...)
 {
-        log_postf("%s: %lld us", description,
-                (long long)get_elapsed_microseconds(timer));
+        va_list ap;
+        va_start(ap, descriptionFmt);
+        log_writefv(descriptionFmt, ap);
+        va_end(ap);
+
+        log_begin();
+        log_writef(": %lld us", (long long)get_elapsed_microseconds(timer));
+        log_end();
 }
 
 uint64_t get_elapsed_microseconds(Timer *timer)

@@ -18,7 +18,7 @@ void destroy_timer(Timer *timer);
 
 void start_timer(Timer *timer);
 void stop_timer(Timer *timer);
-void report_timer(Timer *timer, const char *description);
+void report_timer(Timer *timer, const char *descriptionFmt, ...);
 uint64_t get_elapsed_microseconds(Timer *timer);
 
 #endif

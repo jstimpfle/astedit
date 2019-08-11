@@ -316,6 +316,10 @@ static void draw_text_snprintf(
         va_end(ap);
 }
 
+
+static const int LINE_HEIGHT = 33;
+
+
 static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOfLines, int x, int y, int w, int h)
 {
         UNUSED(edit);
@@ -330,7 +334,7 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOf
         drawCursor.xLeft = x;
         drawCursor.fontSize = 25;
         drawCursor.ascender = 20;
-        drawCursor.lineHeight = 30;
+        drawCursor.lineHeight = LINE_HEIGHT;
         drawCursor.x = x;
         drawCursor.y = y + drawCursor.lineHeight;
         drawCursor.codepointpos = 0;
@@ -346,9 +350,6 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOf
                 next_line(cursor);
         }
 }
-
-
-static const int LINE_HEIGHT = 30;
 
 static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int numberOfLines,
         int x, int y, int w, int h, int markStart, int markEnd)
@@ -466,8 +467,11 @@ static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, in
 
         char textbuffer[512];
         draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer,
-                "LOADING %d  (%d / %d bytes)", edit->loadingCompletedBytes /* *100 / edit->loadingTotalBytes*/,
-                edit->loadingCompletedBytes, edit->loadingTotalBytes);
+                "Loading %d%%  (%d / %d bytes)",
+                (int) ((long long) edit->loadingCompletedBytes * 100
+                        / (edit->loadingTotalBytes ? edit->loadingTotalBytes : 1)),
+                edit->loadingCompletedBytes,
+                edit->loadingTotalBytes);
 }
 
 
@@ -477,7 +481,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
         draw_colored_rect(canvasX, canvasY, canvasW, canvasH,
                 224, 224, 224, 224);
 
-        int statusLineH = 30;
+        int statusLineH = 40;
         
         int linesX = canvasX;
         int linesY = canvasY;
@@ -533,8 +537,6 @@ void testdraw(struct TextEdit *edit)
         begin_frame(canvasX, canvasY, canvasW, canvasH);
 
         draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, 128, 128, 128, 255);
-        //draw_text_file(edit->contents, edit->length, 3, 5);
-
 
         int markStart;
         int markEnd;

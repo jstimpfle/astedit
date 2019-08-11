@@ -252,22 +252,29 @@ void init_TextEdit(struct TextEdit *edit)
         edit->isLoading = 0;
         edit->loadingCompletedBytes = 0;
         edit->loadingTotalBytes = 0;
+        edit->loadingFilereadThreadCtx = NULL;
 }
 
 void exit_TextEdit(struct TextEdit *edit)
 {
-        UNUSED(edit);
+        if (edit->loadingFilereadThreadCtx != NULL) {
+                dispose_file_read_thread(edit->loadingFilereadThreadCtx);
+                edit->loadingFilereadThreadCtx = NULL;
+        }
+
         destroy_textrope(edit->rope);
 }
 
 
-static void prepare_reading_from_filereadthread(void *param)
+static void prepare_reading_from_filereadthread(void *param, int filesizeInBytes)
 {
         struct TextEdit *edit = param;
         /* TODO: must protect this section */
         edit->isLoading = 1;
         edit->loadingCompletedBytes = 0;
-        edit->loadingTotalBytes = 3000000;  // TODO: from where do we get this information?
+        edit->loadingTotalBytes = filesizeInBytes;
+        edit->loadingTimer = create_timer();
+        start_timer(edit->loadingTimer);
 }
 
 static void finalize_reading_from_filereadthread(void *param)
@@ -275,6 +282,9 @@ static void finalize_reading_from_filereadthread(void *param)
         struct TextEdit *edit = param;
         /* TODO: must protect this section */
         edit->isLoading = 0;
+        stop_timer(edit->loadingTimer);
+        report_timer(edit->loadingTimer, "File load time");
+        destroy_timer(edit->loadingTimer);
 }
 
 static int append_chunk_to_textedit_from_filereadthread(const char *buffer, int length, void *param)
@@ -289,12 +299,16 @@ static int append_chunk_to_textedit_from_filereadthread(const char *buffer, int 
 
         int decoded_up_to;
         int utf8Fill;
+
         decode_utf8_span_and_move_rest_to_front(buffer, length, utf8buf, &decoded_up_to, &utf8Fill);
         insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
 
         edit->loadingCompletedBytes += utf8Fill;
 
         //XXX: TODO: store the undecoded bytes somewhere.
+
+        if (shouldWindowClose)
+                return -1;
 
         return 0;  /* report success */
 }
@@ -303,8 +317,9 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
         edit->isLoading = 1;  // set the variable in this thread as long as we don't have proper locks and synchronization
 
-        run_file_read_thread(filepath, edit,
-                &prepare_reading_from_filereadthread,
-                &finalize_reading_from_filereadthread,
-                &append_chunk_to_textedit_from_filereadthread);
+        edit->loadingFilereadThreadCtx =
+                run_file_read_thread(filepath, edit,
+                        &prepare_reading_from_filereadthread,
+                        &finalize_reading_from_filereadthread,
+                        &append_chunk_to_textedit_from_filereadthread);
 }

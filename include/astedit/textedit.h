@@ -4,6 +4,7 @@
 #include <astedit/astedit.h>
 #include <astedit/window.h>
 #include <astedit/textrope.h>
+#include <astedit/clock.h>  // timer
 #include <astedit/filereadthread.h>
 
 struct TextEdit {
@@ -21,6 +22,7 @@ struct TextEdit {
         int isLoading;
         int loadingCompletedBytes;
         int loadingTotalBytes;
+        Timer *loadingTimer;
         struct FilereadThreadCtx *loadingFilereadThreadCtx;
 };
 
