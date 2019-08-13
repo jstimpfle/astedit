@@ -106,13 +106,17 @@ int check_if_file_read_thread_has_exited(struct FilereadThreadCtx *ctx)
         return exitCode != STILL_ACTIVE;
 }
 
+void wait_for_file_read_thread_to_end(struct FilereadThreadCtx *ctx)
+{
+        WaitForSingleObject(ctx->threadHandle, INFINITE);
+}
+
 void dispose_file_read_thread(struct FilereadThreadCtx *ctx)
 {
-        WaitForSingleObject(ctx->threadHandle, INFINITE); //XXX INFINITE?
+        ENSURE(check_if_file_read_thread_has_exited(ctx));
         BOOL ret = CloseHandle(ctx->threadHandle);
         ENSURE(ret != 0);
         UNUSED(ret);
-
         FREE_MEMORY(&ctx->filepath);
         FREE_MEMORY(&ctx);
 }

@@ -9,6 +9,7 @@ struct FilereadThreadCtx *run_file_read_thread(
         void(*finalize)(void *param),
         int(*flush_buffer)(const char *buffer, int length, void *param));
 int check_if_file_read_thread_has_exited(struct FilereadThreadCtx *ctx);
-void dispose_file_read_thread(struct FilereadThreadCtx *ctx);
+void wait_for_file_read_thread_to_end(struct FilereadThreadCtx *ctx);
+void dispose_file_read_thread(struct FilereadThreadCtx *ctx);  // requires terminated thread
 
 #endif
