@@ -7,31 +7,38 @@
 static void fill_buffer(struct Blunt_ReadCtx *ctx)
 {
         ENSURE(ctx->bufferStart + ctx->bufferLength <= sizeof ctx->buffer);
-        int bytesAvail = textrope_length(ctx->rope) - ctx->readCursor;
 
         /* move to front. Simpler than ringbuffer */
-        if (ctx->bufferLength < 16 /* just a small number */) {
+        if (ctx->bufferLength < 16 /* arbitrary, small number */) {
                 move_memory(ctx->buffer + ctx->bufferStart, -ctx->bufferStart, ctx->bufferLength);
                 ctx->bufferStart = 0;
         }
 
         int bytesToRead = sizeof ctx->buffer - (ctx->bufferStart + ctx->bufferLength);
+        int bytesAvail = textrope_length(ctx->rope) - ctx->readPos;
         if (bytesToRead > bytesAvail)
                 bytesToRead = bytesAvail;
-        copy_text_from_textrope(ctx->rope, ctx->readCursor, ctx->buffer + ctx->bufferStart, bytesToRead);
+        /* note that "readPos" is ignoring what's already in the buffer.
+        That's why we add bufferLength here, and also why we don't advance
+        readPos after copy_text_from_textrope() */
+        copy_text_from_textrope(ctx->rope, ctx->readPos + ctx->bufferLength, ctx->buffer + ctx->bufferStart, bytesToRead);
         ctx->bufferLength += bytesToRead;
 }
 
 static int has_byte(struct Blunt_ReadCtx *ctx)
 {
         if (ctx->bufferLength > 0)
+                return 1;
+        else {
                 fill_buffer(ctx);
-        return ctx->bufferLength > 0;
+                return ctx->bufferLength > 0;
+        }
 }
 
 static int look_byte(struct Blunt_ReadCtx *ctx)
 {
-        ENSURE(has_byte(ctx));
+        if (!has_byte(ctx))
+                return -1;
         int c = ctx->buffer[ctx->bufferStart];
         return c;
 }
@@ -39,6 +46,7 @@ static int look_byte(struct Blunt_ReadCtx *ctx)
 static void consume_byte(struct Blunt_ReadCtx *ctx)
 {
         ENSURE(ctx->bufferLength > 0);
+        ctx->readPos++;
         ctx->bufferStart++;
         ctx->bufferLength--;
 }
@@ -48,54 +56,64 @@ static int is_whitespace(int c)
         return (unsigned) c <= 32;
 }
 
+static int is_digit(int c)
+{
+        return '0' <= c && c <= '9';
+}
+
 /* TODO: return more information than just a token kind. */
 void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
 {
         enum Blunt_TokenKind tokenKind;
         int c;
 
-        int parseStart = ctx->readCursor;
+        int parseStart = ctx->readPos;
         int leadingWhiteChars = 0;
 
         for (;;) {
-                if (!has_byte(ctx)) {
+                c = look_byte(ctx);
+                if (c == -1) {
                         tokenKind = BLUNT_TOKEN_EOF;
                         goto out;
                 }
-                c = look_byte(ctx);
                 if (!is_whitespace(c))
                         break;
                 consume_byte(ctx);
         }
+        leadingWhiteChars = ctx->readPos - parseStart;
 
-        leadingWhiteChars = ctx->readCursor - parseStart;
-
-        /* consume first character. */
-        consume_byte(ctx);
-
-        /* only names, for now. */
-        tokenKind = BLUNT_TOKEN_NAME;
-
-        for (;;) {
-                if (!has_byte(ctx))
-                        break;
-                c = look_byte(ctx);
-                while (is_whitespace(c))
-                        break;
-                consume_byte(ctx);
+        if (is_digit(c)) {
+                outToken->tokenKind = BLUNT_TOKEN_INTEGER;
+                for (;;) {
+                        consume_byte(ctx);
+                        c = look_byte(ctx);
+                        if (c == -1)
+                                break;
+                        if (!is_digit(c))
+                                break;
+                }
+        }
+        else {
+                outToken->tokenKind = BLUNT_TOKEN_NAME;
+                for (;;) {
+                        consume_byte(ctx);
+                        c = look_byte(ctx);
+                        if (c == -1)
+                                break;
+                        if (is_whitespace(c))
+                                break;
+                }
         }
 
 out:
-        outToken->tokenKind = tokenKind;
-        outToken->tokenKind = BLUNT_TOKEN_NAME;
-        outToken->length = ctx->readCursor - parseStart;
+        outToken->length = ctx->readPos - parseStart;
         outToken->leadingWhiteChars = leadingWhiteChars;
 }
 
-void blunt_begin_lex(struct Blunt_ReadCtx *ctx, struct Textrope *rope)
+void blunt_begin_lex(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPosition)
 {
         ctx->rope = rope;
-        ctx->readCursor = 0;
+        ctx->readPos = startPosition;
         ctx->bufferStart = 0;
         ctx->bufferLength = 0;
 }

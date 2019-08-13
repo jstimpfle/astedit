@@ -5,6 +5,7 @@
 
 enum Blunt_TokenKind {
         BLUNT_TOKEN_EOF,
+        BLUNT_TOKEN_INTEGER,
         BLUNT_TOKEN_NAME,
 };
 
@@ -18,13 +19,13 @@ struct Blunt_Token {
 
 struct Blunt_ReadCtx {
         struct Textrope *rope;
-        int readCursor;
+        int readPos;
         char buffer[512];
         int bufferStart;
         int bufferLength;
 };
 
-void blunt_begin_lex(struct Blunt_ReadCtx *ctx, struct Textrope *rope);
+void blunt_begin_lex(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPos);
 void blunt_end_lex(struct Blunt_ReadCtx *ctx);
 
 void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken);

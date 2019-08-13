@@ -7,6 +7,9 @@
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 
+/* test */
+#include <blunt/lex.h>
+
 
 int textedit_length_in_bytes(struct TextEdit *edit)
 {
@@ -181,26 +184,27 @@ void scroll_down_one_page(struct TextEdit *edit, int isSelecting)
 void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint32_t *codepoints, int numCodepoints)
 {
         UNUSED(edit);
-        char buf[512];
-        int bufFill;
-        int pos = 0;
-        while (pos < numCodepoints) {
-                encode_utf8_span(codepoints, pos, numCodepoints, buf, sizeof buf, &pos, &bufFill);
-                insert_text_into_textrope(edit->rope, insertPos, &buf[0], bufFill);
-                insertPos += bufFill;
+        int codepointsPos = 0;
+        int ropePos = insertPos;
+        while (codepointsPos < numCodepoints) {
+                char buf[512];
+                int bufFill;
+                encode_utf8_span(codepoints, codepointsPos, numCodepoints, buf, sizeof buf, &codepointsPos, &bufFill);
+                insert_text_into_textrope(edit->rope, ropePos, &buf[0], bufFill);
+                ropePos += bufFill;
         }
+        /* test. Later, we need more complex logic for incremental update. */
+        int lexStartPos = 0;  /* try to lex starting from position 0. */
+        struct Blunt_ReadCtx readCtx;
+        struct Blunt_Token token;
+        blunt_begin_lex(&readCtx, edit->rope, lexStartPos);
+        blunt_lex_token(&readCtx, &token);
+        blunt_end_lex(&readCtx);
 }
 
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
 {
-        char tmp[16];
-        int numBytes = encode_codepoint_as_utf8(codepoint, &tmp[0], 0, sizeof tmp);
-        tmp[numBytes] = 0;  // for nicer debugging
-
-        int insertPos = edit->cursorBytePosition;
-        //int insertPos = textrope_length(textrope);
-
-        insert_text_into_textrope(edit->rope, insertPos, &tmp[0], numBytes);
+        insert_codepoints_into_textedit(edit, edit->cursorBytePosition, &codepoint, 1);
         move_cursor_right(edit, 0);  // XXX
 }
 
