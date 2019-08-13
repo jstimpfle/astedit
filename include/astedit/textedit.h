@@ -30,14 +30,8 @@ struct TextEdit {
 void init_TextEdit(struct TextEdit *edit);
 void exit_TextEdit(struct TextEdit *edit);
 
-// length of text contents, in bytes
-int textedit_length_in_bytes(struct TextEdit *edit);
-
-
 void get_selected_range_in_bytes(struct TextEdit *edit, int *outStart, int *outOnePastEnd);
 void get_selected_range_in_codepoints(struct TextEdit *edit, int *outStart, int *outOnePastEnd);
-
-
 
 void move_view_minimally_to_display_line(struct TextEdit *edit, int lineNumber);
 void move_view_minimally_to_display_cursor(struct TextEdit *edit);

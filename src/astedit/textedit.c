@@ -11,15 +11,6 @@
 #include <blunt/lex.h>
 
 
-int textedit_length_in_bytes(struct TextEdit *edit)
-{
-        UNUSED(edit);
-        return textrope_length(edit->rope);
-}
-
-
-
-
 void get_selected_range_in_bytes(struct TextEdit *edit, int *outStart, int *outOnePastEnd)
 {
         ENSURE(edit->isSelectionMode);
