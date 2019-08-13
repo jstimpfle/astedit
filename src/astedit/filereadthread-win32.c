@@ -11,11 +11,15 @@ struct FilereadThreadCtx {
         /* additional user value that is handed to the flush_buffer() function below */
         void *param;
 
+        char *buffer;
+        int bufferSize;
+        int *bufferFill;
+
         void(*prepare)(void *param, int filesizeInBytes);
         void(*finalize)(void *param);
         /* to flush the buffer completely. Return values is 0 for success
         or -1 to indicate error (reader thread should terminate itself in this case */
-        int (*flush_buffer)(const char *buffer, int length, void *param);
+        int (*flush_buffer)(void *param);
         /* thread can report return status here, so we don't depend on OS facilities
         which might be hard to use or have their own gotchas... */
         int returnStatus;
@@ -37,16 +41,19 @@ static void read_file_thread(struct FilereadThreadCtx *ctx)
                 ctx->prepare(ctx->param, filesize);
         }
 
-        char buf[4096];
-
         for (;;) {
-                size_t n = fread(buf, 1, sizeof buf, f);
+                int bufferSize = ctx->bufferSize;
+                int bufferFill = *ctx->bufferFill;
+                size_t n = fread(ctx->buffer + bufferFill, 1, bufferSize - bufferFill, f);
 
                 if (n == 0)
                         /* EOF. Ignore remaining undecoded bytes */
                         break;
 
-                int r = (*ctx->flush_buffer)(buf, (int) n, ctx->param);
+                bufferFill += (int) n;
+                *ctx->bufferFill = bufferFill;
+
+                int r = (*ctx->flush_buffer)(ctx->param);
 
                 if (r == -1) {
                         /* what to report? */
@@ -72,9 +79,10 @@ static DWORD WINAPI read_file_thread_adapter(LPVOID param)
 
 struct FilereadThreadCtx *run_file_read_thread(
         const char *filepath, void *param,
+        char *buffer, int bufferSize, int *bufferFill,
         void (*prepare)(void *param, int filesizeInBytes),
         void (*finalize)(void *param),
-        int (*flush_buffer)(const char *buffer, int length, void *param))
+        int (*flush_buffer)(void *param))
 {
         struct FilereadThreadCtx *ctx;
         ALLOC_MEMORY(&ctx, 1);
@@ -86,6 +94,9 @@ struct FilereadThreadCtx *run_file_read_thread(
         }
 
         ctx->param = param;
+        ctx->buffer = buffer;
+        ctx->bufferSize = bufferSize;
+        ctx->bufferFill = bufferFill;
         ctx->prepare = prepare;
         ctx->finalize = finalize;
         ctx->flush_buffer = flush_buffer;

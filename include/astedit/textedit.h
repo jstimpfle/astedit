@@ -22,6 +22,10 @@ struct TextEdit {
         int isLoading;
         int loadingCompletedBytes;
         int loadingTotalBytes;
+
+        char loadingBuffer[512];  // TODO: heap alloc?
+        int loadingBufferFill;  // fill from start
+
         Timer *loadingTimer;
         struct FilereadThreadCtx *loadingFilereadThreadCtx;
 };

@@ -268,6 +268,7 @@ static void prepare_reading_from_filereadthread(void *param, int filesizeInBytes
         edit->isLoading = 1;
         edit->loadingCompletedBytes = 0;
         edit->loadingTotalBytes = filesizeInBytes;
+        edit->loadingBufferFill = 0;
         edit->loadingTimer = create_timer();
         start_timer(edit->loadingTimer);
 }
@@ -282,20 +283,21 @@ static void finalize_reading_from_filereadthread(void *param)
         destroy_timer(edit->loadingTimer);
 }
 
-static int append_chunk_to_textedit_from_filereadthread(const char *buffer, int length, void *param)
+static int flush_loadingBuffer_from_filereadthread(void *param)
 {
         struct TextEdit *edit = param;
 
         ENSURE(edit->isLoading);
 
-        //XXX: must be as least as large as buffer length.
-        uint32_t utf8buf[4096];
-        ENSURE(LENGTH(utf8buf) >= length);
-
-        int decoded_up_to;
+        uint32_t utf8buf[LENGTH(edit->loadingBuffer)];
         int utf8Fill;
 
-        decode_utf8_span_and_move_rest_to_front(buffer, length, utf8buf, &decoded_up_to, &utf8Fill);
+        decode_utf8_span_and_move_rest_to_front(
+                edit->loadingBuffer,
+                edit->loadingBufferFill,
+                utf8buf,
+                &edit->loadingBufferFill,
+                &utf8Fill);
         insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
 
         edit->loadingCompletedBytes += utf8Fill;
@@ -314,7 +316,10 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
 
         edit->loadingFilereadThreadCtx =
                 run_file_read_thread(filepath, edit,
+                        edit->loadingBuffer,
+                        (int) sizeof edit->loadingBuffer,
+                        &edit->loadingBufferFill,
                         &prepare_reading_from_filereadthread,
                         &finalize_reading_from_filereadthread,
-                        &append_chunk_to_textedit_from_filereadthread);
+                        &flush_loadingBuffer_from_filereadthread);
 }
