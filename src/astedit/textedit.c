@@ -276,6 +276,12 @@ static void prepare_reading_from_filereadthread(void *param, int filesizeInBytes
 static void finalize_reading_from_filereadthread(void *param)
 {
         struct TextEdit *edit = param;
+
+        if (edit->loadingBufferFill > 0) {
+                /* unfinished how to handle this? */
+                log_postf("Warning: Input contains incomplete UTF-8 sequence at the end.");
+        }
+
         /* TODO: must protect this section */
         edit->isLoading = 0;
         stop_timer(edit->loadingTimer);
@@ -286,12 +292,10 @@ static void finalize_reading_from_filereadthread(void *param)
 static int flush_loadingBuffer_from_filereadthread(void *param)
 {
         struct TextEdit *edit = param;
-
         ENSURE(edit->isLoading);
 
         uint32_t utf8buf[LENGTH(edit->loadingBuffer)];
         int utf8Fill;
-
         decode_utf8_span_and_move_rest_to_front(
                 edit->loadingBuffer,
                 edit->loadingBufferFill,
@@ -301,11 +305,6 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
         insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
 
         edit->loadingCompletedBytes += utf8Fill;
-
-        //XXX: TODO: store the undecoded bytes somewhere.
-
-        if (shouldWindowClose)
-                return -1;
 
         return 0;  /* report success */
 }

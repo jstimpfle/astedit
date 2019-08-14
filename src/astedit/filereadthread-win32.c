@@ -2,6 +2,8 @@
 #include <astedit/bytes.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/logging.h>
+#include <astedit/window.h>  // shouldWindowClose
+#include <astedit/filereadthread.h>
 #include <stdio.h>
 #include <Windows.h>
 
@@ -28,20 +30,38 @@ struct FilereadThreadCtx {
 #include <sys/stat.h>
 static void read_file_thread(struct FilereadThreadCtx *ctx)
 {
+        int returnStatus = 0;
+
         FILE *f = fopen(ctx->filepath, "rb");
-        if (!f)
-                fatalf("Failed to open file %s\n", ctx->filepath);
+        if (!f) {
+                log_postf("Failed to open file %s\n", ctx->filepath);
+                returnStatus = -1;
+                goto out;
+        }
 
         {
                 struct _stat _buf;
                 int result = _fstat(_fileno(f), &_buf);
-                if (result != 0)
-                        fatalf("Error determining file size\n");
+                if (result != 0) {
+                        log_postf("Error determining file size\n");
+                        returnStatus = -1;
+                        goto out;
+                }
                 int filesize = _buf.st_size;
                 ctx->prepare(ctx->param, filesize);
         }
 
         for (;;) {
+                if (shouldWindowClose) {
+                        /* Thread should terminate. We will abort the loading.
+                        We might want a more general inter-thread communication system.
+                        For now, this variable is good enough (although technically we
+                        need to protect the access to make sure that we get the new value
+                        if it was updated from another thread). */
+                        returnStatus = -1;  // TODO: choose a different return code? This is not strictly an error.
+                        goto out;
+                }
+
                 int bufferSize = ctx->bufferSize;
                 int bufferFill = *ctx->bufferFill;
                 size_t n = fread(ctx->buffer + bufferFill, 1, bufferSize - bufferFill, f);
@@ -56,16 +76,21 @@ static void read_file_thread(struct FilereadThreadCtx *ctx)
                 int r = (*ctx->flush_buffer)(ctx->param);
 
                 if (r == -1) {
-                        /* what to report? */
-                        ctx->returnStatus = -1;
-                        break;
+                        returnStatus = -1;
+                        goto out;
                 }
         }
 
-        if (ferror(f))
-                fatalf("Errors while reading from file %s\n", ctx->filepath);
-        fclose(f);
+        if (ferror(f)) {
+                log_postf("Errors while reading from file %s\n", ctx->filepath);
+                returnStatus = -1;
+                goto out;
+        }
 
+out:
+        if (f != NULL)
+                fclose(f);
+        ctx->returnStatus = returnStatus;
         ctx->finalize(ctx->param);
 }
 

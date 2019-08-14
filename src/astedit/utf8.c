@@ -59,22 +59,22 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
                 *out_codepoint = s[0];
                 return 1;
         }
-        if ((s[0] & 0xe0) == 0xc0) {
+        else if ((s[0] & 0xe0) == 0xc0) {
                 if (start + 1 >= end)
                         return 0;
                 if ((s[1] & 0xc0) != 0x80)
-                        return 0;
+                        return -1;
                 *out_next = start + 2;
                 *out_codepoint = ((s[0] & ~0xe0) << 6) | (s[1] & ~0xc0);
                 return 1;
         }
-        if (((s[0] & 0xf0) == 0xe0)) {
+        else if (((s[0] & 0xf0) == 0xe0)) {
                 if (start + 2 >= end)
                         return 0;
                 if ((s[1] & 0xc0) != 0x80)
-                        return 0;
+                        return -1;
                 if ((s[2] & 0xc0) != 0x80)
-                        return 0;
+                        return -1;
 
                 start += 3;
                 unsigned codepoint = ((s[0] & ~0xf0) << 12) | ((s[1] & ~0xc0) << 6)
@@ -99,21 +99,23 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
                 *out_codepoint = codepoint;
                 return 1;
         }
-        if ((s[0] & 0xf8) == 0xf0) {
+        else if ((s[0] & 0xf8) == 0xf0) {
                 if (start + 3 >= end)
                         return 0;
                 if ((s[1] & 0xc0) != 0x80)
-                        return 0;
+                        return -1;
                 if ((s[2] & 0xc0) != 0x80)
-                        return 0;
+                        return -1;
                 if ((s[3] & 0xc0) != 0x80)
-                        return 0;
+                        return -1;
                 *out_next = start + 4;
                 *out_codepoint = ((s[0] & ~0xf8) << 18) | ((s[1] & ~0xc0) << 12)
                         | ((s[2] & ~0xc0) << 6) | (s[3] & ~0xc0);
                 return 1;
         }
-        return 0;
+        else {
+                return -1;
+        }
 }
 
 void encode_utf8_span(const uint32_t *codepoints, int startPos, int maxPos, char *bufOut, int maxBytes,
@@ -139,12 +141,16 @@ void decode_utf8_span(const char *text, int startPos, int maxPos, uint32_t *code
         int numCodepoints = 0;
         while (pos < maxPos && numCodepoints < maxCodepoints) {
                 int r = decode_codepoint_from_utf8(text, pos, maxPos, &pos, &codepointOut[numCodepoints]);
-                if (!r) {
-                        pos++;
-                        // TODO: insert replacement char?
-                        continue;
+                if (r > 0) {
+                        numCodepoints++;
                 }
-                numCodepoints++;
+                else if (r == -1) {
+                        pos++;
+                }
+                else {
+                        ENSURE(r == 0);
+                        break;
+                }
         }
         *outPos = pos;
         *outNumCodepoints = numCodepoints;
