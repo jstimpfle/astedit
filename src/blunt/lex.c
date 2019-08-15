@@ -72,18 +72,19 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
 
         for (;;) {
                 c = look_byte(ctx);
-                if (c == -1) {
-                        tokenKind = BLUNT_TOKEN_EOF;
-                        goto out;
-                }
+                if (c == -1)
+                        break;
                 if (!is_whitespace(c))
                         break;
                 consume_byte(ctx);
         }
         leadingWhiteChars = ctx->readPos - parseStart;
 
-        if (is_digit(c)) {
-                outToken->tokenKind = BLUNT_TOKEN_INTEGER;
+        if (c == -1) {
+                tokenKind = BLUNT_TOKEN_EOF;
+        }
+        else if (is_digit(c)) {
+                tokenKind = BLUNT_TOKEN_INTEGER;
                 for (;;) {
                         consume_byte(ctx);
                         c = look_byte(ctx);
@@ -94,7 +95,7 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                 }
         }
         else {
-                outToken->tokenKind = BLUNT_TOKEN_NAME;
+                tokenKind = BLUNT_TOKEN_NAME;
                 for (;;) {
                         consume_byte(ctx);
                         c = look_byte(ctx);
@@ -105,7 +106,7 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                 }
         }
 
-out:
+        outToken->tokenKind = tokenKind;
         outToken->length = ctx->readPos - parseStart;
         outToken->leadingWhiteChars = leadingWhiteChars;
 }
