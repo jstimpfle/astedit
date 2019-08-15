@@ -48,8 +48,7 @@ void refill_TextropeReadBuffer(struct TextropeReadBuffer *trbuf)
 
 static int has_TextropeReadBuffer_more_data(struct TextropeReadBuffer *trbuf)
 {
-        /* if there is more data, make sure to have at least 4 bytes in the buffer (UTF-8!) */
-        if (trbuf->bufferStart + 4 <= trbuf->bufferEnd)
+        if (trbuf->bufferStart < trbuf->bufferEnd)
                 return 1;
         refill_TextropeReadBuffer(trbuf);
         return trbuf->bufferStart < trbuf->bufferEnd;
@@ -86,7 +85,7 @@ void exit_UTF8DecodeStream(struct UTF8DecodeStream *stream)
 void refill_UTF8DecodeStream(struct UTF8DecodeStream *stream)
 {
         struct TextropeReadBuffer *trbuf = &stream->readbuffer;
-        if (TEXTROPEREADBUFFER_CAPACITY - trbuf->bufferEnd < 16)
+        if (trbuf->bufferEnd - trbuf->bufferStart < 16)
                 /* 16 = arbitrary small number >= 4 (max UTF-8 sequence length) */
                 move_bytes_in_TextropeReadBuffer_to_front(trbuf);
         refill_TextropeReadBuffer(trbuf);

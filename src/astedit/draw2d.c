@@ -20,16 +20,6 @@ static int colorVertexCount;
 static int alphaVertexCount;
 
 
-
-
-
-static int minInt(int x, int y)
-{
-        return x < y ? x : y;
-}
-
-
-
 void flush_color_vertices(void)
 {
         if (colorVertexCount > 0) {
@@ -50,9 +40,9 @@ void push_color_vertices(struct ColorVertex2d *verts, int length)
 {
         int i = 0;
         while (i < length) {
-                int n = minInt(
-                        length - i,
-                        LENGTH(colorVertexBuffer) - colorVertexCount);
+                int n = LENGTH(colorVertexBuffer) - colorVertexCount;
+                if (n > length - i)
+                        n = length - i;
                 COPY_ARRAY(colorVertexBuffer + colorVertexCount, verts + i, n);
                 colorVertexCount += n;
                 i += n;
@@ -89,6 +79,14 @@ void push_rgba_texture_vertices(struct TextureVertex2d *verts, int length)
         draw_rgba_texture_vertices(verts, length);
 }
 
+// TODO find better and useful concepts, e.g. begin_region() / end_region()?
+static void flush_all_vertex_buffers(void)
+{
+        flush_color_vertices();
+        flush_alpha_texture_vertices();
+        //flush_rgba_texture_vertices();
+}
+
 void begin_frame(int x, int y, int w, int h)
 {
         ENSURE(colorVertexCount == 0);
@@ -99,9 +97,7 @@ void begin_frame(int x, int y, int w, int h)
 
 void end_frame(void)
 {
-        flush_color_vertices();
-        flush_alpha_texture_vertices();
-        //flush_rgba_texture_vertices();
+        flush_all_vertex_buffers();
 }
 
 static void fill_texture2d_rect(struct TextureVertex2d *rp,
@@ -252,37 +248,47 @@ static void draw_text_snprintf(
         va_end(ap);
 }
 
+static void set_bounding_box(struct BoundingBox *box, int x, int y, int w, int h)
+{
+        box->bbX = x;
+        box->bbY = y;
+        box->bbW = w;
+        box->bbH = h;
+}
+
 
 static const int LINE_HEIGHT = 33;
+static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, int codepointPos, int lineNumber)
+{
+        cursor->xLeft = x;
+        cursor->fontSize = 25;
+        cursor->ascender = 20;
+        cursor->lineHeight = LINE_HEIGHT;
+        cursor->x = x;
+        cursor->y = y + LINE_HEIGHT;
+        cursor->codepointpos = codepointPos;
+        cursor->lineNumber = lineNumber;
+}
 
 
 static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOfLines, int x, int y, int w, int h)
 {
         UNUSED(edit);
 
-        struct BoundingBox box;
-        box.bbX = x;
-        box.bbY = y;
-        box.bbW = w;
-        box.bbH = h;
-
+        struct BoundingBox boundingBox;
         struct DrawCursor drawCursor;
-        drawCursor.xLeft = x;
-        drawCursor.fontSize = 25;
-        drawCursor.ascender = 20;
-        drawCursor.lineHeight = LINE_HEIGHT;
-        drawCursor.x = x;
-        drawCursor.y = y + drawCursor.lineHeight;
-        drawCursor.codepointpos = 0;
-        drawCursor.lineNumber = 0;
+        struct BoundingBox *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
+
+        set_bounding_box(box, x, y, w, h);
+        set_draw_cursor(cursor, x, y, 0, 0);
 
         int onePastLastLine = firstLine + numberOfLines;
 
         for (int i = firstLine; i < onePastLastLine; i++) {
                 char buf[16];
                 snprintf(buf, sizeof buf, "%4d", i + 1);
-                draw_text_with_cursor(cursor, &box, buf, (int) strlen(buf));
+                draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
                 next_line(cursor);
         }
 }
@@ -290,26 +296,18 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOf
 static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int numberOfLines,
         int x, int y, int w, int h, int markStart, int markEnd)
 {
+        flush_all_vertex_buffers();
+
         int initialReadPos = compute_pos_of_line(edit->rope, firstLine);
         int initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
 
-        struct BoundingBox box;
-        box.bbX = x;
-        box.bbY = y;
-        box.bbW = w;
-        box.bbH = h;
-        struct BoundingBox *boundingBox = &box;
-
+        struct BoundingBox boundingBox;
         struct DrawCursor drawCursor;
-        drawCursor.xLeft = x;
-        drawCursor.fontSize = 25;
-        drawCursor.ascender = 20;
-        drawCursor.lineHeight = LINE_HEIGHT;
-        drawCursor.x = x;
-        drawCursor.y = y + drawCursor.lineHeight;
-        drawCursor.codepointpos = initialCodepointPos;
-        drawCursor.lineNumber = firstLine;
+        struct BoundingBox *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
+
+        set_bounding_box(box, x, y, w, h);
+        set_draw_cursor(cursor, x, y, initialCodepointPos, firstLine);
 
         struct UTF8DecodeStream decoder;
         init_UTF8DecodeStream(&decoder, edit->rope, initialReadPos);
@@ -323,7 +321,7 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
                 int drawstringKind = 0;
                 if (markStart <= drawCursor.codepointpos && drawCursor.codepointpos < markEnd)
                         drawstringKind = DRAWSTRING_HIGHLIGHT;
-                draw_codepoint(&drawCursor, boundingBox, drawstringKind, codepoint, 0, 0, 0, 255);
+                draw_codepoint(&drawCursor, box, drawstringKind, codepoint, 0, 0, 0, 255);
         }
 
         exit_UTF8DecodeStream(&decoder);
@@ -348,62 +346,48 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
 
 static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)
 {
+        flush_all_vertex_buffers();
+
+        struct BoundingBox boundingBox;
+        struct DrawCursor drawCursor;
+        struct BoundingBox *box = &boundingBox;
+        struct DrawCursor *cursor = &drawCursor;
 
         // no actual bounding box currently.
-        struct BoundingBox box;
-        box.bbX = 0;
-        box.bbY = 0;
-        box.bbW = windowWidthInPixels;
-        box.bbH = windowHeightInPixels;
-
-        struct DrawCursor cursor;
-        cursor.xLeft = x;
-        cursor.fontSize = 25;
-        cursor.ascender = 20;
-        cursor.lineHeight = LINE_HEIGHT;
-        cursor.x = x;
-        cursor.y = y + LINE_HEIGHT*2/3;
-        cursor.codepointpos = 0;
-        cursor.lineNumber = 0;
+        set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
+        set_draw_cursor(cursor, x, y, 0, 0);
 
         int pos = edit->cursorBytePosition;
         int codepointPos = compute_codepoint_position(edit->rope, pos);
         int lineNumber = compute_line_number(edit->rope, pos);
         char textbuffer[512];
 
-        draw_colored_rect(x, y, w, h, 128, 160, 128, 224);
+        draw_colored_rect(x, y, w, h, 128, 160, 128, 255);
 
-        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, "pos: %d", pos);
-        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, ", codepointPos: %d", codepointPos);
-        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, ", lineNumber: %d", lineNumber);
-        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "pos: %d", pos);
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %d", codepointPos);
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %d", lineNumber);
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
 }
 
 static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, int h)
 {
+        flush_all_vertex_buffers();
 
         // no actual bounding box currently.
-        struct BoundingBox box;
-        box.bbX = 0;
-        box.bbY = 0;
-        box.bbW = windowWidthInPixels;
-        box.bbH = windowHeightInPixels;
+        struct BoundingBox boundingBox;
+        struct DrawCursor drawCursor;
+        struct BoundingBox *box = &boundingBox;
+        struct DrawCursor *cursor = &drawCursor;
 
-        struct DrawCursor cursor;
-        cursor.xLeft = x;
-        cursor.fontSize = 25;
-        cursor.ascender = 20;
-        cursor.lineHeight = LINE_HEIGHT;
-        cursor.x = x;
-        cursor.y = y + LINE_HEIGHT * 2 / 3;
-        cursor.codepointpos = 0;
-        cursor.lineNumber = 0;
+        set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
+        set_draw_cursor(cursor, x, y, 0, 0);
 
         char textbuffer[512];
 
-        draw_colored_rect(x, y, w, h, 128, 160, 128, 224);
+        draw_colored_rect(x, y, w, h, 128, 160, 128, 255);
 
-        draw_text_snprintf(&cursor, &box, textbuffer, sizeof textbuffer,
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer,
                 "Loading %d%%  (%d / %d bytes)",
                 (int) ((long long) edit->loadingCompletedBytes * 100
                         / (edit->loadingTotalBytes ? edit->loadingTotalBytes : 1)),
@@ -459,8 +443,6 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
         }
 }
 
-static int maxInt(int x, int y) { return x > y ? x : y; }
-
 void testdraw(struct TextEdit *edit)
 {
         int markStart;
@@ -474,8 +456,13 @@ void testdraw(struct TextEdit *edit)
 
         int canvasX = 100;
         int canvasY = 100;
-        int canvasW = maxInt(windowWidthInPixels - 200, 0);
-        int canvasH = maxInt(windowHeightInPixels - 200, 0);
+        int canvasW = windowWidthInPixels - 200;
+        int canvasH = windowHeightInPixels - 200;
+
+        if (canvasW < 0)
+                canvasW = 0;
+        if (canvasH < 0)
+                canvasH = 0;
 
         clear_screen_and_drawing_state();
         begin_frame(canvasX, canvasY, canvasW, canvasH);

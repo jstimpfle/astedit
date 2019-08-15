@@ -39,7 +39,7 @@ void handle_events(void)
                                 start_timer(keyinputTimer);
                                 process_input_in_TextEdit(&input, &globalTextEdit);
                                 stop_timer(keyinputTimer);
-                                report_timer(keyinputTimer, "Time spent in editing operation");
+                                /*report_timer(keyinputTimer, "Time spent in editing operation");*/
                         }
                 }
                 else if (input.inputKind == INPUT_MOUSEBUTTON) {
