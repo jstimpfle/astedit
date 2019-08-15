@@ -7,7 +7,9 @@
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 #include <astedit/utf8.h>
+#include <astedit/textropeUTF8decode.h>
 #include <astedit/draw2d.h>
+#include <blunt/lex.h>
 #include <stdio.h> // snprintf
 #include <string.h> // strlen()
 
@@ -192,95 +194,33 @@ void next_line(struct DrawCursor *cursor)
 }
 
 
-
-
-static void draw_text_span(
+static void draw_codepoint(
         struct DrawCursor *cursor,
         const struct BoundingBox *boundingBox,
-        const uint32_t *text,
-        int start, int end, int drawstringKind,
-        int r, int g, int b, int a)
+        int drawstringKind,
+        uint32_t codepoint, int r, int g, int b, int a)
 {
-        if (drawstringKind == DRAWSTRING_CURSOR_BEFORE)
+        cursor->codepointpos++;
+        if (codepoint == '\r')
+                return;
+        if (codepoint == '\n') {
+                next_line(cursor);
+                cursor->lineNumber++;
+                return;
+        }
+        int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
+                cursor->fontSize, &codepoint, 1,
+                cursor->x, cursor->y, r, g, b, a);
+        if (drawstringKind == DRAWSTRING_HIGHLIGHT)
                 draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
-                        3, cursor->lineHeight,
-                        192, 0, 0, 224);
-
-        int i = start;
-        while (i < end) {
-                int j = i;
-                while (j < end && text[j] != '\r' && text[j] != '\n')
-                        j++;
-
-
-                int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox, 
-                        cursor->fontSize, text + i, j - i,
-                        cursor->x, cursor->y,
-                        r, g, b, a);
-
-                if (drawstringKind == DRAWSTRING_HIGHLIGHT) {
-                        draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
-                                xEnd - cursor->x, cursor->lineHeight,
-                                0, 0, 192, 32);
-                }
-
-                cursor->x = xEnd;
-
-                i = j;
-
-                if (i < end && text[i] == '\r')
-                        i++;
-
-                if (i < end && text[i] == '\n') {
-                        i++;
-                        next_line(cursor);
-                }
-        }
-}
-
-static void draw_codepoints_with_cursor(
-        struct DrawCursor *cursor,
-        const struct BoundingBox *boundingBox,
-        const uint32_t *codepoints,
-        int length, int markStart, int markEnd)
-{
-        int start = 0;
-        while (start < length) {
-                int numCodepointsRemain = length - start;
-                int drawstringKind;
-                int numCodepoints;
-                int r, g, b, a;
-                if (cursor->codepointpos < markStart) {
-                        drawstringKind = DRAWSTRING_NORMAL;
-                        numCodepoints = minInt(numCodepointsRemain, markStart - cursor->codepointpos);
-                        r = 0; g = 0; b = 0; a = 255;
-                }
-                else if (cursor->codepointpos < markEnd) {
-                        drawstringKind = DRAWSTRING_HIGHLIGHT;
-                        numCodepoints = minInt(numCodepointsRemain, markEnd - cursor->codepointpos);
-                        r = 0; g = 128; b = 0; a = 255;
-                }
-                else {
-                        drawstringKind = DRAWSTRING_NORMAL;
-                        numCodepoints = numCodepointsRemain;
-                        r = 0; g = 0; b = 0; a = 255;
-                }
-                draw_text_span(cursor, boundingBox, codepoints, start, start + numCodepoints, drawstringKind,
-                        r, g, b, a);
-                start += numCodepoints;
-                cursor->codepointpos += numCodepoints;
-        }
-        /* quick hack to get cursor at end */
-        if (start == markStart)
-                draw_text_span(cursor, boundingBox, codepoints, start, 0, DRAWSTRING_CURSOR_BEFORE,
-                        0, 128, 0, 255);
+                        xEnd - cursor->x, cursor->lineHeight, 0, 0, 192, 32);
+        cursor->x = xEnd;
 }
 
 static void draw_text_with_cursor(
         struct DrawCursor *cursor,
         const struct BoundingBox *boundingBox,
-        const char *text, int length,
-        int markStart, int markEnd)
+        const char *text, int length)
 {
         uint32_t codepoints[512];
 
@@ -293,9 +233,8 @@ static void draw_text_with_cursor(
                 int numCodepointsDecoded;
                 decode_utf8_span(text, i, length, codepoints, LENGTH(codepoints), &i, &numCodepointsDecoded);
 
-                draw_codepoints_with_cursor(cursor, boundingBox,
-                        codepoints, numCodepointsDecoded,
-                        markStart, markEnd);
+                for (int j = 0; j < numCodepointsDecoded; j++)
+                        draw_codepoint(cursor, boundingBox, DRAWSTRING_NORMAL, codepoints[j], 0, 0, 0, 255);
         }
 }
 
@@ -309,7 +248,7 @@ static void draw_text_snprintf(
         va_start(ap, fmt);
         int numBytes = vsnprintf(buffer, length, fmt, ap);
         if (numBytes >= 0)
-                draw_text_with_cursor(cursor, boundingBox, buffer, numBytes, -1, -1);
+                draw_text_with_cursor(cursor, boundingBox, buffer, numBytes);
         va_end(ap);
 }
 
@@ -343,7 +282,7 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOf
         for (int i = firstLine; i < onePastLastLine; i++) {
                 char buf[16];
                 snprintf(buf, sizeof buf, "%4d", i + 1);
-                draw_text_with_cursor(cursor, &box, buf, (int) strlen(buf), -1, -1);
+                draw_text_with_cursor(cursor, &box, buf, (int) strlen(buf));
                 next_line(cursor);
         }
 }
@@ -351,13 +290,8 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOf
 static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int numberOfLines,
         int x, int y, int w, int h, int markStart, int markEnd)
 {
-        char readbuffer[256];
-        uint32_t codepointBuffer[LENGTH(readbuffer)];
-
-        int readbufferFill = 0;
-
-        int readPositionInBytes = compute_pos_of_line(edit->rope, firstLine);
-        int lastPositionInBytes = compute_pos_of_line(edit->rope, firstLine + numberOfLines); //XXX
+        int initialReadPos = compute_pos_of_line(edit->rope, firstLine);
+        int initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
 
         struct BoundingBox box;
         box.bbX = x;
@@ -366,47 +300,50 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
         box.bbH = h;
         struct BoundingBox *boundingBox = &box;
 
-        struct DrawCursor cursor;
-        cursor.xLeft = x;
-        cursor.fontSize = 25;
-        cursor.ascender = 20;
-        cursor.lineHeight = LINE_HEIGHT;
-        cursor.x = x;
-        cursor.y = y + cursor.lineHeight;
-        cursor.codepointpos = compute_codepoint_position(edit->rope, readPositionInBytes);
-        cursor.lineNumber = firstLine;
+        struct DrawCursor drawCursor;
+        drawCursor.xLeft = x;
+        drawCursor.fontSize = 25;
+        drawCursor.ascender = 20;
+        drawCursor.lineHeight = LINE_HEIGHT;
+        drawCursor.x = x;
+        drawCursor.y = y + drawCursor.lineHeight;
+        drawCursor.codepointpos = initialCodepointPos;
+        drawCursor.lineNumber = firstLine;
+        struct DrawCursor *cursor = &drawCursor;
 
-        while (cursor.y - cursor.ascender < boundingBox->bbY + boundingBox->bbH) {
-                if (readPositionInBytes >= lastPositionInBytes)
+        struct UTF8DecodeStream decoder;
+        init_UTF8DecodeStream(&decoder, edit->rope, initialReadPos);
+
+        int onePastLastLine = firstLine + numberOfLines;
+        while (cursor->lineNumber < onePastLastLine) {
+                if (!has_UTF8DecodeStream_more_data(&decoder))
                         break;
-
-                {
-                        int remainingSpace = LENGTH(readbuffer) - readbufferFill;
-                        int editBytesAvailable = lastPositionInBytes - readPositionInBytes;
-
-                        int maxReadLength = remainingSpace;
-                        if (maxReadLength > editBytesAvailable)
-                                maxReadLength = editBytesAvailable;
-
-                        int numBytesRead = copy_text_from_textrope(edit->rope, readPositionInBytes,
-                                readbuffer + readbufferFill, maxReadLength);
-                        readbufferFill += numBytesRead;
-                        readPositionInBytes += numBytesRead;
-
-                        if (numBytesRead == 0)
-                                /* EOF. Ignore remaining undecoded bytes */
-                                break;
-                }
-
-                int numCodepointsDecoded;
-
-                decode_utf8_span_and_move_rest_to_front(readbuffer, readbufferFill,
-                        codepointBuffer, &readbufferFill, &numCodepointsDecoded);
-
-                draw_codepoints_with_cursor(&cursor, boundingBox,
-                        codepointBuffer, numCodepointsDecoded,
-                        markStart, markEnd);
+                uint32_t codepoint = look_codepoint_from_UTF8DecodeStream(&decoder);
+                consume_codepoint_from_UTF8DecodeStream(&decoder);
+                int drawstringKind = 0;
+                if (markStart <= drawCursor.codepointpos && drawCursor.codepointpos < markEnd)
+                        drawstringKind = DRAWSTRING_HIGHLIGHT;
+                draw_codepoint(&drawCursor, boundingBox, drawstringKind, codepoint, 0, 0, 0, 255);
         }
+
+        exit_UTF8DecodeStream(&decoder);
+
+#if 0
+        /* test. Later, we need more complex logic for incremental update. */
+        int lexStartPos = 0;  /* try to lex starting from position 0. */
+        struct Blunt_ReadCtx readCtx;
+        struct Blunt_Token token;
+        blunt_begin_lex(&readCtx, edit->rope, lexStartPos);
+        for (int i = 0; i < 3; i++) {
+                blunt_lex_token(&readCtx, &token);
+                log_postf("Token of kind %d, ws %d, length %d",
+                        token.tokenKind,
+                        token.leadingWhiteChars,
+                        token.length);
+        }
+        log_postf("thanks\n");
+        blunt_end_lex(&readCtx);
+#endif
 }
 
 static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)

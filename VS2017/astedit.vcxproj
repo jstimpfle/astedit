@@ -149,6 +149,7 @@
     <ClCompile Include="..\src\astedit\stringpool.c" />
     <ClCompile Include="..\src\astedit\textedit.c" />
     <ClCompile Include="..\src\astedit\textrope.c" />
+    <ClCompile Include="..\src\astedit\textropeUTF8decode.c" />
     <ClCompile Include="..\src\astedit\textureatlas.c" />
     <ClCompile Include="..\src\astedit\utf8.c" />
     <ClCompile Include="..\src\astedit\window-glfw.c" />
@@ -171,6 +172,7 @@
     <ClInclude Include="..\include\astedit\stringpool.h" />
     <ClInclude Include="..\include\astedit\textrope.h" />
     <ClInclude Include="..\include\astedit\textedit.h" />
+    <ClInclude Include="..\include\astedit\textropeUTF8decode.h" />
     <ClInclude Include="..\include\astedit\textureatlas.h" />
     <ClInclude Include="..\include\astedit\utf8.h" />
     <ClInclude Include="..\include\astedit\window.h" />

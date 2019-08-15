@@ -184,13 +184,6 @@ void insert_codepoints_into_textedit(struct TextEdit *edit, int insertPos, uint3
                 insert_text_into_textrope(edit->rope, ropePos, &buf[0], bufFill);
                 ropePos += bufFill;
         }
-        /* test. Later, we need more complex logic for incremental update. */
-        int lexStartPos = 0;  /* try to lex starting from position 0. */
-        struct Blunt_ReadCtx readCtx;
-        struct Blunt_Token token;
-        blunt_begin_lex(&readCtx, edit->rope, lexStartPos);
-        blunt_lex_token(&readCtx, &token);
-        blunt_end_lex(&readCtx);
 }
 
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)

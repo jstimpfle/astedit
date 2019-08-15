@@ -1,3 +1,6 @@
+#ifndef TEXTROPE_H_INCLUDED
+#define TEXTROPE_H_INCLUDED
+
 struct Textrope;
 
 struct Textrope *create_textrope(void);
@@ -12,7 +15,6 @@ this will return one more than the actual number of '\n' characters
 in the text if the text length is > 0 and the last character isn't '\n'
 */
 int textrope_number_of_lines_quirky(struct Textrope *rope);
-
 
 void compute_line_number_and_codepoint_position(struct Textrope *rope, int pos, int *outLinenumber, int *outCodepointPosition);
 int compute_line_number(struct Textrope *rope, int pos);
@@ -29,3 +31,5 @@ int copy_text_from_textrope(struct Textrope *rope, int offset, char *dstBuffer, 
 void debug_check_textrope(struct Textrope *rope);
 void debug_print_textrope(struct Textrope *rope);
 void print_textrope_statistics(struct Textrope *rope);
+
+#endif

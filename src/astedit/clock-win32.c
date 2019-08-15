@@ -71,12 +71,11 @@ void stop_timer(Timer *timer)
 
 void report_timer(Timer *timer, const char *descriptionFmt, ...)
 {
+        log_begin();
         va_list ap;
         va_start(ap, descriptionFmt);
         log_writefv(descriptionFmt, ap);
         va_end(ap);
-
-        log_begin();
         log_writef(": %lld us", (long long)get_elapsed_microseconds(timer));
         log_end();
 }
