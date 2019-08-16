@@ -35,7 +35,7 @@ void handle_events(void)
                         if (input.data.tKey.keyKind == KEY_ESCAPE) {
                                 shouldWindowClose = 1;
                         }
-                        else {
+                        else if (!globalTextEdit.isLoading) {
                                 start_timer(keyinputTimer);
                                 process_input_in_TextEdit(&input, &globalTextEdit);
                                 stop_timer(keyinputTimer);

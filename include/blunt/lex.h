@@ -38,7 +38,7 @@ struct Blunt_ReadCtx {
         int bufferLength;
 };
 
-void blunt_begin_lex(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPos);
-void blunt_end_lex(struct Blunt_ReadCtx *ctx);
+void begin_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPos);
+void end_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx);
 
-void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken);
+void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken);

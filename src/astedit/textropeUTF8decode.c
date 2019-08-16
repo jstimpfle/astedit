@@ -73,8 +73,6 @@ void consume_byte_from_TextropeReadBuffer(struct TextropeReadBuffer *trbuf)
 void init_UTF8DecodeStream(struct UTF8DecodeStream *stream, struct Textrope *textrope, int initialPosInBytes)
 {
         init_TextropeReadBuffer(&stream->readbuffer, textrope, initialPosInBytes);
-        stream->codepointBufferStart = 0;
-        stream->codepointBufferEnd = 0;
 };
 
 void exit_UTF8DecodeStream(struct UTF8DecodeStream *stream)
@@ -82,45 +80,27 @@ void exit_UTF8DecodeStream(struct UTF8DecodeStream *stream)
         exit_TextropeReadBuffer(&stream->readbuffer);
 }
 
-void refill_UTF8DecodeStream(struct UTF8DecodeStream *stream)
-{
-        struct TextropeReadBuffer *trbuf = &stream->readbuffer;
-        if (trbuf->bufferEnd - trbuf->bufferStart < 16)
-                /* 16 = arbitrary small number >= 4 (max UTF-8 sequence length) */
-                move_bytes_in_TextropeReadBuffer_to_front(trbuf);
-        refill_TextropeReadBuffer(trbuf);
-        if (trbuf->bufferStart == trbuf->bufferEnd)
-                return;
-        if (stream->codepointBufferStart == stream->codepointBufferEnd) {
-                stream->codepointBufferStart = 0;
-                stream->codepointBufferEnd = 0;
-        }
-        int numCodepointsDecoded;
-        decode_utf8_span(
-                trbuf->buffer, trbuf->bufferStart, trbuf->bufferEnd,
-                stream->codepointBuffer + stream->codepointBufferStart,
-                LENGTH(stream->codepointBuffer) - stream->codepointBufferStart,
-                &trbuf->bufferStart, &numCodepointsDecoded);
-        stream->codepointBufferEnd += numCodepointsDecoded;
-}
 
 int has_UTF8DecodeStream_more_data(struct UTF8DecodeStream *stream)
 {
-        if (stream->codepointBufferStart < stream->codepointBufferEnd)
-                return 1;
-        refill_UTF8DecodeStream(stream);
-        return stream->codepointBufferStart < stream->codepointBufferEnd;
+        return has_TextropeReadBuffer_more_data(&stream->readbuffer);
 }
 
-uint32_t look_codepoint_from_UTF8DecodeStream(struct UTF8DecodeStream *stream)
+uint32_t read_codepoint_from_UTF8DecodeStream(struct UTF8DecodeStream *stream)
 {
-        if (!has_UTF8DecodeStream_more_data(stream))
+        struct TextropeReadBuffer *trbuf = &stream->readbuffer;
+        if (trbuf->bufferEnd - trbuf->bufferStart < 4) {
+                move_bytes_in_TextropeReadBuffer_to_front(trbuf);
+                refill_TextropeReadBuffer(trbuf);
+        }
+        
+        uint32_t codepoint;
+        int r = decode_codepoint_from_utf8(stream->readbuffer.buffer,
+                stream->readbuffer.bufferStart, stream->readbuffer.bufferEnd,
+                &stream->readbuffer.bufferStart, &codepoint);
+        if (r == 0)
                 return (uint32_t) -1;
-        return stream->codepointBuffer[stream->codepointBufferStart];
-}
-
-void consume_codepoint_from_UTF8DecodeStream(struct UTF8DecodeStream *stream)
-{
-        ENSURE(stream->codepointBufferStart < stream->codepointBufferEnd);
-        stream->codepointBufferStart++;
+        if (r == -1)
+                return (uint32_t) '?'; //XXX
+        return codepoint;
 }

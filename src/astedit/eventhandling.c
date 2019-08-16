@@ -59,6 +59,7 @@ void process_input_in_TextEdit_line(struct Input *input, struct TextEdit *edit)
 
 void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
 {
+        ENSURE(!edit->isLoading);
         if (input->inputKind == INPUT_KEY) {
                 int modifiers = input->data.tKey.modifiers;
                 int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs

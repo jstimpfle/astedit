@@ -2,6 +2,7 @@
 #include <astedit/bytes.h>
 #include <astedit/textrope.h>
 #include <astedit/logging.h>
+#include <astedit/utf8.h>
 #include <blunt/lex.h>
 
 
@@ -40,7 +41,7 @@ static int look_byte(struct Blunt_ReadCtx *ctx)
 {
         if (!has_byte(ctx))
                 return -1;
-        int c = ctx->buffer[ctx->bufferStart];
+        int c = (unsigned char) ctx->buffer[ctx->bufferStart];
         return c;
 }
 
@@ -69,7 +70,7 @@ static int is_digit(int c)
 }
 
 /* TODO: return more information than just a token kind. */
-void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
+void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
 {
         enum Blunt_TokenKind tokenKind;
         int c;
@@ -90,7 +91,7 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
         if (c == -1) {
                 tokenKind = BLUNT_TOKEN_EOF;
         }
-        else if (is_alpha(c)) {
+        else if (is_alpha(c) || c == '_') {
                 tokenKind = BLUNT_TOKEN_NAME;
                 for (;;) {
                         consume_byte(ctx);
@@ -115,7 +116,6 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
         else if (c == '"') {
                 tokenKind = BLUNT_TOKEN_STRING;
                 consume_byte(ctx);
-                // TODO: escaping.
                 // TODO: store the actual string
                 for (;;) {
                         c = look_byte(ctx);
@@ -123,11 +123,19 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                                 break; // TODO: error!
                         if (c < 32)
                                 break; // TODO: error!
-                        if (c == '"')
+                        if (c == '"') {
+                                consume_byte(ctx);
                                 break;
+                        }
+                        else if (c == '\\') {
+                                consume_byte(ctx);
+                                c = look_byte(ctx);
+                                if (c == -1)
+                                        break;  // TODO: error!
+                                /* TODO more escaping */
+                        }
                         consume_byte(ctx);
                 }
-                consume_byte(ctx);
         }
 #define OP(x, y) else if (c == x) { tokenKind = y; consume_byte(ctx); }
         OP('+', BLUNT_TOKEN_PLUS)
@@ -136,7 +144,14 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                 OP('/', BLUNT_TOKEN_SLASH)
         else {
                 tokenKind = BLUNT_TOKEN_JUNK;
-                consume_byte(ctx);
+                for (;;) {
+                        consume_byte(ctx);
+                        c = look_byte(ctx);
+                        if (c == -1)
+                                break;
+                        if (is_utf8_leader_byte(c))
+                                break;
+                }
                 // how much to consume?
         }
 
@@ -145,7 +160,7 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
         outToken->leadingWhiteChars = leadingWhiteChars;
 }
 
-void blunt_begin_lex(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPosition)
+void begin_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPosition)
 {
         ctx->rope = rope;
         ctx->readPos = startPosition;
@@ -153,7 +168,7 @@ void blunt_begin_lex(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int start
         ctx->bufferLength = 0;
 }
 
-void blunt_end_lex(struct Blunt_ReadCtx *ctx)
+void end_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx)
 {
         UNUSED(ctx);
 }

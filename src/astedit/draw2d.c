@@ -314,25 +314,33 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
 
         int onePastLastLine = firstLine + numberOfLines;
 
-        int lexStartPos = 0;  /* try to lex starting from position 0. */
         struct Blunt_ReadCtx readCtx;
         struct Blunt_Token token;
-        blunt_begin_lex(&readCtx, edit->rope, lexStartPos);
+        begin_lexing_blunt_tokens(&readCtx, edit->rope, initialReadPos);
+
+        /*
+        We can start lexing at the first character of the line
+        only because the lexical syntax is made such that newline
+        is always a token separator. Otherwise, we'd need to find
+        the start a little before that line and with more complicated
+        code.
+        */
 
         while (cursor->lineNumber < onePastLastLine) {
                 if (!has_UTF8DecodeStream_more_data(&decoder))
                         break;
 
-                blunt_lex_token(&readCtx, &token);
+                lex_blunt_token(&readCtx, &token);
 
-                for (int i = 0; i < token.leadingWhiteChars; i++) {
-                        uint32_t codepoint = look_codepoint_from_UTF8DecodeStream(&decoder);
-                        consume_codepoint_from_UTF8DecodeStream(&decoder);
+                int currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
+                int whiteEndPos = currentPos + token.leadingWhiteChars;
+                int tokenEndPos = currentPos + token.length;
+                while (readpos_in_bytes_of_UTF8Decoder(&decoder) < whiteEndPos) {
+                        uint32_t codepoint = read_codepoint_from_UTF8DecodeStream(&decoder);
                         draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint, 0, 0, 0, 255);
                 }
-                for (int i = 0; i < token.length - token.leadingWhiteChars; i++) {
-                        uint32_t codepoint = look_codepoint_from_UTF8DecodeStream(&decoder);
-                        consume_codepoint_from_UTF8DecodeStream(&decoder);
+                while (readpos_in_bytes_of_UTF8Decoder(&decoder) < tokenEndPos) {
+                        uint32_t codepoint = read_codepoint_from_UTF8DecodeStream(&decoder);
                         int drawstringKind = DRAWSTRING_NORMAL;
                         if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
                                 drawstringKind = DRAWSTRING_HIGHLIGHT;
@@ -353,7 +361,7 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
                         draw_codepoint(cursor, box, drawstringKind, codepoint, r, g, b, a);
                 }
         }
-        blunt_end_lex(&readCtx);
+        end_lexing_blunt_tokens(&readCtx);
         exit_UTF8DecodeStream(&decoder);
 }
 
