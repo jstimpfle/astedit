@@ -5,8 +5,21 @@
 
 enum Blunt_TokenKind {
         BLUNT_TOKEN_EOF,
-        BLUNT_TOKEN_INTEGER,
         BLUNT_TOKEN_NAME,
+        BLUNT_TOKEN_INTEGER,
+        BLUNT_TOKEN_STRING,
+        // operators
+        BLUNT_TOKEN_PLUS,
+        BLUNT_TOKEN_MINUS,
+        BLUNT_TOKEN_STAR,
+        BLUNT_TOKEN_SLASH,
+        //
+        BLUNT_TOKEN_JUNK,
+};
+
+enum {
+        FIRST_BLUNT_TOKEN_OPERATOR = BLUNT_TOKEN_PLUS,
+        LAST_BLUNT_TOKEN_OPERATOR = BLUNT_TOKEN_SLASH,
 };
 
 struct Blunt_Token {

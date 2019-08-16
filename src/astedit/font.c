@@ -143,7 +143,7 @@ int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
         int x = initX;
         for (int i = 0; i < length; i++) {
                 struct CachedGlyph *cachedGlyph = lookup_or_render_glyph(font, size, text[i]);
-                
+
                 struct TextureAtlasRegion region;
                 compute_region_from_CachedTexture(cachedGlyph->cachedTexture, &region);
 

@@ -271,7 +271,7 @@ void setup_window(void)
         glfwSetCharCallback(windowGlfw, &char_cb_glfw);
         glfwSetFramebufferSizeCallback(windowGlfw, &windowsize_cb_glfw);
         glfwSetWindowRefreshCallback(windowGlfw, &windowrefresh_cb_glfw);
-        
+
 
         { /* call the callback artificially */
                 int pixX, pixY;

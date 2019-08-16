@@ -1,6 +1,7 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
 #include <astedit/textrope.h>
+#include <astedit/logging.h>
 #include <blunt/lex.h>
 
 
@@ -51,6 +52,12 @@ static void consume_byte(struct Blunt_ReadCtx *ctx)
         ctx->bufferLength--;
 }
 
+static int is_alpha(int c)
+{
+        return ('a' <= c && c <= 'z')
+                || ('A' <= c && c <= 'Z');
+}
+
 static int is_whitespace(int c)
 {
         return (unsigned) c <= 32;
@@ -83,6 +90,17 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
         if (c == -1) {
                 tokenKind = BLUNT_TOKEN_EOF;
         }
+        else if (is_alpha(c)) {
+                tokenKind = BLUNT_TOKEN_NAME;
+                for (;;) {
+                        consume_byte(ctx);
+                        c = look_byte(ctx);
+                        if (c == -1)
+                                break;
+                        if (!(is_alpha(c) || is_digit(c) || c == '_'))
+                                break;
+                }
+        }
         else if (is_digit(c)) {
                 tokenKind = BLUNT_TOKEN_INTEGER;
                 for (;;) {
@@ -94,16 +112,32 @@ void blunt_lex_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                                 break;
                 }
         }
-        else {
-                tokenKind = BLUNT_TOKEN_NAME;
+        else if (c == '"') {
+                tokenKind = BLUNT_TOKEN_STRING;
+                consume_byte(ctx);
+                // TODO: escaping.
+                // TODO: store the actual string
                 for (;;) {
-                        consume_byte(ctx);
                         c = look_byte(ctx);
                         if (c == -1)
+                                break; // TODO: error!
+                        if (c < 32)
+                                break; // TODO: error!
+                        if (c == '"')
                                 break;
-                        if (is_whitespace(c))
-                                break;
+                        consume_byte(ctx);
                 }
+                consume_byte(ctx);
+        }
+#define OP(x, y) else if (c == x) { tokenKind = y; consume_byte(ctx); }
+        OP('+', BLUNT_TOKEN_PLUS)
+                OP('-', BLUNT_TOKEN_MINUS)
+                OP('*', BLUNT_TOKEN_STAR)
+                OP('/', BLUNT_TOKEN_SLASH)
+        else {
+                tokenKind = BLUNT_TOKEN_JUNK;
+                consume_byte(ctx);
+                // how much to consume?
         }
 
         outToken->tokenKind = tokenKind;

@@ -348,7 +348,7 @@ struct rb3_head *rb3_insert(struct rb3_tree *tree, struct rb3_head *head, rb3_cm
 struct rb3_head *rb3_delete(struct rb3_tree *tree, rb3_cmp cmp, void *data)
 {
         struct rb3_head *found;
-        
+
         found = rb3_find(tree, cmp, data);
         if (found) {
                 rb3_unlink_and_rebalance(found);

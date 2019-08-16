@@ -313,35 +313,48 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
         init_UTF8DecodeStream(&decoder, edit->rope, initialReadPos);
 
         int onePastLastLine = firstLine + numberOfLines;
-        while (cursor->lineNumber < onePastLastLine) {
-                if (!has_UTF8DecodeStream_more_data(&decoder))
-                        break;
-                uint32_t codepoint = look_codepoint_from_UTF8DecodeStream(&decoder);
-                consume_codepoint_from_UTF8DecodeStream(&decoder);
-                int drawstringKind = 0;
-                if (markStart <= drawCursor.codepointpos && drawCursor.codepointpos < markEnd)
-                        drawstringKind = DRAWSTRING_HIGHLIGHT;
-                draw_codepoint(&drawCursor, box, drawstringKind, codepoint, 0, 0, 0, 255);
-        }
 
-        exit_UTF8DecodeStream(&decoder);
-
-#if 0
-        /* test. Later, we need more complex logic for incremental update. */
         int lexStartPos = 0;  /* try to lex starting from position 0. */
         struct Blunt_ReadCtx readCtx;
         struct Blunt_Token token;
         blunt_begin_lex(&readCtx, edit->rope, lexStartPos);
-        for (int i = 0; i < 3; i++) {
+
+        while (cursor->lineNumber < onePastLastLine) {
+                if (!has_UTF8DecodeStream_more_data(&decoder))
+                        break;
+
                 blunt_lex_token(&readCtx, &token);
-                log_postf("Token of kind %d, ws %d, length %d",
-                        token.tokenKind,
-                        token.leadingWhiteChars,
-                        token.length);
+
+                for (int i = 0; i < token.leadingWhiteChars; i++) {
+                        uint32_t codepoint = look_codepoint_from_UTF8DecodeStream(&decoder);
+                        consume_codepoint_from_UTF8DecodeStream(&decoder);
+                        draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint, 0, 0, 0, 255);
+                }
+                for (int i = 0; i < token.length - token.leadingWhiteChars; i++) {
+                        uint32_t codepoint = look_codepoint_from_UTF8DecodeStream(&decoder);
+                        consume_codepoint_from_UTF8DecodeStream(&decoder);
+                        int drawstringKind = DRAWSTRING_NORMAL;
+                        if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
+                                drawstringKind = DRAWSTRING_HIGHLIGHT;
+                        int r = 0, g = 0, b = 0, a = 255;
+                        if (token.tokenKind == BLUNT_TOKEN_INTEGER) {
+                                r = 0; g = 0; b = 255; a = 255;
+                        }
+                        else if (token.tokenKind == BLUNT_TOKEN_STRING) {
+                                r = 0; g = 255; b = 0; a = 255;
+                        }
+                        else if (FIRST_BLUNT_TOKEN_OPERATOR <= token.tokenKind
+                                && token.tokenKind <= LAST_BLUNT_TOKEN_OPERATOR) {
+                                r = 0; g = 0; b = 0; a = 255;
+                        }
+                        else if (token.tokenKind == BLUNT_TOKEN_JUNK) {
+                                r = 255; g = 0; b = 0; a = 255;
+                        }
+                        draw_codepoint(cursor, box, drawstringKind, codepoint, r, g, b, a);
+                }
         }
-        log_postf("thanks\n");
         blunt_end_lex(&readCtx);
-#endif
+        exit_UTF8DecodeStream(&decoder);
 }
 
 static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)
@@ -400,7 +413,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
         struct TextEdit *edit, int firstLine, int markStart, int markEnd)
 {
         int statusLineH = 40;
-        
+
         int linesX = canvasX;
         int linesY = canvasY;
         int linesW = 200;

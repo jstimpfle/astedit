@@ -645,9 +645,9 @@ void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
         glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
         glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTUREALPHA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
         glUniform1i(uniformLocation[UNIFORM_TEXTUREALPHA_sampler], 0/*texture unit 0 ???*/);
-        
+
         glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]);
-        
+
         int pos = 0;
         while (pos < numVerts) {
                 GLuint texture = (GLuint)verts[pos].tex;

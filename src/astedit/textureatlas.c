@@ -134,7 +134,7 @@ static struct AtlasTextureRow *find_or_alloc_row(int w, int h)
                         struct AtlasTextureRow *row = a->rows[j];
                         if (row->height == h && row->width - row->x >= w)
                                 return row;
-                }                
+                }
         }
 
         /* look for an AtlasTexture that has enough space for a new row */
@@ -166,7 +166,7 @@ struct CachedTexture *store_texture_in_texture_atlas(unsigned char *pixels, int 
         //debug_print_texture(pixels, pixH, pixW, stride);
 
         int h = (pixH + 3) / 4 * 4;  /* next multiple of 4 */
-        
+
         struct AtlasTextureRow *row = find_or_alloc_row(pixW, h);
         int pixX = row->x;
         row->x += pixW;
@@ -174,7 +174,7 @@ struct CachedTexture *store_texture_in_texture_atlas(unsigned char *pixels, int 
         copy_texture(row->buffer + pixX, pixels, pixW, pixH, row->width, stride);
 
         row->dirty = 1;
-        
+
         struct CachedTexture *out = alloc_CachedTexture();
         out->row = row;
         out->x = pixX;

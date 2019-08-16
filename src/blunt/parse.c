@@ -41,7 +41,7 @@ static struct BluntAstFile *create_BluntAstFile(void)
         ALLOC_MEMORY(fileNode, 1);
         fileNode->tag.nodeKind = BLUNTASTNODE_FILE;
         fileNode->directives = NULL;
-        fileNode->numDirectives = 0;        
+        fileNode->numDirectives = 0;
 }
 
 void blunt_parse_file(void)
