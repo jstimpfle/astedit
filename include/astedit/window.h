@@ -108,7 +108,7 @@ enum MousebuttonEventKind {
         MOUSEBUTTONEVENT_RELEASE,
 };
 
-enum {
+enum ModifierBits {
         MODIFIER_SHIFT = 1 << 0,
         MODIFIER_CONTROL = 1 << 1,
         MODIFIER_MOD = 1 << 2,
@@ -121,7 +121,7 @@ struct KeyInput {
         enum KeyKind keyKind;  // KEY_??. Might be KEY_NONE in case of an unicode character. In this case the codepoint field should be meaningful.
         enum KeyEventKind keyEventKind;
 
-        int modifiers;  // OR'ed MODIFIER_??'s. Only valid if keyKind != KEY_NONE
+        int modifierMask;  // OR'ed MODIFIER_??'s. Only valid if keyKind != KEY_NONE
         int hasCodepoint;
         uint32_t codepoint;
 };
@@ -143,7 +143,7 @@ struct WindowresizeInput {
 };
 
 struct Input {
-        int inputKind;
+        enum InputKind inputKind;
         union {
                 struct KeyInput tKey;
                 struct MousebuttonInput tMousebutton;

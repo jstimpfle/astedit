@@ -100,12 +100,15 @@ static int glfwmods_to_modifiers(int mods)
 }
 
 
-static void enqueue_key_input(int keyKind, int modifiers, int hasCodepoint, unsigned codepoint)
+static void enqueue_key_input(
+        enum KeyKind keyKind, enum KeyEventKind keyEventKind,
+        int modifierMask, int hasCodepoint, unsigned codepoint)
 {
         struct Input inp;
         inp.inputKind = INPUT_KEY;
         inp.data.tKey.keyKind = keyKind;
-        inp.data.tKey.modifiers = modifiers;
+        inp.data.tKey.keyEventKind = keyEventKind;
+        inp.data.tKey.modifierMask = modifierMask;
         inp.data.tKey.hasCodepoint = hasCodepoint;
         inp.data.tKey.codepoint = codepoint;
         enqueue_input(&inp);
@@ -151,7 +154,7 @@ static void scroll_cb_glfw(GLFWwindow *win, double xoff, double yoff)
 {
         (void)win;
 
-        int keyKind;
+        enum KeyKind keyKind;
         if (xoff < 0.0)
                 keyKind = KEY_SCROLLLEFT;
         else if (xoff > 0.0)
@@ -166,7 +169,7 @@ static void scroll_cb_glfw(GLFWwindow *win, double xoff, double yoff)
         int modifiers = 0;
         int hasCodepoint = 0;
         unsigned codepoint = 0;
-        enqueue_key_input(keyKind, modifiers, hasCodepoint, codepoint);
+        enqueue_key_input(keyKind, KEYEVENT_PRESS, modifiers, hasCodepoint, codepoint);
 }
 
 static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int mods)
@@ -177,11 +180,12 @@ static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int 
         if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 for (int i = 0; i < LENGTH(keymap); i++) {
                         if (key == keymap[i].glfwKey) {
-                                int keyKind = keymap[i].keyKind;
+                                enum KeyKind keyKind = keymap[i].keyKind;
                                 int modifiers = glfwmods_to_modifiers(mods);
                                 int hasCodepoint = 0;
                                 unsigned codepoint = 0;
-                                enqueue_key_input(keyKind, modifiers, hasCodepoint, codepoint);
+                                enqueue_key_input(keyKind, KEYEVENT_PRESS,
+                                        modifiers, hasCodepoint, codepoint);
                                 return;
                         }
                 }
@@ -191,7 +195,7 @@ static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int 
 static void char_cb_glfw(GLFWwindow *win, unsigned int codepoint)
 {
         (void)win;
-        int keyKind = KEY_NONE;
+        enum KeyKind keyKind = KEY_NONE;
         int modifiers = 0;
         if (65 <= codepoint && codepoint <= 90) {
                 keyKind = KEY_A + codepoint - 65;
@@ -202,7 +206,7 @@ static void char_cb_glfw(GLFWwindow *win, unsigned int codepoint)
                 modifiers = 0;
         }
         int hasCodepoint = 1;
-        enqueue_key_input(keyKind, modifiers, hasCodepoint, codepoint);
+        enqueue_key_input(keyKind, KEYEVENT_PRESS, modifiers, hasCodepoint, codepoint);
 }
 
 static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
