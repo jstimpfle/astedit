@@ -309,8 +309,8 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
         set_bounding_box(box, x, y, w, h);
         set_draw_cursor(cursor, x, y, initialCodepointPos, firstLine);
 
-        struct UTF8DecodeStream decoder;
-        init_UTF8DecodeStream(&decoder, edit->rope, initialReadPos);
+        struct TextropeUTF8Decoder decoder;
+        init_UTF8Decoder(&decoder, edit->rope, initialReadPos);
 
         int onePastLastLine = firstLine + numberOfLines;
 
@@ -327,20 +327,17 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
         */
 
         while (cursor->lineNumber < onePastLastLine) {
-                if (!has_UTF8DecodeStream_more_data(&decoder))
-                        break;
-
                 lex_blunt_token(&readCtx, &token);
 
                 int currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
                 int whiteEndPos = currentPos + token.leadingWhiteChars;
                 int tokenEndPos = currentPos + token.length;
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < whiteEndPos) {
-                        uint32_t codepoint = read_codepoint_from_UTF8DecodeStream(&decoder);
+                        uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint, 0, 0, 0, 255);
                 }
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < tokenEndPos) {
-                        uint32_t codepoint = read_codepoint_from_UTF8DecodeStream(&decoder);
+                        uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         int drawstringKind = DRAWSTRING_NORMAL;
                         if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
                                 drawstringKind = DRAWSTRING_HIGHLIGHT;
@@ -360,9 +357,12 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
                         }
                         draw_codepoint(cursor, box, drawstringKind, codepoint, r, g, b, a);
                 }
+
+                if (token.tokenKind == BLUNT_TOKEN_EOF)
+                        break;
         }
         end_lexing_blunt_tokens(&readCtx);
-        exit_UTF8DecodeStream(&decoder);
+        exit_UTF8Decoder(&decoder);
 }
 
 static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)

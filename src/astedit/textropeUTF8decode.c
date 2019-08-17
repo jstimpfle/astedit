@@ -11,7 +11,7 @@ enum {
         TEXTROPEREADBUFFER_CAPACITY = 1024,
 };
 
-void init_TextropeReadBuffer(struct TextropeReadBuffer *trbuf, struct Textrope *rope, int initialPosInBytes)
+void init_UTF8Decoder(struct TextropeUTF8Decoder *trbuf, struct Textrope *rope, int initialPosInBytes)
 {
         trbuf->rope = rope;
         ALLOC_MEMORY(&trbuf->buffer, TEXTROPEREADBUFFER_CAPACITY);
@@ -20,84 +20,43 @@ void init_TextropeReadBuffer(struct TextropeReadBuffer *trbuf, struct Textrope *
         trbuf->readPosition = initialPosInBytes;
 }
 
-void exit_TextropeReadBuffer(struct TextropeReadBuffer *trbuf)
+void exit_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
 {
-        FREE_MEMORY(&trbuf->buffer);
+        FREE_MEMORY(&decoder->buffer);
 }
 
-static void move_bytes_in_TextropeReadBuffer_to_front(struct TextropeReadBuffer *trbuf)
+static void move_bytes_in_TextropeReadBuffer_to_front(struct TextropeUTF8Decoder *decoder)
 {
-        int bufferedBytes = trbuf->bufferEnd - trbuf->bufferStart;
-        move_memory(trbuf->buffer + trbuf->bufferStart,
-                -trbuf->bufferStart, bufferedBytes);
-        trbuf->bufferStart = 0;
-        trbuf->bufferEnd = bufferedBytes;
+        int bufferedBytes = decoder->bufferEnd - decoder->bufferStart;
+        move_memory(decoder->buffer + decoder->bufferStart,
+                -decoder->bufferStart, bufferedBytes);
+        decoder->bufferStart = 0;
+        decoder->bufferEnd = bufferedBytes;
 }
 
-void refill_TextropeReadBuffer(struct TextropeReadBuffer *trbuf)
+static void refill_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
 {
-        int textropeLength = textrope_length(trbuf->rope);
-        int bytesToRead = textropeLength - trbuf->readPosition;
-        if (bytesToRead > TEXTROPEREADBUFFER_CAPACITY - trbuf->bufferEnd)
-                bytesToRead = TEXTROPEREADBUFFER_CAPACITY - trbuf->bufferEnd;
-        copy_text_from_textrope(trbuf->rope, trbuf->readPosition,
-                trbuf->buffer + trbuf->bufferEnd, bytesToRead);
-        trbuf->bufferEnd += bytesToRead;
-        trbuf->readPosition += bytesToRead;
+        int textropeLength = textrope_length(decoder->rope);
+        int bytesToRead = textropeLength - decoder->readPosition;
+        if (bytesToRead > TEXTROPEREADBUFFER_CAPACITY - decoder->bufferEnd)
+                bytesToRead = TEXTROPEREADBUFFER_CAPACITY - decoder->bufferEnd;
+        copy_text_from_textrope(decoder->rope, decoder->readPosition,
+                decoder->buffer + decoder->bufferEnd, bytesToRead);
+        decoder->bufferEnd += bytesToRead;
+        decoder->readPosition += bytesToRead;
 }
 
-static int has_TextropeReadBuffer_more_data(struct TextropeReadBuffer *trbuf)
+uint32_t read_codepoint_from_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
 {
-        if (trbuf->bufferStart < trbuf->bufferEnd)
-                return 1;
-        refill_TextropeReadBuffer(trbuf);
-        return trbuf->bufferStart < trbuf->bufferEnd;
-}
-
-int look_byte_from_TextropeReadBuffer(struct TextropeReadBuffer *trbuf)
-{
-        if (!has_TextropeReadBuffer_more_data(trbuf))
-                return -1;
-        return trbuf->buffer[trbuf->bufferStart];
-}
-
-void consume_byte_from_TextropeReadBuffer(struct TextropeReadBuffer *trbuf)
-{
-        ENSURE(trbuf->bufferStart < trbuf->bufferEnd);
-        trbuf->bufferStart++;
-}
-
-
-
-
-void init_UTF8DecodeStream(struct UTF8DecodeStream *stream, struct Textrope *textrope, int initialPosInBytes)
-{
-        init_TextropeReadBuffer(&stream->readbuffer, textrope, initialPosInBytes);
-};
-
-void exit_UTF8DecodeStream(struct UTF8DecodeStream *stream)
-{
-        exit_TextropeReadBuffer(&stream->readbuffer);
-}
-
-
-int has_UTF8DecodeStream_more_data(struct UTF8DecodeStream *stream)
-{
-        return has_TextropeReadBuffer_more_data(&stream->readbuffer);
-}
-
-uint32_t read_codepoint_from_UTF8DecodeStream(struct UTF8DecodeStream *stream)
-{
-        struct TextropeReadBuffer *trbuf = &stream->readbuffer;
-        if (trbuf->bufferEnd - trbuf->bufferStart < 4) {
-                move_bytes_in_TextropeReadBuffer_to_front(trbuf);
-                refill_TextropeReadBuffer(trbuf);
+        if (decoder->bufferEnd - decoder->bufferStart < 4) {
+                move_bytes_in_TextropeReadBuffer_to_front(decoder);
+                refill_UTF8Decoder(decoder);
         }
         
         uint32_t codepoint;
-        int r = decode_codepoint_from_utf8(stream->readbuffer.buffer,
-                stream->readbuffer.bufferStart, stream->readbuffer.bufferEnd,
-                &stream->readbuffer.bufferStart, &codepoint);
+        int r = decode_codepoint_from_utf8(decoder->buffer,
+                decoder->bufferStart, decoder->bufferEnd,
+                &decoder->bufferStart, &codepoint);
         if (r == 0)
                 return (uint32_t) -1;
         if (r == -1)
