@@ -11,12 +11,16 @@ LDFLAGS += $(shell pkg-config --libs glfw3)
 LDFLAGS += $(shell pkg-config --libs freetype2)
 LDFLAGS += $(shell pkg-config --libs gl)
 LDFLAGS += $(shell pkg-config --libs glu)
+LDFLAGS += -l pthread
+LDFLAGS += -l rt  # clock_gettime() and friends
 
 CFILES =  \
 src/astedit/bytes.c \
 src/astedit/clock-linux.c \
 src/astedit/data.c \
 src/astedit/draw2d.c \
+src/astedit/eventhandling.c \
+src/astedit/filereadthread-linux.c \
 src/astedit/font.c \
 src/astedit/font-freetype.c \
 src/astedit/gfx-opengl.c \
@@ -28,19 +32,22 @@ src/astedit/textedit.c \
 src/astedit/textrope.c \
 src/astedit/textureatlas.c \
 src/astedit/utf8.c \
+src/astedit/textropeUTF8decode.c \
 src/astedit/window.c \
 src/astedit/window-glfw.c \
+src/blunt/lex.c \
 src/rb3ptr.c
 
-OBJECTS = $(CFILES:.c=.o)
+OBJECTS = $(CFILES:%.c=BUILD/%.o)
 
 all: astedit
 
 astedit: $(OBJECTS)
 	$(CC) $(LDFLAGS) $^ -o $@
 
-%.o: %.c
+BUILD/%.o: %.c
+	@mkdir -p `dirname $@`
 	$(CC) -c $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f astedit $(OBJECTS)
+	rm -rf astedit BUILD
