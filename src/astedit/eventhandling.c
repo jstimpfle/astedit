@@ -97,6 +97,7 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
                         }
                 }
                 else if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
+                        int modifierMask = input->data.tKey.modifierMask;
                         switch (input->data.tKey.keyKind) {
                         case KEY_CURSORUP:
                                 move_cursor_up(edit, isSelectionMode);
@@ -109,6 +110,18 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
                                 break;
                         case KEY_PAGEDOWN:
                                 scroll_down_one_page(edit, isSelectionMode);
+                                break;
+                        case KEY_HOME:
+                                if (modifierMask & MODIFIER_CONTROL)
+                                        move_to_first_line(edit, isSelectionMode);
+                                else
+                                        move_cursor_to_beginning_of_line(edit, isSelectionMode);
+                                break;
+                        case KEY_END:
+                                if (modifierMask & MODIFIER_CONTROL)
+                                        move_to_last_line(edit, isSelectionMode);
+                                else
+                                        move_cursor_to_end_of_line(edit, isSelectionMode);
                                 break;
                         }
                 }
