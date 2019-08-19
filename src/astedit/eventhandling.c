@@ -292,7 +292,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
         if (input->inputKind == INPUT_KEY) {
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
-                if (!hasCodepoint && keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE) {
+                if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
                         int modifiers = input->data.tKey.modifierMask;
                         int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
                         switch (input->data.tKey.keyKind) {

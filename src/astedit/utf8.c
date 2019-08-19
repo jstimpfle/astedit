@@ -92,7 +92,6 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
                           //      return 0;
                         start = next;
                         codepoint = 0x10000 + (codepoint - 0xDC00) + ((d - 0xD800) << 10);
-                        codepoint = codepoint;
                 }
 
                 *out_next = start;
