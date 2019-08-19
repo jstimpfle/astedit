@@ -10,7 +10,6 @@
 
 
 static struct TextEdit globalTextEdit;
-static struct ViState globalViState;
 
 static Timer *keyinputTimer;
 static Timer *redrawTimer;
@@ -21,7 +20,6 @@ static Timer *handleEventsTimer;
 
 static void handle_input(struct Input *input)
 {
-
         if (input->inputKind == INPUT_WINDOWRESIZE) {
                 /*log_postf("Window size is now %d %d",
                         input->tWindowresize.width,
@@ -35,7 +33,7 @@ static void handle_input(struct Input *input)
                 }
                 else if (!globalTextEdit.isLoading) {
                         start_timer(keyinputTimer);
-                        process_input_in_TextEdit_with_ViMode(input, &globalTextEdit, &globalViState);
+                        process_input_in_TextEdit(input, &globalTextEdit);
                         stop_timer(keyinputTimer);
                         /*report_timer(keyinputTimer, "Time spent in editing operation");*/
                 }
@@ -125,6 +123,7 @@ int main(int argc, const char **argv)
 
         if (argc == 2)
                 textedit_test_init(&globalTextEdit, argv[1]);
+        globalTextEdit.isVimodeActive = 1;
 
         while (!shouldWindowClose)
                 mainloop();

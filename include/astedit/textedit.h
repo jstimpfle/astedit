@@ -7,6 +7,29 @@
 #include <astedit/clock.h>  // timer
 #include <astedit/filereadthread.h>
 
+
+/* Optional VI mode. */
+
+enum ViMode {
+        VIMODE_NORMAL,
+        VIMODE_SELECTING,
+        VIMODE_INPUT,
+        NUM_VIMODE_KINDS,
+};
+
+enum ViNormalModeModal {
+        VIMODAL_NORMAL,
+        VIMODAL_D,
+};
+
+struct ViState {
+        enum ViMode vimodeKind;
+        enum ViNormalModeModal modalKind;
+};
+
+extern const char *const vimodeKindString[NUM_VIMODE_KINDS];
+
+
 struct TextEdit {
         struct Textrope *rope;
 
@@ -28,6 +51,9 @@ struct TextEdit {
 
         Timer *loadingTimer;
         struct FilereadThreadCtx *loadingFilereadThreadCtx;
+
+        int isVimodeActive;
+        struct ViState vistate;
 };
 
 
@@ -67,5 +93,8 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint);
 
 /* fill TextEdit with some text loaded from a file. For debugging purposes. */
 void textedit_test_init(struct TextEdit *edit, const char *filepath);
+
+
+
 
 #endif

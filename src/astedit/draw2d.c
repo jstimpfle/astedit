@@ -385,7 +385,11 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
 
         draw_colored_rect(x, y, w, h, 128, 160, 128, 255);
 
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "pos: %d", pos);
+        if (edit->isVimodeActive)
+                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
+
+        cursor->x = x + 500;
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %d", pos);
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %d", codepointPos);
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %d", lineNumber);
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
