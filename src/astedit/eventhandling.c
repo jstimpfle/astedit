@@ -121,6 +121,12 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
                         case KEY_CURSORDOWN:
                                 move_cursor_down(edit, isSelectionMode);
                                 break;
+                        case KEY_CURSORLEFT:
+                                move_cursor_left(edit, isSelectionMode);
+                                break;
+                        case KEY_CURSORRIGHT:
+                                move_cursor_right(edit, isSelectionMode);
+                                break;
                         case KEY_PAGEUP:
                                 scroll_up_one_page(edit, isSelectionMode);
                                 break;
