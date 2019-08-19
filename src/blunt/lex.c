@@ -16,14 +16,14 @@ static void fill_buffer(struct Blunt_ReadCtx *ctx)
                 ctx->bufferStart = 0;
         }
 
-        int bytesToRead = sizeof ctx->buffer - (ctx->bufferStart + ctx->bufferLength);
-        int bytesAvail = textrope_length(ctx->rope) - ctx->readPos;
-        if (bytesToRead > bytesAvail)
-                bytesToRead = bytesAvail;
+        int bytesToRead = min_filepos_as_int(
+                sizeof ctx->buffer - (ctx->bufferStart + ctx->bufferLength),
+                textrope_length(ctx->rope) - ctx->readPos);
         /* note that "readPos" is ignoring what's already in the buffer.
         That's why we add bufferLength here, and also why we don't advance
         readPos after copy_text_from_textrope() */
-        copy_text_from_textrope(ctx->rope, ctx->readPos + ctx->bufferLength, ctx->buffer + ctx->bufferStart, bytesToRead);
+        copy_text_from_textrope(ctx->rope, ctx->readPos + ctx->bufferLength,
+                ctx->buffer + ctx->bufferStart, bytesToRead);
         ctx->bufferLength += bytesToRead;
 }
 
@@ -75,8 +75,8 @@ void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
         enum Blunt_TokenKind tokenKind;
         int c;
 
-        int parseStart = ctx->readPos;
-        int leadingWhiteChars = 0;
+        FILEPOS parseStart = ctx->readPos;
+        FILEPOS leadingWhiteChars = 0;
 
         for (;;) {
                 c = look_byte(ctx);
@@ -86,7 +86,7 @@ void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                         break;
                 consume_byte(ctx);
         }
-        leadingWhiteChars = ctx->readPos - parseStart;
+        leadingWhiteChars = filepos_sub(ctx->readPos, parseStart);
 
         if (c == -1) {
                 tokenKind = BLUNT_TOKEN_EOF;
@@ -156,11 +156,11 @@ void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
         }
 
         outToken->tokenKind = tokenKind;
-        outToken->length = ctx->readPos - parseStart;
+        outToken->length = filepos_sub(ctx->readPos, parseStart);
         outToken->leadingWhiteChars = leadingWhiteChars;
 }
 
-void begin_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPosition)
+void begin_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx, struct Textrope *rope, FILEPOS startPosition)
 {
         ctx->rope = rope;
         ctx->readPos = startPosition;

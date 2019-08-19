@@ -37,24 +37,10 @@ struct GlyphLayoutInfo {
         int horiAdvance;  // XXX not accounted for kerning
 };
 
-
-struct DrawCursor {
-        int xLeft;
-        int fontSize;
-        int ascender;
-        int lineHeight;
-        int x;
-        int y;
-        int codepointpos;
-        int lineNumber;  // not sure if that's a good idea
-};
-
-struct BoundingBox {
-        int bbX;
-        int bbY;
-        int bbW;
-        int bbH;
-};
+#include <astedit/draw2d.h>  // BoundingBox
+int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
+        int size, const uint32_t *text, int length, int initX, int baselineY,
+        int r, int g, int b, int a);
 
 
 /*
@@ -66,9 +52,6 @@ width.
 */
 int measure_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int *outPositions);
 
-int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
-        int size, const uint32_t *text, int length, int initX, int baselineY,
-        int r, int g, int b, int a);
 
 
 

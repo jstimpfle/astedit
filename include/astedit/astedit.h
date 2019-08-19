@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stddef.h>  // NULL
 #include <stdint.h>  // uint32_t and friends
+#include <inttypes.h>  // PRId64 and others
 
 
 #ifdef _MSC_VER

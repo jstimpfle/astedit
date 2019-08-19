@@ -1,6 +1,6 @@
 #include <astedit/astedit.h>
+#include <astedit/filepositions.h>
 #include <astedit/textrope.h>
-
 
 
 enum Blunt_TokenKind {
@@ -8,6 +8,8 @@ enum Blunt_TokenKind {
         BLUNT_TOKEN_NAME,
         BLUNT_TOKEN_INTEGER,
         BLUNT_TOKEN_STRING,
+        BLUNT_TOKEN_LPAREN,
+        BLUNT_TOKEN_RPAREN,
         // operators
         BLUNT_TOKEN_PLUS,
         BLUNT_TOKEN_MINUS,
@@ -25,20 +27,23 @@ enum {
 struct Blunt_Token {
         // TODO: more data than just token kind!
         enum Blunt_TokenKind tokenKind;
-        int length;
-        int leadingWhiteChars;
+        // currently these are large integers like file position values,
+        // but if we have many tokens we might want to limit the
+        // valid size of tokens to a sane value to save memory.
+        FILEPOS length;
+        FILEPOS leadingWhiteChars;
 };
 
 
 struct Blunt_ReadCtx {
         struct Textrope *rope;
-        int readPos;
+        FILEPOS readPos;
         char buffer[512];
         int bufferStart;
         int bufferLength;
 };
 
-void begin_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx, struct Textrope *rope, int startPos);
+void begin_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx, struct Textrope *rope, FILEPOS startPos);
 void end_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx);
 
 void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken);

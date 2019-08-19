@@ -11,7 +11,7 @@ enum {
         TEXTROPEREADBUFFER_CAPACITY = 1024,
 };
 
-void init_UTF8Decoder(struct TextropeUTF8Decoder *trbuf, struct Textrope *rope, int initialPosInBytes)
+void init_UTF8Decoder(struct TextropeUTF8Decoder *trbuf, struct Textrope *rope, FILEPOS initialPosInBytes)
 {
         trbuf->rope = rope;
         ALLOC_MEMORY(&trbuf->buffer, TEXTROPEREADBUFFER_CAPACITY);
@@ -36,10 +36,11 @@ static void move_bytes_in_TextropeReadBuffer_to_front(struct TextropeUTF8Decoder
 
 static void refill_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
 {
-        int textropeLength = textrope_length(decoder->rope);
-        int bytesToRead = textropeLength - decoder->readPosition;
-        if (bytesToRead > TEXTROPEREADBUFFER_CAPACITY - decoder->bufferEnd)
-                bytesToRead = TEXTROPEREADBUFFER_CAPACITY - decoder->bufferEnd;
+        FILEPOS textropeLength = textrope_length(decoder->rope);
+        int bytesToRead = min_filepos_as_int(
+                filepos_sub(textropeLength, decoder->readPosition),
+                TEXTROPEREADBUFFER_CAPACITY - decoder->bufferEnd
+        );
         copy_text_from_textrope(decoder->rope, decoder->readPosition,
                 decoder->buffer + decoder->bufferEnd, bytesToRead);
         decoder->bufferEnd += bytesToRead;

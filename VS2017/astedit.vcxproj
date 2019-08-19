@@ -164,6 +164,7 @@
     <ClInclude Include="..\include\astedit\clock.h" />
     <ClInclude Include="..\include\astedit\draw2d.h" />
     <ClInclude Include="..\include\astedit\eventhandling.h" />
+    <ClInclude Include="..\include\astedit\filepositions.h" />
     <ClInclude Include="..\include\astedit\filereadthread.h" />
     <ClInclude Include="..\include\astedit\font.h" />
     <ClInclude Include="..\include\astedit\gfx.h" />

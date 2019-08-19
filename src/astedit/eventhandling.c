@@ -59,6 +59,22 @@ void process_input_in_TextEdit_line(struct Input *input, struct TextEdit *edit)
 
 
 
+
+enum ViMovement {
+        VI_MOVEMENT_LEFT,
+        VI_MOVEMENT_RIGHT,
+        VI_MOVEMENT_UP,
+        VI_MOVEMENT_DOWN,
+        VI_MOVEMENT_WORD_FORWARDS,
+        VI_MOVEMENT_WORD_BACKWARDS,
+        VI_MOVEMENT_BEGINNING_OF_LINE,
+        VI_MOVEMENT_END_OF_LINE,
+        VI_MOVEMENT_FIRST_LINE,
+        VI_MOVEMENT_LAST_LINE,
+};
+
+
+
 static void process_movements_in_ViMode_NORMAL_or_SELECTING(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {

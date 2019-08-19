@@ -13,6 +13,7 @@
 #include <stdio.h> // snprintf
 #include <string.h> // strlen()
 
+
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d alphaVertexBuffer[3 * 1024];
 
@@ -258,7 +259,7 @@ static void set_bounding_box(struct BoundingBox *box, int x, int y, int w, int h
 
 
 static const int LINE_HEIGHT = 33;
-static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, int codepointPos, int lineNumber)
+static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS codepointPos, FILEPOS lineNumber)
 {
         cursor->xLeft = x;
         cursor->fontSize = 25;
@@ -271,7 +272,7 @@ static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, int codepoi
 }
 
 
-static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOfLines, int x, int y, int w, int h)
+static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstLine, FILEPOS numberOfLines, int x, int y, int w, int h)
 {
         UNUSED(edit);
 
@@ -283,23 +284,23 @@ static void draw_line_numbers(struct TextEdit *edit, int firstLine, int numberOf
         set_bounding_box(box, x, y, w, h);
         set_draw_cursor(cursor, x, y, 0, 0);
 
-        int onePastLastLine = firstLine + numberOfLines;
+        FILEPOS onePastLastLine = filepos_add(firstLine, numberOfLines);
 
-        for (int i = firstLine; i < onePastLastLine; i++) {
+        for (FILEPOS i = firstLine; i < onePastLastLine; i++) {
                 char buf[16];
-                snprintf(buf, sizeof buf, "%4d", i + 1);
+                snprintf(buf, sizeof buf, "%4"FILEPOS_PRI, i + 1);
                 draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
                 next_line(cursor);
         }
 }
 
-static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int numberOfLines,
-        int x, int y, int w, int h, int markStart, int markEnd)
+static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPOS numberOfLines,
+        int x, int y, int w, int h, FILEPOS markStart, FILEPOS markEnd)
 {
         flush_all_vertex_buffers();
 
-        int initialReadPos = compute_pos_of_line(edit->rope, firstLine);
-        int initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
+        FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstLine);
+        FILEPOS initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
 
         struct BoundingBox boundingBox;
         struct DrawCursor drawCursor;
@@ -312,7 +313,7 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
         struct TextropeUTF8Decoder decoder;
         init_UTF8Decoder(&decoder, edit->rope, initialReadPos);
 
-        int onePastLastLine = firstLine + numberOfLines;
+        FILEPOS onePastLastLine = filepos_add(firstLine, numberOfLines);
 
         struct Blunt_ReadCtx readCtx;
         struct Blunt_Token token;
@@ -329,9 +330,9 @@ static void draw_textedit_lines(struct TextEdit *edit, int firstLine, int number
         while (cursor->lineNumber < onePastLastLine) {
                 lex_blunt_token(&readCtx, &token);
 
-                int currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
-                int whiteEndPos = currentPos + token.leadingWhiteChars;
-                int tokenEndPos = currentPos + token.length;
+                FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
+                FILEPOS whiteEndPos = currentPos + token.leadingWhiteChars;
+                FILEPOS tokenEndPos = currentPos + token.length;
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < whiteEndPos) {
                         uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint, 0, 0, 0, 255);
@@ -378,9 +379,9 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
         set_draw_cursor(cursor, x, y, 0, 0);
 
-        int pos = edit->cursorBytePosition;
-        int codepointPos = compute_codepoint_position(edit->rope, pos);
-        int lineNumber = compute_line_number(edit->rope, pos);
+        FILEPOS pos = edit->cursorBytePosition;
+        FILEPOS codepointPos = compute_codepoint_position(edit->rope, pos);
+        FILEPOS lineNumber = compute_line_number(edit->rope, pos);
         char textbuffer[512];
 
         draw_colored_rect(x, y, w, h, 128, 160, 128, 255);
@@ -389,9 +390,9 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
 
         cursor->x = x + 500;
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %d", pos);
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %d", codepointPos);
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %d", lineNumber);
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
+        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
 }
 
@@ -412,17 +413,18 @@ static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, in
 
         draw_colored_rect(x, y, w, h, 128, 160, 128, 255);
 
+        /* XXX: this computation is very dirty */
+        FILEPOS percentage = (FILEPOS) (filepos_mul(edit->loadingCompletedBytes, 100)
+                          / (edit->loadingTotalBytes ? edit->loadingTotalBytes : 1));
+
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer,
-                "Loading %d%%  (%d / %d bytes)",
-                (int) ((long long) edit->loadingCompletedBytes * 100
-                        / (edit->loadingTotalBytes ? edit->loadingTotalBytes : 1)),
-                edit->loadingCompletedBytes,
-                edit->loadingTotalBytes);
+                "Loading %"FILEPOS_PRI"%%  (%"FILEPOS_PRI" / %"FILEPOS_PRI" bytes)",
+                percentage, edit->loadingCompletedBytes, edit->loadingTotalBytes);
 }
 
 
 static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
-        struct TextEdit *edit, int firstLine, int markStart, int markEnd)
+        struct TextEdit *edit, FILEPOS firstLine, FILEPOS markStart, FILEPOS markEnd)
 {
         int statusLineH = 40;
 
@@ -445,7 +447,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
         if (edit->isLoading) {
                 draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
         } else {
-                int length = textrope_length(edit->rope);
+                FILEPOS length = textrope_length(edit->rope);
 
                 if (markStart < 0) markStart = 0;
                 if (markEnd < 0) markEnd = 0;
@@ -454,8 +456,8 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
 
                 ENSURE(markStart <= markEnd);
 
-                int maxNumberOfLines = (textAreaH + LINE_HEIGHT - 1) / LINE_HEIGHT;
-                int numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
+                FILEPOS maxNumberOfLines = (textAreaH + LINE_HEIGHT - 1) / LINE_HEIGHT;
+                FILEPOS numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
                 if (numberOfLines > maxNumberOfLines)
                         numberOfLines = maxNumberOfLines;
 
@@ -470,8 +472,8 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
 
 void testdraw(struct TextEdit *edit)
 {
-        int markStart;
-        int markEnd;
+        FILEPOS markStart;
+        FILEPOS markEnd;
         if (edit->isSelectionMode)
                 get_selected_range_in_codepoints(edit, &markStart, &markEnd);
         else {

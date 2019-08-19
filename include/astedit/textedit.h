@@ -33,18 +33,18 @@ extern const char *const vimodeKindString[NUM_VIMODE_KINDS];
 struct TextEdit {
         struct Textrope *rope;
 
-        int cursorBytePosition;
+        FILEPOS cursorBytePosition;
+        FILEPOS firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
+        FILEPOS numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
 
         int isSelectionMode;
-        int selectionStartBytePosition;
+        FILEPOS selectionStartBytePosition;
 
-        int firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
-        int numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
 
         /*XXX this stuff probably must be protected with a mutex */
         int isLoading;
-        int loadingCompletedBytes;
-        int loadingTotalBytes;
+        FILEPOS loadingCompletedBytes;
+        FILEPOS loadingTotalBytes;
 
         char loadingBuffer[512];  // TODO: heap alloc?
         int loadingBufferFill;  // fill from start
@@ -60,17 +60,17 @@ struct TextEdit {
 void init_TextEdit(struct TextEdit *edit);
 void exit_TextEdit(struct TextEdit *edit);
 
-void get_selected_range_in_bytes(struct TextEdit *edit, int *outStart, int *outOnePastEnd);
-void get_selected_range_in_codepoints(struct TextEdit *edit, int *outStart, int *outOnePastEnd);
+void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
+void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
 
-void move_view_minimally_to_display_line(struct TextEdit *edit, int lineNumber);
+void move_view_minimally_to_display_line(struct TextEdit *edit, FILEPOS lineNumber);
 void move_view_minimally_to_display_cursor(struct TextEdit *edit);
-void move_cursor_to_byte_position(struct TextEdit *edit, int pos, int isSelecting);
-void move_cursor_to_codepoint(struct TextEdit *edit, int codepointPos, int isSelecting);
+void move_cursor_to_byte_position(struct TextEdit *edit, FILEPOS pos, int isSelecting);
+void move_cursor_to_codepoint(struct TextEdit *edit, FILEPOS codepointPos, int isSelecting);
 void move_cursor_left(struct TextEdit *edit, int isSelecting);
 void move_cursor_right(struct TextEdit *edit, int isSelecting);
-void move_cursor_to_line_and_column(struct TextEdit *edit, int lineNumber, int codepointColumn, int isSelecting);
-void move_cursor_lines_relative(struct TextEdit *edit, int linesDiff, int isSelecting);
+void move_cursor_to_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS codepointColumn, int isSelecting);
+void move_cursor_lines_relative(struct TextEdit *edit, FILEPOS linesDiff, int isSelecting);
 void move_cursor_up(struct TextEdit *edit, int isSelecting);
 void move_cursor_down(struct TextEdit *edit, int isSelecting);
 void move_cursor_to_beginning_of_line(struct TextEdit *edit, int isSelecting);

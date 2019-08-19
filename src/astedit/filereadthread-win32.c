@@ -17,7 +17,7 @@ struct FilereadThreadCtx {
         int bufferSize;
         int *bufferFill;
 
-        void(*prepare)(void *param, int filesizeInBytes);
+        void(*prepare)(void *param, FILEPOS filesizeInBytes);
         void(*finalize)(void *param);
         /* to flush the buffer completely. Return values is 0 for success
         or -1 to indicate error (reader thread should terminate itself in this case */
@@ -40,14 +40,19 @@ static void read_file_thread(struct FilereadThreadCtx *ctx)
         }
 
         {
-                struct _stat _buf;
-                int result = _fstat(_fileno(f), &_buf);
+                struct _stati64 _buf;
+                int result = _fstati64(_fileno(f), &_buf);
                 if (result != 0) {
                         log_postf("Error determining file size\n");
                         returnStatus = -1;
                         goto out;
                 }
-                int filesize = _buf.st_size;
+                if (_buf.st_size > FILEPOS_MAX - 1) {
+                        log_postf("File too large!\n");
+                        returnStatus = -1;
+                }
+                FILEPOS filesize = (FILEPOS) _buf.st_size;
+                ENSURE(filesize == _buf.st_size); // dirty (and probably technically invalid) way to check cast
                 ctx->prepare(ctx->param, filesize);
         }
 
@@ -105,7 +110,7 @@ static DWORD WINAPI read_file_thread_adapter(LPVOID param)
 struct FilereadThreadCtx *run_file_read_thread(
         const char *filepath, void *param,
         char *buffer, int bufferSize, int *bufferFill,
-        void (*prepare)(void *param, int filesizeInBytes),
+        void (*prepare)(void *param, FILEPOS filesizeInBytes),
         void (*finalize)(void *param),
         int (*flush_buffer)(void *param))
 {
