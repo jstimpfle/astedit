@@ -36,7 +36,7 @@ static void read_file_thread(struct FilereadThreadCtx *ctx)
         if (!f) {
                 log_postf("Failed to open file %s\n", ctx->filepath);
                 returnStatus = -1;
-                goto out;
+                goto out1;
         }
 
         {
@@ -45,11 +45,12 @@ static void read_file_thread(struct FilereadThreadCtx *ctx)
                 if (result != 0) {
                         log_postf("Error determining file size\n");
                         returnStatus = -1;
-                        goto out;
+                        goto out2;
                 }
                 if (_buf.st_size > FILEPOS_MAX - 1) {
                         log_postf("File too large!\n");
                         returnStatus = -1;
+                        goto out2;
                 }
                 FILEPOS filesize = (FILEPOS) _buf.st_size;
                 ENSURE(filesize == _buf.st_size); // dirty (and probably technically invalid) way to check cast
@@ -64,7 +65,7 @@ static void read_file_thread(struct FilereadThreadCtx *ctx)
                         need to protect the access to make sure that we get the new value
                         if it was updated from another thread). */
                         returnStatus = -1;  // TODO: choose a different return code? This is not strictly an error.
-                        goto out;
+                        goto out3;
                 }
 
                 int bufferSize = ctx->bufferSize;
@@ -82,21 +83,21 @@ static void read_file_thread(struct FilereadThreadCtx *ctx)
 
                 if (r == -1) {
                         returnStatus = -1;
-                        goto out;
+                        goto out3;
                 }
         }
 
         if (ferror(f)) {
                 log_postf("Errors while reading from file %s\n", ctx->filepath);
                 returnStatus = -1;
-                goto out;
         }
 
-out:
-        if (f != NULL)
-                fclose(f);
-        ctx->returnStatus = returnStatus;
+out3:
         ctx->finalize(ctx->param);
+out2:
+        fclose(f);
+out1:
+        ctx->returnStatus = returnStatus;
 }
 
 static DWORD WINAPI read_file_thread_adapter(LPVOID param)

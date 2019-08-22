@@ -303,8 +303,6 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
 
 void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
-        edit->isLoading = 1;  // set the variable in this thread as long as we don't have proper locks and synchronization
-
         edit->loadingFilereadThreadCtx =
                 run_file_read_thread(filepath, edit,
                         edit->loadingBuffer,
@@ -313,4 +311,9 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
                         &prepare_reading_from_filereadthread,
                         &finalize_reading_from_filereadthread,
                         &flush_loadingBuffer_from_filereadthread);
+
+        // instead of proper lock, sleep for a while.
+        // We need to be sure that the other thread sets edit->isLoading to 1
+        // (if the file can be opened).
+        sleep_milliseconds(100);
 }
