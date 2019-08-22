@@ -50,7 +50,7 @@ struct TextEdit {
         int loadingBufferFill;  // fill from start
 
         Timer *loadingTimer;
-        struct FilereadThreadCtx *loadingFilereadThreadCtx;
+        struct FilereadThreadHandle *loadingThreadHandle;
 
         int isVimodeActive;
         struct ViState vistate;
