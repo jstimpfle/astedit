@@ -139,7 +139,6 @@
     <ClCompile Include="..\src\astedit\data.c" />
     <ClCompile Include="..\src\astedit\draw2d.c" />
     <ClCompile Include="..\src\astedit\eventhandling.c" />
-    <ClCompile Include="..\src\astedit\filereadthread-win32.c" />
     <ClCompile Include="..\src\astedit\filereadthread.c" />
     <ClCompile Include="..\src\astedit\filesystem-win32.c" />
     <ClCompile Include="..\src\astedit\font-freetype.c" />
@@ -148,6 +147,7 @@
     <ClCompile Include="..\src\astedit\logging.c" />
     <ClCompile Include="..\src\astedit\main.c" />
     <ClCompile Include="..\src\astedit\memoryalloc.c" />
+    <ClCompile Include="..\src\astedit\osthread-win32.c" />
     <ClCompile Include="..\src\astedit\stringpool.c" />
     <ClCompile Include="..\src\astedit\textedit.c" />
     <ClCompile Include="..\src\astedit\textrope.c" />
@@ -173,6 +173,7 @@
     <ClInclude Include="..\include\astedit\gfx.h" />
     <ClInclude Include="..\include\astedit\logging.h" />
     <ClInclude Include="..\include\astedit\memoryalloc.h" />
+    <ClInclude Include="..\include\astedit\osthread.h" />
     <ClInclude Include="..\include\astedit\stringpool.h" />
     <ClInclude Include="..\include\astedit\textrope.h" />
     <ClInclude Include="..\include\astedit\textedit.h" />

@@ -27,15 +27,7 @@ struct FilereadThreadCtx {
         int returnStatus;
 };
 
-struct FilereadThreadHandle;
 
-struct FilereadThreadHandle *run_file_read_thread(struct FilereadThreadCtx *ctx);
-int check_if_file_read_thread_has_exited(struct FilereadThreadHandle *handle);
-void wait_for_file_read_thread_to_end(struct FilereadThreadHandle *handle);
-void dispose_file_read_thread(struct FilereadThreadHandle *handle);  // requires terminated thread
-
-
-/* INTERNAL - used only by OS-specific file read thread implementations */
 void read_file_thread(struct FilereadThreadCtx *ctx);
 
 

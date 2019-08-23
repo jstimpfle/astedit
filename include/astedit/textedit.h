@@ -45,7 +45,7 @@ struct TextEdit {
 
         int isLoading;
         struct FilereadThreadCtx *loadingThreadCtx;
-        struct FilereadThreadHandle *loadingThreadHandle;
+        struct OsThreadHandle *loadingThreadHandle;
 
         /*XXX this stuff is set by a separate read thread,
         so probably must be protected with a mutex */

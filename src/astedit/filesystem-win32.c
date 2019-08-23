@@ -6,7 +6,7 @@
 int query_filesize(FILE *f, FILEPOS *outSize)
 {
         struct _stati64 _buf;
-        
+
         int result = _fstati64(_fileno(f), &_buf);
         if (result != 0)
                 return -1;

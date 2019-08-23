@@ -5,6 +5,7 @@
 #include <astedit/filereadthread.h>
 #include <stdio.h>
 
+
 void read_file_thread(struct FilereadThreadCtx *ctx)
 {
         int returnStatus = 0;

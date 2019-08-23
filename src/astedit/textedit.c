@@ -3,7 +3,7 @@
 #include <astedit/memoryalloc.h>
 #include <astedit/utf8.h>
 #include <astedit/logging.h>
-#include <astedit/filereadthread.h>
+#include <astedit/osthread.h>
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 
@@ -245,7 +245,7 @@ void init_TextEdit(struct TextEdit *edit)
 void exit_TextEdit(struct TextEdit *edit)
 {
         if (edit->loadingThreadHandle != NULL) {
-                dispose_file_read_thread(edit->loadingThreadHandle);
+                dispose_thread(edit->loadingThreadHandle);
                 edit->loadingThreadHandle = NULL;
         }
 
@@ -308,7 +308,7 @@ void update_textedit(struct TextEdit *edit)
         if (edit->isLoading && edit->isLoadingCompleted) {
                 /* TODO: check for load errors */
                 edit->isLoading = 0;
-                dispose_file_read_thread(edit->loadingThreadHandle);
+                dispose_thread(edit->loadingThreadHandle);
                 FREE_MEMORY(&edit->loadingThreadCtx->filepath);
                 FREE_MEMORY(&edit->loadingThreadCtx);
                 edit->isLoadingCompleted = 0;
@@ -334,7 +334,7 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
         ctx->flushBufferFunc = &flush_loadingBuffer_from_filereadthread;
         ctx->returnStatus = 1337; //XXX: "never changed from thread"
 
-        struct FilereadThreadHandle *handle = run_file_read_thread(ctx);
+        struct OsThreadHandle *handle = create_and_start_thread(&read_file_thread, ctx);
 
         edit->isLoading = 1;
         edit->loadingThreadCtx = ctx;
