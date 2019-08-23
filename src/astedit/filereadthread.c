@@ -66,3 +66,8 @@ out2:
 out1:
         ctx->returnStatus = returnStatus;
 }
+
+void read_file_thread_adapter(void *ctx)
+{
+        read_file_thread(ctx);
+}

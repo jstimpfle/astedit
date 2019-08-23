@@ -1,4 +1,5 @@
 CFLAGS = -g -Wall
+CFLAGS += -Wno-switch -Wno-enum-compare
 CFLAGS += -D_POSIX_C_SOURE=200809LL
 
 CFLAGS += -Iinclude
@@ -20,13 +21,15 @@ src/astedit/clock-linux.c \
 src/astedit/data.c \
 src/astedit/draw2d.c \
 src/astedit/eventhandling.c \
-src/astedit/filereadthread-linux.c \
+src/astedit/filereadthread.c \
+src/astedit/filesystem-linux.c \
 src/astedit/font.c \
 src/astedit/font-freetype.c \
 src/astedit/gfx-opengl.c \
 src/astedit/logging.c \
 src/astedit/main.c \
 src/astedit/memoryalloc.c \
+src/astedit/osthread-linux.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
 src/astedit/textrope.c \

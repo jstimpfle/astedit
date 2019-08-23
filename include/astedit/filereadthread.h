@@ -29,6 +29,7 @@ struct FilereadThreadCtx {
 
 
 void read_file_thread(struct FilereadThreadCtx *ctx);
+void read_file_thread_adapter(void *param);
 
 
 #endif

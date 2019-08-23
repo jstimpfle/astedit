@@ -6,9 +6,8 @@
 #include <astedit/osthread.h>
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
-
-/* test */
-#include <blunt/lex.h>
+#include <blunt/lex.h> /* test */
+#include <string.h> // strlen()
 
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd)
@@ -334,7 +333,7 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
         ctx->flushBufferFunc = &flush_loadingBuffer_from_filereadthread;
         ctx->returnStatus = 1337; //XXX: "never changed from thread"
 
-        struct OsThreadHandle *handle = create_and_start_thread(&read_file_thread, ctx);
+        struct OsThreadHandle *handle = create_and_start_thread(&read_file_thread_adapter, ctx);
 
         edit->isLoading = 1;
         edit->loadingThreadCtx = ctx;
