@@ -39,13 +39,13 @@ static void handle_input(struct Input *input)
                 }
         }
         else if (input->inputKind == INPUT_MOUSEBUTTON) {
-                log_begin();
-                log_writef("%s mouse button %d",
-                        input->data.tMousebutton.mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS ? "Press" : "Release",
-                        input->data.tMousebutton.mousebuttonKind);
-
-                int flag = 0;
+                enum MousebuttonKind mousebuttonKind = input->data.tMousebutton.mousebuttonKind;
+                enum MousebuttonEventKind mousebuttonEventKind = input->data.tMousebutton.mousebuttonEventKind;
+                const char *event = mousebuttonKind == MOUSEBUTTONEVENT_PRESS? "Press" : "Release";
                 static const char *const prefix[2] = { "with", "+" };
+                int flag = 0;
+                log_begin();
+                log_writef("%s mouse button %d", event, mousebuttonKind);
                 if (input->data.tMousebutton.modifiers & MODIFIER_CONTROL) {
                         log_writef(" %s %s", prefix[flag], "Ctrl");
                         flag = 1;
