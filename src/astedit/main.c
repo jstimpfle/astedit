@@ -45,20 +45,17 @@ static void handle_input(struct Input *input)
                         input->data.tMousebutton.mousebuttonKind);
 
                 int flag = 0;
-                const char *prefix[2] = { " with ", "+" };
+                static const char *const prefix[2] = { "with", "+" };
                 if (input->data.tMousebutton.modifiers & MODIFIER_CONTROL) {
-                        log_write_cstring(prefix[flag]);
-                        log_write_cstring("Ctrl");
+                        log_writef(" %s %s", prefix[flag], "Ctrl");
                         flag = 1;
                 }
                 if (input->data.tMousebutton.modifiers & MODIFIER_MOD) {
-                        log_write_cstring(prefix[flag]);
-                        log_write_cstring("Mod");
+                        log_writef(" %s %s", prefix[flag], "Mod");
                         flag = 1;
                 }
                 if (input->data.tMousebutton.modifiers & MODIFIER_SHIFT) {
-                        log_write_cstring(prefix[flag]);
-                        log_write_cstring("Shift");
+                        log_writef(" %s %s", prefix[flag], "Shift");
                         flag = 1;
                 }
                 log_end();
@@ -73,6 +70,9 @@ static void handle_events(void)
         {
                 handle_input(&input);
         }
+
+        //XXX: "TIMETICK" event
+        update_textedit(&globalTextEdit);
 }
 
 void mainloop(void)

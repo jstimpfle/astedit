@@ -239,14 +239,14 @@ void init_TextEdit(struct TextEdit *edit)
         edit->isLoading = 0;
         edit->loadingCompletedBytes = 0;
         edit->loadingTotalBytes = 0;
-        edit->loadingFilereadThreadCtx = NULL;
+        edit->loadingThreadHandle = NULL;
 }
 
 void exit_TextEdit(struct TextEdit *edit)
 {
-        if (edit->loadingFilereadThreadCtx != NULL) {
-                dispose_file_read_thread(edit->loadingFilereadThreadCtx);
-                edit->loadingFilereadThreadCtx = NULL;
+        if (edit->loadingThreadHandle != NULL) {
+                dispose_file_read_thread(edit->loadingThreadHandle);
+                edit->loadingThreadHandle = NULL;
         }
 
         destroy_textrope(edit->rope);
@@ -257,7 +257,7 @@ static void prepare_reading_from_filereadthread(void *param, FILEPOS filesizeInB
 {
         struct TextEdit *edit = param;
         /* TODO: must protect this section */
-        edit->isLoading = 1;
+        edit->isLoadingCompleted = 0;
         edit->loadingCompletedBytes = 0;
         edit->loadingTotalBytes = filesizeInBytes;
         edit->loadingBufferFill = 0;
@@ -275,7 +275,7 @@ static void finalize_reading_from_filereadthread(void *param)
         }
 
         /* TODO: must protect this section */
-        edit->isLoading = 0;
+        edit->isLoadingCompleted = 1;
         stop_timer(edit->loadingTimer);
         report_timer(edit->loadingTimer, "File load time");
         destroy_timer(edit->loadingTimer);
@@ -285,6 +285,7 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
 {
         struct TextEdit *edit = param;
         ENSURE(edit->isLoading);
+        ENSURE(edit->isLoadingCompleted == 0);
 
         uint32_t utf8buf[LENGTH(edit->loadingBuffer)];
         int utf8Fill;
@@ -301,19 +302,41 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
         return 0;  /* report success */
 }
 
+/* TODO: maybe introduce TIMETICK event or sth like that? */
+void update_textedit(struct TextEdit *edit)
+{
+        if (edit->isLoading && edit->isLoadingCompleted) {
+                /* TODO: check for load errors */
+                edit->isLoading = 0;
+                dispose_file_read_thread(edit->loadingThreadHandle);
+                FREE_MEMORY(&edit->loadingThreadCtx->filepath);
+                FREE_MEMORY(&edit->loadingThreadCtx);
+                edit->isLoadingCompleted = 0;
+                edit->loadingThreadCtx = NULL;  // XXX should FREE_MEMORY do that already?
+                edit->loadingThreadHandle = NULL;  // XXX should FREE_MEMORY do that already?
+        }
+}
+
 void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
-        edit->loadingFilereadThreadCtx =
-                run_file_read_thread(filepath, edit,
-                        edit->loadingBuffer,
-                        (int) sizeof edit->loadingBuffer,
-                        &edit->loadingBufferFill,
-                        &prepare_reading_from_filereadthread,
-                        &finalize_reading_from_filereadthread,
-                        &flush_loadingBuffer_from_filereadthread);
+        int filepathLen = (int)strlen(filepath);
 
-        // instead of proper lock, sleep for a while.
-        // We need to be sure that the other thread sets edit->isLoading to 1
-        // (if the file can be opened).
-        sleep_milliseconds(100);
+        struct FilereadThreadCtx *ctx;
+        ALLOC_MEMORY(&ctx, 1);
+        ALLOC_MEMORY(&ctx->filepath, filepathLen + 1);
+        COPY_ARRAY(ctx->filepath, filepath, filepathLen + 1);
+        ctx->param = edit;
+        ctx->buffer = edit->loadingBuffer;
+        ctx->bufferSize = (int) sizeof edit->loadingBuffer,
+        ctx->bufferFill = &edit->loadingBufferFill;
+        ctx->prepareFunc = &prepare_reading_from_filereadthread;
+        ctx->finalizeFunc = &finalize_reading_from_filereadthread;
+        ctx->flushBufferFunc = &flush_loadingBuffer_from_filereadthread;
+        ctx->returnStatus = 1337; //XXX: "never changed from thread"
+
+        struct FilereadThreadHandle *handle = run_file_read_thread(ctx);
+
+        edit->isLoading = 1;
+        edit->loadingThreadCtx = ctx;
+        edit->loadingThreadHandle = handle;
 }

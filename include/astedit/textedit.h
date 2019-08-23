@@ -37,23 +37,26 @@ struct TextEdit {
         FILEPOS firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
         FILEPOS numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
 
+        int isVimodeActive;
+        struct ViState vistate;
+
         int isSelectionMode;
         FILEPOS selectionStartBytePosition;
 
-
-        /*XXX this stuff probably must be protected with a mutex */
         int isLoading;
+        struct FilereadThreadCtx *loadingThreadCtx;
+        struct FilereadThreadHandle *loadingThreadHandle;
+
+        /*XXX this stuff is set by a separate read thread,
+        so probably must be protected with a mutex */
+        /*(XXX: as well as the Textrope!!!)*/
+        int isLoadingCompleted;
         FILEPOS loadingCompletedBytes;
         FILEPOS loadingTotalBytes;
+        Timer *loadingTimer;
 
         char loadingBuffer[512];  // TODO: heap alloc?
         int loadingBufferFill;  // fill from start
-
-        Timer *loadingTimer;
-        struct FilereadThreadHandle *loadingThreadHandle;
-
-        int isVimodeActive;
-        struct ViState vistate;
 };
 
 
@@ -90,6 +93,10 @@ void erase_backwards_in_TextEdit(struct TextEdit *edit);
 
 void erase_from_textedit(struct TextEdit *edit, int offset, int length);
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint);
+
+/* TODO: maybe introduce TIMETICK event or sth like that, to
+handle updates as part of event processing? */
+void update_textedit(struct TextEdit *edit);
 
 /* fill TextEdit with some text loaded from a file. For debugging purposes. */
 void textedit_test_init(struct TextEdit *edit, const char *filepath);

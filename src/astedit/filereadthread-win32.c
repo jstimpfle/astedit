@@ -7,32 +7,8 @@
 #include <stdio.h>
 #include <Windows.h>
 
-struct FilereadThreadCtx {
-        char *filepath;
-
-        /* Read buffer provided by the caller to the reader thread. */
-        char *buffer;
-        int bufferSize;
-        int *bufferFill;
-
-        /* Context provided by the caller to the reader thread.
-        Reader thread hands param to caller when calling back. */
-        void *param;
-
-        /* Callbacks */
-        void(*prepareFunc)(void *param, FILEPOS filesizeInBytes);
-        void(*finalizeFunc)(void *param);
-        /* to flush the buffer completely. Return value is 0 in case of success,
-        or -1 in case of error (=> reader thread should terminate itself) */
-        int (*flushBufferFunc)(void *param);
-
-        /* thread can report return status here, so we don't depend on OS facilities
-        which might be hard to use or have their own gotchas... */
-        int returnStatus;
-};
 
 struct FilereadThreadHandle {
-        struct FilereadThreadCtx ctx;
         HANDLE threadHandle;
 };
 
@@ -115,30 +91,11 @@ static DWORD WINAPI read_file_thread_adapter(LPVOID param)
 }
 
 
-struct FilereadThreadHandle *run_file_read_thread(
-        const char *filepath, void *param,
-        char *buffer, int bufferSize, int *bufferFill,
-        void (*prepareFunc)(void *param, FILEPOS filesizeInBytes),
-        void (*finalizeFunc)(void *param),
-        int (*flushBufferFunc)(void *param))
+struct FilereadThreadHandle *run_file_read_thread(struct FilereadThreadCtx *ctx)
 {
         struct FilereadThreadHandle *handle;
         ALLOC_MEMORY(&handle, 1);
-
-        {
-                int filepathLen = (int) strlen(filepath);
-                ALLOC_MEMORY(&handle->ctx.filepath, filepathLen + 1);
-                COPY_ARRAY(handle->ctx.filepath, filepath, filepathLen + 1);
-        }
-        handle->ctx.param = param;
-        handle->ctx.buffer = buffer;
-        handle->ctx.bufferSize = bufferSize;
-        handle->ctx.bufferFill = bufferFill;
-        handle->ctx.prepareFunc = prepareFunc;
-        handle->ctx.finalizeFunc = finalizeFunc;
-        handle->ctx.flushBufferFunc = flushBufferFunc;
-
-        handle->threadHandle = CreateThread(NULL, 0, &read_file_thread_adapter, &handle->ctx, 0, NULL);
+        handle->threadHandle = CreateThread(NULL, 0, &read_file_thread_adapter, ctx, 0, NULL);
         if (handle->threadHandle == NULL)
                 fatalf("Failed to create thread\n");
 
@@ -165,6 +122,5 @@ void dispose_file_read_thread(struct FilereadThreadHandle *handle)
         BOOL ret = CloseHandle(handle->threadHandle);
         ENSURE(ret != 0);
         UNUSED(ret);
-        FREE_MEMORY(&handle->ctx.filepath);
         FREE_MEMORY(&handle);
 }
