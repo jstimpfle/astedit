@@ -153,8 +153,9 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
+        UNUSED(edit);
         if (input->inputKind == INPUT_KEY) {
-                enum KeyKind keyKind = input->data.tKey.keyKind;
+                //enum KeyKind keyKind = input->data.tKey.keyKind;
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE) {
