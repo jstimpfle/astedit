@@ -41,7 +41,7 @@ static void handle_input(struct Input *input)
         else if (input->inputKind == INPUT_MOUSEBUTTON) {
                 enum MousebuttonKind mousebuttonKind = input->data.tMousebutton.mousebuttonKind;
                 enum MousebuttonEventKind mousebuttonEventKind = input->data.tMousebutton.mousebuttonEventKind;
-                const char *event = mousebuttonKind == MOUSEBUTTONEVENT_PRESS? "Press" : "Release";
+                const char *event = mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS? "Press" : "Release";
                 static const char *const prefix[2] = { "with", "+" };
                 int flag = 0;
                 log_begin();

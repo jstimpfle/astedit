@@ -135,13 +135,13 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
                                 break;
                         case KEY_HOME:
                                 if (modifierMask & MODIFIER_CONTROL)
-                                        move_to_first_line(edit, isSelectionMode);
+                                        move_cursor_to_first_line(edit, isSelectionMode);
                                 else
                                         move_cursor_to_beginning_of_line(edit, isSelectionMode);
                                 break;
                         case KEY_END:
                                 if (modifierMask & MODIFIER_CONTROL)
-                                        move_to_last_line(edit, isSelectionMode);
+                                        move_cursor_to_last_line(edit, isSelectionMode);
                                 else
                                         move_cursor_to_end_of_line(edit, isSelectionMode);
                                 break;
@@ -311,13 +311,13 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                                 break;
                         case KEY_HOME:
                                 if (modifiers & MODIFIER_CONTROL)
-                                        move_to_first_line(edit, isSelecting);
+                                        move_cursor_to_first_line(edit, isSelecting);
                                 else
                                         move_cursor_to_beginning_of_line(edit, isSelecting);
                                 break;
                         case KEY_END:
                                 if (modifiers & MODIFIER_CONTROL)
-                                        move_to_last_line(edit, isSelecting);
+                                        move_cursor_to_last_line(edit, isSelecting);
                                 else
                                         move_cursor_to_end_of_line(edit, isSelecting);
                                 break;
@@ -393,13 +393,13 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                         break;
                 case KEY_HOME:
                         if (modifiers & MODIFIER_CONTROL)
-                                move_to_first_line(edit, isSelecting);
+                                move_cursor_to_first_line(edit, isSelecting);
                         else
                                 move_cursor_to_beginning_of_line(edit, isSelecting);
                         break;
                 case KEY_END:
                         if (modifiers & MODIFIER_CONTROL)
-                                move_to_last_line(edit, isSelecting);
+                                move_cursor_to_last_line(edit, isSelecting);
                         else
                                 move_cursor_to_end_of_line(edit, isSelecting);
                         break;
