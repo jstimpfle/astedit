@@ -9,18 +9,23 @@
 #include <blunt/lex.h> /* test */
 #include <string.h> // strlen()
 
+static void make_range(FILEPOS a, FILEPOS b, FILEPOS *outStart, FILEPOS *outEnd)
+{
+        if (a < b) {
+                *outStart = a;
+                *outEnd = b;
+        }
+        else {
+                *outStart = b;
+                *outEnd = a;
+        };
+}
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd)
 {
         ENSURE(edit->isSelectionMode);
-        if (edit->cursorBytePosition < edit->selectionStartBytePosition) {
-                *outStart = edit->cursorBytePosition;
-                *outOnePastEnd = edit->selectionStartBytePosition;
-        }
-        else {
-                *outStart = edit->selectionStartBytePosition;
-                *outOnePastEnd = edit->cursorBytePosition;
-        };
+        make_range(edit->cursorBytePosition, edit->selectionStartBytePosition,
+                outStart, outOnePastEnd);
 }
 
 void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd)
@@ -198,6 +203,16 @@ void move_cursor_with_movement(struct TextEdit *edit, struct Movement *movement,
         move_cursor_to_byte_position(edit, bytePos, isSelecting);
 }
 
+void delete_with_movement(struct TextEdit *edit, struct Movement *movement)
+{
+        FILEPOS startPos = edit->cursorBytePosition;
+        FILEPOS endPos = get_movement_position(edit, movement);
+        make_range(startPos, endPos, &startPos, &endPos);
+        ENSURE(startPos <= endPos);
+        erase_text_from_textrope(edit->rope, startPos, endPos - startPos);
+        move_cursor_to_byte_position(edit, startPos, 0);
+}
+
 void move_cursor_lines_relative(struct TextEdit *edit, FILEPOS linesDiff, int isSelecting)
 {
         FILEPOS pos = get_position_lines_relative(edit, linesDiff);
@@ -289,6 +304,7 @@ void init_TextEdit(struct TextEdit *edit)
 void exit_TextEdit(struct TextEdit *edit)
 {
         if (edit->loadingThreadHandle != NULL) {
+                cancel_thread_and_wait(edit->loadingThreadHandle);
                 dispose_thread(edit->loadingThreadHandle);
                 edit->loadingThreadHandle = NULL;
         }
@@ -349,7 +365,8 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
 /* TODO: maybe introduce TIMETICK event or sth like that? */
 void update_textedit(struct TextEdit *edit)
 {
-        if (edit->isLoading && edit->isLoadingCompleted) {
+        if (edit->isLoading && edit->isLoadingCompleted
+                && check_if_thread_has_exited(edit->loadingThreadHandle)) {
                 /* TODO: check for load errors */
                 edit->isLoading = 0;
                 dispose_thread(edit->loadingThreadHandle);

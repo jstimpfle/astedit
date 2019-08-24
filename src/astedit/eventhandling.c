@@ -74,80 +74,65 @@ enum ViMovement {
 };
 
 
+static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
+{
+        if (input->inputKind != INPUT_KEY)
+                return 0;
+        if (input->data.tKey.keyEventKind != KEYEVENT_PRESS
+                && input->data.tKey.keyEventKind != KEYEVENT_REPEAT)
+                return 0;
+        struct Movement movement = {0}; // initialize to avoid compiler warning
+        int badKey = 0;
+        int modifierBits = input->data.tKey.modifierMask;
+        switch (input->data.tKey.keyKind) {
+                case KEY_CURSORLEFT:  movement = (struct Movement) { MOVEMENT_LEFT }; break;
+                case KEY_CURSORRIGHT: movement = (struct Movement) { MOVEMENT_RIGHT }; break;
+                case KEY_CURSORUP:    movement = (struct Movement) { MOVEMENT_UP }; break;
+                case KEY_CURSORDOWN:  movement = (struct Movement) { MOVEMENT_DOWN }; break;
+                //case KEY_PAGEDOWN:    movement = (struct Movement) { MOVEMENT_PAGEDOWN }; break;
+                //case KEY_PAGEUP:      movement = (struct Movement) { MOVEMENT_PAGEUP }; break;
+                case KEY_HOME:
+                        if (modifierBits & MODIFIER_CONTROL)
+                                movement = (struct Movement) { MOVEMENT_FIRSTLINE };
+                        else
+                                movement = (struct Movement) { MOVEMENT_LINEBEGIN };
+                        break;
+                case KEY_END:
+                        if (modifierBits & MODIFIER_CONTROL)
+                                movement = (struct Movement) { MOVEMENT_LASTLINE };
+                        else
+                                movement = (struct Movement) { MOVEMENT_LINEEND };
+                        break;
+                default:
+                        badKey = 1;
+        }
+        if (badKey && input->data.tKey.hasCodepoint) {
+                badKey = 0;
+                switch (input->data.tKey.codepoint) {
+                case '0': movement = (struct Movement) { MOVEMENT_LINEBEGIN }; break;
+                case '$': movement = (struct Movement) { MOVEMENT_LINEEND }; break;
+                case 'h': movement = (struct Movement) { MOVEMENT_LEFT }; break;
+                case 'j': movement = (struct Movement) { MOVEMENT_DOWN }; break;
+                case 'k': movement = (struct Movement) { MOVEMENT_UP }; break;
+                case 'l': movement = (struct Movement) { MOVEMENT_RIGHT }; break;
+                default:
+                        badKey = 1;
+                }
+        }
+        if (badKey)
+                return 0;
+        *outMovement = movement;
+        return 1;
+}
 
 static void process_movements_in_ViMode_NORMAL_or_SELECTING(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
         UNUSED(state);
-        int isSelectionMode = edit->isSelectionMode;
-        if (input->inputKind == INPUT_KEY ) {
-                enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
-                int hasCodepoint = input->data.tKey.hasCodepoint;
-                /* !hasCodepoint currently means that the event came from GLFW's low-level
-                key-Callback, and not the unicode Callback.
-                We would like to use low-level access because that provides the modifiers,
-                but unfortunately it doesn't respect keyboard layout, so we use high-level
-                access (which doesn't provide modifiers). It's not clear at this point how
-                we should handle combinations like Ctrl+Z while respecting keyboard layout.
-                (There's a github issue for that). */
-                if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
-                        switch (input->data.tKey.codepoint) {
-                        case 'j':
-                                move_cursor_down(edit, isSelectionMode);
-                                break;
-                        case 'k':
-                                move_cursor_up(edit, isSelectionMode);
-                                break;
-                        case 'h':
-                                move_cursor_left(edit, isSelectionMode);
-                                break;
-                        case 'l':
-                                move_cursor_right(edit, isSelectionMode);
-                                break;
-                        case '0':
-                                move_cursor_to_beginning_of_line(edit, isSelectionMode);
-                                break;
-                        case '$':
-                                move_cursor_to_end_of_line(edit, isSelectionMode);
-                                break;
-                        }
-                }
-                else if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
-                        int modifierMask = input->data.tKey.modifierMask;
-                        switch (input->data.tKey.keyKind) {
-                        case KEY_CURSORUP:
-                                move_cursor_up(edit, isSelectionMode);
-                                break;
-                        case KEY_CURSORDOWN:
-                                move_cursor_down(edit, isSelectionMode);
-                                break;
-                        case KEY_CURSORLEFT:
-                                move_cursor_left(edit, isSelectionMode);
-                                break;
-                        case KEY_CURSORRIGHT:
-                                move_cursor_right(edit, isSelectionMode);
-                                break;
-                        case KEY_PAGEUP:
-                                scroll_up_one_page(edit, isSelectionMode);
-                                break;
-                        case KEY_PAGEDOWN:
-                                scroll_down_one_page(edit, isSelectionMode);
-                                break;
-                        case KEY_HOME:
-                                if (modifierMask & MODIFIER_CONTROL)
-                                        move_cursor_to_first_line(edit, isSelectionMode);
-                                else
-                                        move_cursor_to_beginning_of_line(edit, isSelectionMode);
-                                break;
-                        case KEY_END:
-                                if (modifierMask & MODIFIER_CONTROL)
-                                        move_cursor_to_last_line(edit, isSelectionMode);
-                                else
-                                        move_cursor_to_end_of_line(edit, isSelectionMode);
-                                break;
-                        }
-                }
-        }
+        int isSelecting = edit->isSelectionMode;
+        struct Movement movement;
+        if (input_to_movement_in_Vi(input, &movement))
+                move_cursor_with_movement(edit, &movement, isSelecting);
 }
 
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
@@ -159,7 +144,12 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE) {
-                        if (hasCodepoint) {
+                        struct Movement movement;
+                        if (input_to_movement_in_Vi(input, &movement)) {
+                                delete_with_movement(edit, &movement);
+                                state->modalKind = VIMODAL_NORMAL;
+                        }
+                        else if (hasCodepoint) {
                                 switch (input->data.tKey.codepoint) {
                                 case 'd':
                                         // not implemented yet: erase_line(edit);
@@ -309,35 +299,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                         case KEY_ESCAPE:
                                 state->vimodeKind = VIMODE_NORMAL;
                                 break;
-                        case KEY_HOME:
-                                if (modifiers & MODIFIER_CONTROL)
-                                        move_cursor_to_first_line(edit, isSelecting);
-                                else
-                                        move_cursor_to_beginning_of_line(edit, isSelecting);
-                                break;
-                        case KEY_END:
-                                if (modifiers & MODIFIER_CONTROL)
-                                        move_cursor_to_last_line(edit, isSelecting);
-                                else
-                                        move_cursor_to_end_of_line(edit, isSelecting);
-                                break;
-                        case KEY_PAGEUP:
-                                scroll_up_one_page(edit, isSelecting);
-                                break;
-                        case KEY_PAGEDOWN:
-                                scroll_down_one_page(edit, isSelecting);
-                                break;
                         case KEY_DELETE:
-                                if (edit->isSelectionMode)
-                                        erase_selected_in_TextEdit(edit);
-                                else
-                                        erase_forwards_in_TextEdit(edit);
+                                erase_forwards_in_TextEdit(edit);
                                 break;
                         case KEY_BACKSPACE:
-                                if (edit->isSelectionMode)
-                                        erase_selected_in_TextEdit(edit);
-                                else
-                                        erase_backwards_in_TextEdit(edit);
+                                erase_backwards_in_TextEdit(edit);
                                 break;
                         }
                 }

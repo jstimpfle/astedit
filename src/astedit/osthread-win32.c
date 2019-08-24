@@ -47,6 +47,14 @@ void wait_for_thread_to_end(struct OsThreadHandle *handle)
         WaitForSingleObject(handle->threadHandle, INFINITE);
 }
 
+void cancel_thread_and_wait(struct OsThreadHandle *handle)
+{
+        // TODO: check docs if this is really synchronous
+        BOOL ret = TerminateThread(handle->threadHandle, 1);
+        ENSURE(ret != 0);
+        UNUSED(ret);
+}
+
 void dispose_thread(struct OsThreadHandle *handle)
 {
         ENSURE(check_if_thread_has_exited(handle));
