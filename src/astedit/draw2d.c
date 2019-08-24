@@ -13,6 +13,19 @@
 #include <stdio.h> // snprintf
 #include <string.h> // strlen()
 
+struct RGB { unsigned r, g, b; };
+#define C(x) x.r, x.g, x.b, 255
+
+static const struct RGB texteditBgColor = { 0, 0, 0 };
+static const struct RGB statusbarBgColor = { 128, 160, 128 };
+static const struct RGB normalTextColor = {0, 255, 0 };
+static const struct RGB stringTokenColor = { 0, 255, 0 };
+static const struct RGB integerTokenColor = { 0, 0, 255 };
+static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
+static const struct RGB junkTokenColor = { 255, 0, 0 };
+static const struct RGB borderColor = { 32, 32, 32 };
+static const struct RGB highlightColor = { 0, 0, 255 };
+static const struct RGB statusbarTextColor = { 0, 0, 0 };
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d alphaVertexBuffer[3 * 1024];
@@ -195,7 +208,7 @@ static void draw_codepoint(
         struct DrawCursor *cursor,
         const struct BoundingBox *boundingBox,
         int drawstringKind,
-        uint32_t codepoint, int r, int g, int b, int a)
+        uint32_t codepoint)
 {
         cursor->codepointpos++;
         if (codepoint == '\r')
@@ -207,10 +220,11 @@ static void draw_codepoint(
         }
         int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
                 cursor->fontSize, &codepoint, 1,
-                cursor->x, cursor->y, r, g, b, a);
+                cursor->x, cursor->y,
+                cursor->r, cursor->g, cursor->b, cursor->a);
         if (drawstringKind == DRAWSTRING_HIGHLIGHT)
                 draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
-                        xEnd - cursor->x, cursor->lineHeight, 0, 0, 192, 32);
+                        xEnd - cursor->x, cursor->lineHeight, C(highlightColor));
         cursor->x = xEnd;
 }
 
@@ -231,7 +245,7 @@ static void draw_text_with_cursor(
                 decode_utf8_span(text, i, length, codepoints, LENGTH(codepoints), &i, &numCodepointsDecoded);
 
                 for (int j = 0; j < numCodepointsDecoded; j++)
-                        draw_codepoint(cursor, boundingBox, DRAWSTRING_NORMAL, codepoints[j], 0, 0, 0, 255);
+                        draw_codepoint(cursor, boundingBox, DRAWSTRING_NORMAL, codepoints[j]);
         }
 }
 
@@ -271,6 +285,14 @@ static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS cod
         cursor->lineNumber = lineNumber;
 }
 
+static void set_cursor_color(struct DrawCursor *cursor, int r, int g, int b, int a)
+{
+        cursor->r = r;
+        cursor->g = g;
+        cursor->b = b;
+        cursor->a = a;
+}
+
 
 static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstLine, FILEPOS numberOfLines, int x, int y, int w, int h)
 {
@@ -286,11 +308,23 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstLine, FILEPOS 
 
         FILEPOS onePastLastLine = filepos_add(firstLine, numberOfLines);
 
+        set_cursor_color(cursor, C(normalTextColor));
         for (FILEPOS i = firstLine; i < onePastLastLine; i++) {
                 char buf[16];
                 snprintf(buf, sizeof buf, "%4"FILEPOS_PRI, i + 1);
                 draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
                 next_line(cursor);
+        }
+
+        {
+                int pad = 10;
+                int bx = x + w;
+                int by = y + pad;
+                int bw = 2;
+                int bh = y + h - pad;
+                if (bh < by)
+                        bh = by;
+                draw_colored_rect(bx, by, bw, bh, C(borderColor));
         }
 }
 
@@ -333,30 +367,30 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
                 FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
                 FILEPOS whiteEndPos = currentPos + token.leadingWhiteChars;
                 FILEPOS tokenEndPos = currentPos + token.length;
+                set_cursor_color(cursor, C(normalTextColor));
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < whiteEndPos) {
                         uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
-                        draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint, 0, 0, 0, 255);
+                        draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint);
                 }
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < tokenEndPos) {
                         uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         int drawstringKind = DRAWSTRING_NORMAL;
                         if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
                                 drawstringKind = DRAWSTRING_HIGHLIGHT;
-                        int r = 0, g = 0, b = 0, a = 255;
-                        if (token.tokenKind == BLUNT_TOKEN_INTEGER) {
-                                r = 0; g = 0; b = 255; a = 255;
-                        }
-                        else if (token.tokenKind == BLUNT_TOKEN_STRING) {
-                                r = 0; g = 255; b = 0; a = 255;
-                        }
+                        struct RGB rgb;
+                        if (token.tokenKind == BLUNT_TOKEN_INTEGER)
+                                rgb = integerTokenColor;
+                        else if (token.tokenKind == BLUNT_TOKEN_STRING)
+                                rgb = stringTokenColor;
                         else if (FIRST_BLUNT_TOKEN_OPERATOR <= token.tokenKind
-                                && token.tokenKind <= LAST_BLUNT_TOKEN_OPERATOR) {
-                                r = 0; g = 0; b = 0; a = 255;
-                        }
-                        else if (token.tokenKind == BLUNT_TOKEN_JUNK) {
-                                r = 255; g = 0; b = 0; a = 255;
-                        }
-                        draw_codepoint(cursor, box, drawstringKind, codepoint, r, g, b, a);
+                                && token.tokenKind <= LAST_BLUNT_TOKEN_OPERATOR)
+                                rgb = operatorTokenColor;
+                        else if (token.tokenKind == BLUNT_TOKEN_JUNK)
+                                rgb = junkTokenColor;
+                        else
+                                rgb = normalTextColor;
+                        set_cursor_color(cursor, C(rgb));
+                        draw_codepoint(cursor, box, drawstringKind, codepoint);
                 }
 
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
@@ -384,8 +418,9 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         FILEPOS lineNumber = compute_line_number(edit->rope, pos);
         char textbuffer[512];
 
-        draw_colored_rect(x, y, w, h, 128, 160, 128, 255);
+        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
 
+        set_cursor_color(cursor, C(statusbarTextColor));
         if (edit->isVimodeActive)
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
 
@@ -411,12 +446,13 @@ static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, in
 
         char textbuffer[512];
 
-        draw_colored_rect(x, y, w, h, 128, 160, 128, 255);
+        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
 
         /* XXX: this computation is very dirty */
         FILEPOS percentage = (FILEPOS) (filepos_mul(edit->loadingCompletedBytes, 100)
                           / (edit->loadingTotalBytes ? edit->loadingTotalBytes : 1));
 
+        set_cursor_color(cursor, C(statusbarTextColor));
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer,
                 "Loading %"FILEPOS_PRI"%%  (%"FILEPOS_PRI" / %"FILEPOS_PRI" bytes)",
                 percentage, edit->loadingCompletedBytes, edit->loadingTotalBytes);
@@ -442,7 +478,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
         int statusLineY = linesY + linesH;
         int statusLineW = canvasW;
 
-        draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, 224, 224, 224, 255);
+        draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, C(texteditBgColor));
 
         if (edit->isLoading) {
                 draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
@@ -481,10 +517,10 @@ void testdraw(struct TextEdit *edit)
                 markEnd = markStart + 1;
         }
 
-        int canvasX = 100;
-        int canvasY = 100;
-        int canvasW = windowWidthInPixels - 200;
-        int canvasH = windowHeightInPixels - 200;
+        int canvasX = 0;
+        int canvasY = 0;
+        int canvasW = windowWidthInPixels;
+        int canvasH = windowHeightInPixels;
 
         if (canvasW < 0)
                 canvasW = 0;

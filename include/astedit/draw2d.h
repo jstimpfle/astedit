@@ -23,6 +23,10 @@ struct DrawCursor {
         int y;
         FILEPOS codepointpos;
         FILEPOS lineNumber;  // not sure if that's a good idea
+        int r;
+        int g;
+        int b;
+        int a;
 };
 
 struct BoundingBox {
