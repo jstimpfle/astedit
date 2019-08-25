@@ -89,8 +89,8 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
                 case KEY_CURSORRIGHT: movement = (struct Movement) { MOVEMENT_RIGHT }; break;
                 case KEY_CURSORUP:    movement = (struct Movement) { MOVEMENT_UP }; break;
                 case KEY_CURSORDOWN:  movement = (struct Movement) { MOVEMENT_DOWN }; break;
-                //case KEY_PAGEDOWN:    movement = (struct Movement) { MOVEMENT_PAGEDOWN }; break;
-                //case KEY_PAGEUP:      movement = (struct Movement) { MOVEMENT_PAGEUP }; break;
+                case KEY_PAGEUP:      movement = (struct Movement) { MOVEMENT_PAGEUP }; break;
+                case KEY_PAGEDOWN:    movement = (struct Movement) { MOVEMENT_PAGEDOWN }; break;
                 case KEY_HOME:
                         if (modifierBits & MODIFIER_CONTROL)
                                 movement = (struct Movement) { MOVEMENT_FIRSTLINE };
@@ -152,11 +152,12 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
                         else if (hasCodepoint) {
                                 switch (input->data.tKey.codepoint) {
                                 case 'd':
-                                        // not implemented yet: erase_line(edit);
+                                        move_cursor_to_beginning_of_line(edit, 0);
+                                        delete_with_movement(edit, MOVEMENT(MOVEMENT_DOWN));
                                         state->modalKind = VIMODAL_NORMAL;
                                         break;
                                 default:
-                                        // "delete with movement"
+                                        state->modalKind = VIMODAL_NORMAL;
                                         break;
                                 }
                         }
@@ -204,6 +205,18 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         case 'd':
                                 state->modalKind = VIMODAL_D;
+                                break;
+                        case 'o':
+                                move_cursor_to_end_of_line(edit, 0);
+                                insert_codepoint_into_textedit(edit, 0x0a);
+                                //move_cursor_lines_relative(edit, 1, 0);
+                                state->vimodeKind = VIMODE_INPUT;
+                                break;
+                        case 'O':
+                                move_cursor_to_beginning_of_line(edit, 0);
+                                insert_codepoint_into_textedit(edit, 0x0a);
+                                move_cursor_lines_relative(edit, -1, 0);
+                                state->vimodeKind = VIMODE_INPUT;
                                 break;
                         case 'v':
                                 edit->isSelectionMode = 1;
@@ -293,6 +306,10 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                         int modifiers = input->data.tKey.modifierMask;
                         int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
                         switch (input->data.tKey.keyKind) {
+                        case KEY_C:
+                                if (modifiers == MODIFIER_CONTROL)
+                                        state->vimodeKind = VIMODE_NORMAL;
+                                break;
                         case KEY_ENTER:
                                 insert_codepoint_into_textedit(edit, 0x0a);
                                 break;

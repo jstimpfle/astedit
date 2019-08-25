@@ -9,6 +9,10 @@
 #include <blunt/lex.h> /* test */
 #include <string.h> // strlen()
 
+
+enum { LINES_PER_PAGE = 15 };  // XXX this value should be dependent on the current GUI viewport probably.
+
+
 static void make_range(FILEPOS a, FILEPOS b, FILEPOS *outStart, FILEPOS *outEnd)
 {
         if (a < b) {
@@ -147,6 +151,16 @@ FILEPOS get_position_down(struct TextEdit *edit)
         return get_position_lines_relative(edit, 1);
 }
 
+FILEPOS get_position_pageup(struct TextEdit *edit)
+{
+        get_position_lines_relative(edit, -LINES_PER_PAGE);
+}
+
+FILEPOS get_position_pagedown(struct TextEdit *edit)
+{
+        get_position_lines_relative(edit, LINES_PER_PAGE);
+}
+
 FILEPOS get_position_line_begin(struct TextEdit *edit)
 {
         FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
@@ -187,6 +201,8 @@ FILEPOS get_movement_position(struct TextEdit *edit, struct Movement *movement)
         case MOVEMENT_RIGHT:  return get_position_right(edit);
         case MOVEMENT_UP:     return get_position_up(edit);
         case MOVEMENT_DOWN:   return get_position_down(edit);
+        case MOVEMENT_PAGEUP: return get_position_pageup(edit);
+        case MOVEMENT_PAGEDOWN: return get_position_pagedown(edit);
         case MOVEMENT_LINEBEGIN: return get_position_line_begin(edit);
         case MOVEMENT_LINEEND:   return get_position_line_end(edit);
         case MOVEMENT_FIRSTLINE: return get_position_first_line(edit);
@@ -218,8 +234,6 @@ void move_cursor_lines_relative(struct TextEdit *edit, FILEPOS linesDiff, int is
         FILEPOS pos = get_position_lines_relative(edit, linesDiff);
         move_cursor_to_byte_position(edit, pos, isSelecting);
 }
-
-enum { LINES_PER_PAGE = 15 };
 
 void scroll_up_one_page(struct TextEdit *edit, int isSelecting)
 {

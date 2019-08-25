@@ -78,6 +78,8 @@ enum MovementKind {
         MOVEMENT_RIGHT,
         MOVEMENT_UP,
         MOVEMENT_DOWN,
+        MOVEMENT_PAGEUP,
+        MOVEMENT_PAGEDOWN,
         MOVEMENT_LINEBEGIN,
         MOVEMENT_LINEEND,
         MOVEMENT_FIRSTLINE,
