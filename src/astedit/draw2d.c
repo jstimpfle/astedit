@@ -368,10 +368,6 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
                 FILEPOS whiteEndPos = currentPos + token.leadingWhiteChars;
                 FILEPOS tokenEndPos = currentPos + token.length;
                 set_cursor_color(cursor, C(normalTextColor));
-                while (readpos_in_bytes_of_UTF8Decoder(&decoder) < whiteEndPos) {
-                        uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
-                        draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint);
-                }
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < tokenEndPos) {
                         uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         int drawstringKind = DRAWSTRING_NORMAL;
@@ -404,6 +400,13 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
 {
         flush_all_vertex_buffers();
 
+        FILEPOS pos = edit->cursorBytePosition;
+        FILEPOS codepointPos = compute_codepoint_position(edit->rope, pos);
+        FILEPOS lineNumber = compute_line_number(edit->rope, pos);
+        char textbuffer[512];
+
+        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
+
         struct BoundingBox boundingBox;
         struct DrawCursor drawCursor;
         struct BoundingBox *box = &boundingBox;
@@ -412,19 +415,12 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         // no actual bounding box currently.
         set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
         set_draw_cursor(cursor, x, y, 0, 0);
-
-        FILEPOS pos = edit->cursorBytePosition;
-        FILEPOS codepointPos = compute_codepoint_position(edit->rope, pos);
-        FILEPOS lineNumber = compute_line_number(edit->rope, pos);
-        char textbuffer[512];
-
-        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
-
         set_cursor_color(cursor, C(statusbarTextColor));
+
         if (edit->isVimodeActive)
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
 
-        cursor->x = x + 500;
+        set_draw_cursor(cursor, x + 500, y, 0, 0);
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
