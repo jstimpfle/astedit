@@ -12,6 +12,8 @@ struct OsThreadHandle {
         // I don't know a way to use pthreads to check if the thread is
         // finished, so here is this variable.
         int isFinished;
+        //
+        int waitedForThreadEnd;
 };
 
 static void *thread_adapter_linux(void *param)
@@ -29,6 +31,7 @@ struct OsThreadHandle *create_and_start_thread(OsThreadEntryFunc *entryFunc, voi
         ALLOC_MEMORY(&handle, 1);
 
         handle->isFinished = 0;
+        handle->waitedForThreadEnd = 0;
         handle->entryFunc = entryFunc;
         handle->param = param;
         int ret = pthread_create(&handle->threadHandle,
@@ -46,9 +49,20 @@ int check_if_thread_has_exited(struct OsThreadHandle *handle)
 
 void wait_for_thread_to_end(struct OsThreadHandle *handle)
 {
-        int ret = pthread_join(handle->threadHandle, NULL);
+        if (!handle->waitedForThreadEnd) {
+                int ret = pthread_join(handle->threadHandle, NULL);
+                ENSURE(ret == 0);
+                UNUSED(ret);
+                handle->waitedForThreadEnd = 1;
+        }
+}
+
+void cancel_thread_and_wait(struct OsThreadHandle *handle)
+{
+        int ret = pthread_cancel(handle->threadHandle);
         ENSURE(ret == 0);
         UNUSED(ret);
+        wait_for_thread_to_end(handle);
 }
 
 void dispose_thread(struct OsThreadHandle *handle)
