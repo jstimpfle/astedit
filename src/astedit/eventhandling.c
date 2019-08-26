@@ -116,6 +116,7 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
                 case 'j': movement = (struct Movement) { MOVEMENT_DOWN }; break;
                 case 'k': movement = (struct Movement) { MOVEMENT_UP }; break;
                 case 'l': movement = (struct Movement) { MOVEMENT_RIGHT }; break;
+                case 'G': movement = (struct Movement) { MOVEMENT_LASTLINE }; break;
                 default:
                         badKey = 1;
                 }
@@ -157,6 +158,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
                                         delete_with_movement(edit, MOVEMENT(MOVEMENT_DOWN));
                                         state->modalKind = VIMODAL_NORMAL;
                                         break;
+                                case 'g':
+                                        state->modalKind = VIMODAL_G;
+                                        break;
                                 default:
                                         state->modalKind = VIMODAL_NORMAL;
                                         break;
@@ -170,6 +174,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
         if (input->inputKind == INPUT_KEY) {
+                int isSelecting = edit->isSelectionMode;
                 //enum KeyKind keyKind = input->data.tKey.keyKind;
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
@@ -177,7 +182,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(
                         if (hasCodepoint) {
                                 switch (input->data.tKey.codepoint) {
                                 case 'g':
-                                        move_cursor_to_first_line(edit, 0);
+                                        move_cursor_to_first_line(edit, isSelecting);
                                         state->modalKind = VIMODAL_NORMAL;
                                         break;
                                 default:
@@ -192,11 +197,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
-        if (edit->vistate.modalKind == VIMODAL_D) {
+        if (state->modalKind == VIMODAL_D) {
                 process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(input, edit, state);
                 return;
         }
-        if (edit->vistate.modalKind == VIMODAL_G) {
+        if (state->modalKind == VIMODAL_G) {
                 process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(input, edit, state);
                 return;
         }
@@ -284,6 +289,10 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
+        if (state->modalKind == VIMODAL_G) {
+                process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(input, edit, state);
+                return;
+        }
         if (input->inputKind == INPUT_KEY) {
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
@@ -296,6 +305,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                 (There's a github issue for that). */
                 if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         switch (input->data.tKey.codepoint) {
+                        case 'g':
+                                state->modalKind = VIMODAL_G;
+                                break;
                         case 'x':
                         case 'X':
                         case 'd':
@@ -309,7 +321,14 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                         }
                 }
                 else if (!hasCodepoint) {
+                        int modifiers = input->data.tKey.modifierMask;
                         switch (input->data.tKey.keyKind) {
+                        case KEY_C:
+                                if (modifiers == MODIFIER_CONTROL) {
+                                        edit->isSelectionMode = 0;
+                                        state->vimodeKind = VIMODE_NORMAL;
+                                }
+                                break;
                         case KEY_ESCAPE:
                                 edit->isSelectionMode = 0;
                                 state->vimodeKind = VIMODE_NORMAL;
@@ -335,7 +354,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         int modifiers = input->data.tKey.modifierMask;
-                        int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
                         switch (input->data.tKey.keyKind) {
                         case KEY_C:
                                 if (modifiers == MODIFIER_CONTROL)
