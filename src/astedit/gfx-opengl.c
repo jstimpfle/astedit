@@ -176,7 +176,7 @@ const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
               "void main()\n"
               "{\n"
               "    float alpha = texture(sampler, texPosF).x;\n"
-              "    gl_FragColor = colorF * alpha;\n"
+              "    gl_FragColor = vec4(colorF.rgb, colorF.a * alpha);\n"
               "}\n"),
         MAKE(SHADER_FRAGMENTTEXTURERGBA, GL_FRAGMENT_SHADER,
               "#version 130\n"
