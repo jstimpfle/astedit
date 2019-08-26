@@ -20,6 +20,7 @@ enum ViMode {
 enum ViNormalModeModal {
         VIMODAL_NORMAL,
         VIMODAL_D,
+        VIMODAL_G,
 };
 
 struct ViState {
@@ -78,6 +79,8 @@ enum MovementKind {
         MOVEMENT_RIGHT,
         MOVEMENT_UP,
         MOVEMENT_DOWN,
+        MOVEMENT_NEXT_CODEPOINT,  // like RIGHT but won't stop at end of line
+        MOVEMENT_PREVIOUS_CODEPOINT,  // like LEFT but won't stop at beginning of line
         MOVEMENT_PAGEUP,
         MOVEMENT_PAGEDOWN,
         MOVEMENT_LINEBEGIN,
@@ -105,6 +108,8 @@ static inline void move_cursor_left(struct TextEdit *edit, int isSelecting) { MO
 static inline void move_cursor_right(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_RIGHT); }
 static inline void move_cursor_up(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_UP); }
 static inline void move_cursor_down(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_DOWN); }
+static inline void move_cursor_to_next_codepoint(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_NEXT_CODEPOINT); }
+static inline void move_cursor_to_previous_codepoint(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_PREVIOUS_CODEPOINT); }
 static inline void move_cursor_to_beginning_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEBEGIN); }
 static inline void move_cursor_to_end_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEEND); }
 static inline void move_cursor_to_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS columnCodepoint, int isSelecting) { MOVE(MOVEMENT_SPECIFICLINEANDCOLUMN, lineNumber, columnCodepoint); }
@@ -112,16 +117,18 @@ static inline void move_cursor_to_line(struct TextEdit *edit, FILEPOS lineNumber
 static inline void move_cursor_to_first_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_FIRSTLINE); }
 static inline void move_cursor_to_last_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LASTLINE); }
 
-static inline void delete_left(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LEFT); }
-static inline void delete_right(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_RIGHT); }
-static inline void delete_up(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_UP); }
-static inline void delete_down(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_DOWN); }
-static inline void delete_to_beginning_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEBEGIN); }
-static inline void delete_to_end_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEEND); }
-static inline void delete_to_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS columnCodepoint, int isSelecting) { MOVE(MOVEMENT_SPECIFICLINEANDCOLUMN, lineNumber, columnCodepoint); }
-static inline void delete_to_line(struct TextEdit *edit, FILEPOS lineNumber, int isSelecting) { MOVE(MOVEMENT_SPECIFICLINE, lineNumber); }
-static inline void delete_to_first_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_FIRSTLINE); }
-static inline void delete_to_last_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LASTLINE); }
+static inline void delete_left(struct TextEdit *edit) { DELETE(MOVEMENT_LEFT); }
+static inline void delete_right(struct TextEdit *edit) { DELETE(MOVEMENT_RIGHT); }
+static inline void delete_up(struct TextEdit *edit) { DELETE(MOVEMENT_UP); }
+static inline void delete_down(struct TextEdit *edit) { DELETE(MOVEMENT_DOWN); }
+static inline void delete_to_next_codepoint(struct TextEdit *edit) { DELETE(MOVEMENT_NEXT_CODEPOINT); }
+static inline void delete_to_previous_codepoint(struct TextEdit *edit) { DELETE(MOVEMENT_PREVIOUS_CODEPOINT); }
+static inline void delete_to_beginning_of_line(struct TextEdit *edit) { DELETE(MOVEMENT_LINEBEGIN); }
+static inline void delete_to_end_of_line(struct TextEdit *edit) { DELETE(MOVEMENT_LINEEND); }
+static inline void delete_to_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS columnCodepoint) { DELETE(MOVEMENT_SPECIFICLINEANDCOLUMN, lineNumber, columnCodepoint); }
+static inline void delete_to_line(struct TextEdit *edit, FILEPOS lineNumber) { DELETE(MOVEMENT_SPECIFICLINE, lineNumber); }
+static inline void delete_to_first_line(struct TextEdit *edit) { DELETE(MOVEMENT_FIRSTLINE); }
+static inline void delete_to_last_line(struct TextEdit *edit) { DELETE(MOVEMENT_LASTLINE); }
 
 void move_cursor_lines_relative(struct TextEdit *edit, FILEPOS linesDiff, int isSelecting);
 
@@ -144,7 +151,6 @@ void update_textedit(struct TextEdit *edit);
 
 /* fill TextEdit with some text loaded from a file. For debugging purposes. */
 void textedit_test_init(struct TextEdit *edit, const char *filepath);
-
 
 
 

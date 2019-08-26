@@ -136,7 +136,7 @@ int measure_glyph_span(Font font, int size, const uint32_t *text, int length, in
         return x;
 }
 
-int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
+int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
         int size, const uint32_t *text, int length, int initX, int baselineY,
         int r, int g, int b, int a)
 {
@@ -161,14 +161,14 @@ int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
 
                 commit_all_dirty_textures(); //XXX
 
-                if (rectX + rectW < boundingBox->bbX)
+                if (rectX + rectW < boundingBox->x)
                         continue;
 
-                if (rectX >= boundingBox->bbX + boundingBox->bbW)
+                if (rectX >= boundingBox->x + boundingBox->w)
                         break;
 
-                if (rectY + rectH >= boundingBox->bbY &&
-                    rectY <= boundingBox->bbY + boundingBox->bbH) {
+                if (rectY + rectH >= boundingBox->y &&
+                    rectY <= boundingBox->y + boundingBox->h) {
                         draw_alpha_texture_rect(texture, r, g, b, a,
                                 rectX, rectY, rectW, rectH,
                                 texX, texY, texW, texH);

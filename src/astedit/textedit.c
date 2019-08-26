@@ -124,43 +124,6 @@ FILEPOS get_position_lines_relative(struct TextEdit *edit, FILEPOS linesDiff)
         return get_position_of_line_and_column(edit, newLineNumber, codepointColumn);
 }
 
-FILEPOS get_position_left(struct TextEdit *edit)
-{
-        FILEPOS codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
-        if (codepointPos > 0)
-                codepointPos -= 1;
-        return compute_pos_of_codepoint(edit->rope, codepointPos);
-}
-
-FILEPOS get_position_right(struct TextEdit *edit)
-{
-        FILEPOS codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
-        FILEPOS totalCodepoints = textrope_number_of_codepoints(edit->rope);
-        if (codepointPos < totalCodepoints)  // we may move one past end
-                codepointPos += 1;
-        return compute_pos_of_codepoint(edit->rope, codepointPos);
-}
-
-FILEPOS get_position_up(struct TextEdit *edit)
-{
-        return get_position_lines_relative(edit, -1);
-}
-
-FILEPOS get_position_down(struct TextEdit *edit)
-{
-        return get_position_lines_relative(edit, 1);
-}
-
-FILEPOS get_position_pageup(struct TextEdit *edit)
-{
-        get_position_lines_relative(edit, -LINES_PER_PAGE);
-}
-
-FILEPOS get_position_pagedown(struct TextEdit *edit)
-{
-        get_position_lines_relative(edit, LINES_PER_PAGE);
-}
-
 FILEPOS get_position_line_begin(struct TextEdit *edit)
 {
         FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
@@ -175,7 +138,64 @@ FILEPOS get_position_line_end(struct TextEdit *edit)
         FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
         FILEPOS nextLinePos = compute_pos_of_line(edit->rope, lineNumber + 1);
         FILEPOS nextLineCodepointPos = compute_codepoint_position(edit->rope, nextLinePos);
-        return compute_pos_of_codepoint(edit->rope, nextLineCodepointPos - 1);  // or -2??
+        FILEPOS codepointPos = nextLineCodepointPos - 1;  // should be '\n'
+        return compute_pos_of_codepoint(edit->rope, codepointPos);  // assuming only a single '\n' at line end
+}
+
+FILEPOS get_position_left(struct TextEdit *edit)
+{
+        FILEPOS codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        FILEPOS linebeginPos = get_position_line_begin(edit);
+        if (edit->cursorBytePosition > linebeginPos)
+                return compute_pos_of_codepoint(edit->rope, codepointPos - 1);
+        return edit->cursorBytePosition;
+}
+
+FILEPOS get_position_right(struct TextEdit *edit)
+{
+        FILEPOS lineendPos = get_position_line_end(edit);
+        if (edit->cursorBytePosition < lineendPos) {
+                FILEPOS codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+                return compute_pos_of_codepoint(edit->rope, codepointPos + 1);
+        }
+        return edit->cursorBytePosition;
+}
+
+FILEPOS get_position_up(struct TextEdit *edit)
+{
+        return get_position_lines_relative(edit, -1);
+}
+
+FILEPOS get_position_down(struct TextEdit *edit)
+{
+        return get_position_lines_relative(edit, 1);
+}
+
+FILEPOS get_position_pageup(struct TextEdit *edit)
+{
+        return get_position_lines_relative(edit, -LINES_PER_PAGE);
+}
+
+FILEPOS get_position_pagedown(struct TextEdit *edit)
+{
+        return get_position_lines_relative(edit, LINES_PER_PAGE);
+}
+
+FILEPOS get_position_next_codepoint(struct TextEdit *edit)
+{
+        FILEPOS totalCodepoints = textrope_number_of_codepoints(edit->rope);
+        FILEPOS codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        if (codepointPos < totalCodepoints)
+                return compute_pos_of_codepoint(edit->rope, codepointPos + 1);
+        return edit->cursorBytePosition;
+}
+
+FILEPOS get_position_prev_codepoint(struct TextEdit *edit)
+{
+        FILEPOS codepointPos = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        if (codepointPos > 0)
+                return compute_pos_of_codepoint(edit->rope, codepointPos - 1);
+        return edit->cursorBytePosition;
 }
 
 FILEPOS get_position_first_line(struct TextEdit *edit)
@@ -201,6 +221,8 @@ FILEPOS get_movement_position(struct TextEdit *edit, struct Movement *movement)
         case MOVEMENT_RIGHT:  return get_position_right(edit);
         case MOVEMENT_UP:     return get_position_up(edit);
         case MOVEMENT_DOWN:   return get_position_down(edit);
+        case MOVEMENT_NEXT_CODEPOINT: return get_position_next_codepoint(edit);
+        case MOVEMENT_PREVIOUS_CODEPOINT: return get_position_prev_codepoint(edit);
         case MOVEMENT_PAGEUP: return get_position_pageup(edit);
         case MOVEMENT_PAGEDOWN: return get_position_pagedown(edit);
         case MOVEMENT_LINEBEGIN: return get_position_line_begin(edit);
@@ -262,7 +284,7 @@ void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, u
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
 {
         insert_codepoints_into_textedit(edit, edit->cursorBytePosition, &codepoint, 1);
-        move_cursor_right(edit, 0);  // XXX
+        move_cursor_to_next_codepoint(edit, 0);  // XXX
 }
 
 void erase_selected_in_TextEdit(struct TextEdit *edit)

@@ -75,6 +75,15 @@ static const struct {
         { GLFW_MOUSE_BUTTON_8, MOUSEBUTTON_8 },
 };
 
+static const struct {
+        int glfwAction;
+        enum KeyeventKind keyeventKind;
+} glfwActionToKeyeventKind[] = {
+        { GLFW_PRESS, KEYEVENT_PRESS },
+        { GLFW_REPEAT, KEYEVENT_REPEAT },
+        { GLFW_RELEASE, KEYEVENT_RELEASE },
+};
+
 
 
 static GLFWwindow *windowGlfw;
@@ -137,7 +146,6 @@ static void mouse_cb_glfw(GLFWwindow *win, int button, int action, int mods)
                         enqueue_input(&inp);
                 }
         }
-
 }
 
 static void cursor_cb_glfw(GLFWwindow *win, double xoff, double yoff)
@@ -177,17 +185,19 @@ static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int 
         (void)win;
         (void)scancode;
 
-        if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-                for (int i = 0; i < LENGTH(keymap); i++) {
-                        if (key == keymap[i].glfwKey) {
-                                enum KeyKind keyKind = keymap[i].keyKind;
-                                int modifiers = glfwmods_to_modifiers(mods);
-                                int hasCodepoint = 0;
-                                unsigned codepoint = 0;
-                                enqueue_key_input(keyKind, KEYEVENT_PRESS,
-                                        modifiers, hasCodepoint, codepoint);
-                                return;
-                        }
+        for (int i = 0; i < LENGTH(keymap); i++) {
+                if (key == keymap[i].glfwKey) {
+                        enum KeyKind keyKind = keymap[i].keyKind;
+                        enum KeyEventKind keyeventKind = -1;
+                        for (int j = 0; j < LENGTH(glfwActionToKeyeventKind); j++)
+                                if (glfwActionToKeyeventKind[j].glfwAction == action)
+                                        keyeventKind = glfwActionToKeyeventKind[j].keyeventKind;
+                        ENSURE(keyeventKind != -1);
+                        int modifiers = glfwmods_to_modifiers(mods);
+                        int hasCodepoint = 0;
+                        unsigned codepoint = 0;
+                        enqueue_key_input(keyKind, keyeventKind, modifiers, hasCodepoint, codepoint);
+                        return;
                 }
         }
 }

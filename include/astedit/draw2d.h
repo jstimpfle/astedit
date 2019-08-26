@@ -29,11 +29,11 @@ struct DrawCursor {
         int a;
 };
 
-struct BoundingBox {
-        int bbX;
-        int bbY;
-        int bbW;
-        int bbH;
+struct GuiRect {
+        int x;
+        int y;
+        int w;
+        int h;
 };
 
 

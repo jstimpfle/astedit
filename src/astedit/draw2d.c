@@ -16,6 +16,7 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 
+#if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
 static const struct RGB normalTextColor = {0, 255, 0 };
@@ -26,6 +27,19 @@ static const struct RGB junkTokenColor = { 255, 0, 0 };
 static const struct RGB borderColor = { 32, 32, 32 };
 static const struct RGB highlightColor = { 0, 0, 255 };
 static const struct RGB statusbarTextColor = { 0, 0, 0 };
+#else
+static const struct RGB texteditBgColor = { 255, 255, 255 };
+static const struct RGB statusbarBgColor = { 64, 64, 64 };
+static const struct RGB normalTextColor = {32, 32, 32 };
+static const struct RGB stringTokenColor = { 0, 255, 0 };
+static const struct RGB integerTokenColor = { 0, 0, 255 };
+static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
+static const struct RGB junkTokenColor = { 255, 0, 0 };
+static const struct RGB borderColor = { 32, 32, 32 };
+static const struct RGB highlightColor = { 192, 192, 255 };
+static const struct RGB statusbarTextColor = { 192, 192, 192 };
+#endif
+
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d alphaVertexBuffer[3 * 1024];
@@ -133,6 +147,8 @@ static void fill_texture2d_rect(struct TextureVertex2d *rp,
         rp[4].x = (float) x + w; rp[4].y = (float) y + h;   rp[4].z = 0;
         rp[5].x = (float) x + w; rp[5].y = (float) y;       rp[5].z = 0;
 
+        //for (int i = 0; i < 6; i++) rp[i].x += 0.5f;
+
         rp[0].texX = texX;        rp[0].texY = texY;
         rp[1].texX = texX;        rp[1].texY = texY + texH;
         rp[2].texX = texX + texW; rp[2].texY = texY + texH;
@@ -206,31 +222,32 @@ void next_line(struct DrawCursor *cursor)
 
 static void draw_codepoint(
         struct DrawCursor *cursor,
-        const struct BoundingBox *boundingBox,
+        const struct GuiRect *boundingBox,
         int drawstringKind,
         uint32_t codepoint)
 {
         cursor->codepointpos++;
         if (codepoint == '\r')
                 return;
-        if (codepoint == '\n') {
-                next_line(cursor);
-                cursor->lineNumber++;
-                return;
-        }
+        uint32_t codepointToDraw = codepoint == '\n' ? ' ' : codepoint;
         int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
-                cursor->fontSize, &codepoint, 1,
+                cursor->fontSize, &codepointToDraw, 1,
                 cursor->x, cursor->y,
                 cursor->r, cursor->g, cursor->b, cursor->a);
         if (drawstringKind == DRAWSTRING_HIGHLIGHT)
                 draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
                         xEnd - cursor->x, cursor->lineHeight, C(highlightColor));
         cursor->x = xEnd;
+        if (codepoint == '\n') {
+                next_line(cursor);
+                cursor->lineNumber++;
+                return;
+        }
 }
 
 static void draw_text_with_cursor(
         struct DrawCursor *cursor,
-        const struct BoundingBox *boundingBox,
+        const struct GuiRect *boundingBox,
         const char *text, int length)
 {
         uint32_t codepoints[512];
@@ -251,7 +268,7 @@ static void draw_text_with_cursor(
 
 static void draw_text_snprintf(
         struct DrawCursor *cursor,
-        const struct BoundingBox *boundingBox,
+        const struct GuiRect *boundingBox,
         char *buffer, int length,
         const char *fmt, ...)
 {
@@ -263,12 +280,12 @@ static void draw_text_snprintf(
         va_end(ap);
 }
 
-static void set_bounding_box(struct BoundingBox *box, int x, int y, int w, int h)
+static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 {
-        box->bbX = x;
-        box->bbY = y;
-        box->bbW = w;
-        box->bbH = h;
+        box->x = x;
+        box->y = y;
+        box->w = w;
+        box->h = h;
 }
 
 
@@ -298,9 +315,9 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstLine, FILEPOS 
 {
         UNUSED(edit);
 
-        struct BoundingBox boundingBox;
+        struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
-        struct BoundingBox *box = &boundingBox;
+        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, x, y, w, h);
@@ -316,16 +333,6 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstLine, FILEPOS 
                 next_line(cursor);
         }
 
-        {
-                int pad = 10;
-                int bx = x + w;
-                int by = y + pad;
-                int bw = 2;
-                int bh = y + h - pad;
-                if (bh < by)
-                        bh = by;
-                draw_colored_rect(bx, by, bw, bh, C(borderColor));
-        }
 }
 
 static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPOS numberOfLines,
@@ -336,9 +343,9 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
         FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstLine);
         FILEPOS initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
 
-        struct BoundingBox boundingBox;
+        struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
-        struct BoundingBox *box = &boundingBox;
+        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, x, y, w, h);
@@ -367,31 +374,33 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
                 FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
                 FILEPOS whiteEndPos = currentPos + token.leadingWhiteChars;
                 FILEPOS tokenEndPos = currentPos + token.length;
-                set_cursor_color(cursor, C(normalTextColor));
+                struct RGB rgb;
+                if (token.tokenKind == BLUNT_TOKEN_INTEGER)
+                        rgb = integerTokenColor;
+                else if (token.tokenKind == BLUNT_TOKEN_STRING)
+                        rgb = stringTokenColor;
+                else if (FIRST_BLUNT_TOKEN_OPERATOR <= token.tokenKind
+                        && token.tokenKind <= LAST_BLUNT_TOKEN_OPERATOR)
+                        rgb = operatorTokenColor;
+                else if (token.tokenKind == BLUNT_TOKEN_JUNK)
+                        rgb = junkTokenColor;
+                else
+                        rgb = normalTextColor;
+                set_cursor_color(cursor, C(rgb));
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < tokenEndPos) {
                         uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         int drawstringKind = DRAWSTRING_NORMAL;
                         if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
                                 drawstringKind = DRAWSTRING_HIGHLIGHT;
-                        struct RGB rgb;
-                        if (token.tokenKind == BLUNT_TOKEN_INTEGER)
-                                rgb = integerTokenColor;
-                        else if (token.tokenKind == BLUNT_TOKEN_STRING)
-                                rgb = stringTokenColor;
-                        else if (FIRST_BLUNT_TOKEN_OPERATOR <= token.tokenKind
-                                && token.tokenKind <= LAST_BLUNT_TOKEN_OPERATOR)
-                                rgb = operatorTokenColor;
-                        else if (token.tokenKind == BLUNT_TOKEN_JUNK)
-                                rgb = junkTokenColor;
-                        else
-                                rgb = normalTextColor;
-                        set_cursor_color(cursor, C(rgb));
                         draw_codepoint(cursor, box, drawstringKind, codepoint);
                 }
 
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
                         break;
         }
+        // markStart/markEnd are currently abused to draw the text cursor, and in this case here we know it has to be the text cursor
+        if (readpos_in_bytes_of_UTF8Decoder(&decoder) == markStart)
+                draw_codepoint(cursor, box, DRAWSTRING_HIGHLIGHT, ' ');
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
 }
@@ -407,9 +416,9 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
 
         draw_colored_rect(x, y, w, h, C(statusbarBgColor));
 
-        struct BoundingBox boundingBox;
+        struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
-        struct BoundingBox *box = &boundingBox;
+        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
         // no actual bounding box currently.
@@ -432,9 +441,9 @@ static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, in
         flush_all_vertex_buffers();
 
         // no actual bounding box currently.
-        struct BoundingBox boundingBox;
+        struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
-        struct BoundingBox *box = &boundingBox;
+        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
@@ -499,6 +508,20 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
                 draw_line_numbers(edit, firstLine, numberOfLines, linesX, linesY, linesW, linesH);
                 draw_textedit_lines(edit, firstLine, numberOfLines, textAreaX, textAreaY, textAreaW, textAreaH, markStart, markEnd);
                 draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+
+                // draw a line that separates the numbers from the text area
+
+                {
+                        int pad = 10;
+                        int thick = 2;
+                        int bx = textAreaX - thick/2;
+                        int by = textAreaY + pad;
+                        int bw = thick;
+                        int bh = textAreaY + textAreaH - 2 * pad;
+                        if (bh < by)
+                                bh = by;
+                        draw_colored_rect(bx, by, bw, bh, C(borderColor));
+                }
         }
 }
 

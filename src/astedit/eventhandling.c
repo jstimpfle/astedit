@@ -1,4 +1,5 @@
 #include <astedit/astedit.h>
+#include <astedit/logging.h>
 #include <astedit/eventhandling.h>
 
 #if 0
@@ -143,7 +144,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
                 //enum KeyKind keyKind = input->data.tKey.keyKind;
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
-                if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE) {
+                if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT) {
                         struct Movement movement;
                         if (input_to_movement_in_Vi(input, &movement)) {
                                 delete_with_movement(edit, &movement);
@@ -165,11 +166,38 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
         }
 }
 
+static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(
+        struct Input *input, struct TextEdit *edit, struct ViState *state)
+{
+        if (input->inputKind == INPUT_KEY) {
+                //enum KeyKind keyKind = input->data.tKey.keyKind;
+                enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
+                int hasCodepoint = input->data.tKey.hasCodepoint;
+                if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT) {
+                        if (hasCodepoint) {
+                                switch (input->data.tKey.codepoint) {
+                                case 'g':
+                                        move_cursor_to_first_line(edit, 0);
+                                        state->modalKind = VIMODAL_NORMAL;
+                                        break;
+                                default:
+                                        state->modalKind = VIMODAL_NORMAL;
+                                        break;
+                                }
+                        }
+                }
+        }
+}
+
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
         if (edit->vistate.modalKind == VIMODAL_D) {
                 process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(input, edit, state);
+                return;
+        }
+        if (edit->vistate.modalKind == VIMODAL_G) {
+                process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(input, edit, state);
                 return;
         }
 
@@ -183,7 +211,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                 access (which doesn't provide modifiers). It's not clear at this point how
                 we should handle combinations like Ctrl+Z while respecting keyboard layout.
                 (There's a github issue for that). */
-                if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
+                if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         switch (input->data.tKey.codepoint) {
                         case 'A':
                                 move_cursor_to_end_of_line(edit, 0);
@@ -205,6 +233,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         case 'd':
                                 state->modalKind = VIMODAL_D;
+                                break;
+                        case 'g':
+                                state->modalKind = VIMODAL_G;
                                 break;
                         case 'o':
                                 move_cursor_to_end_of_line(edit, 0);
@@ -234,7 +265,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         }
                 }
-                else if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
+                else if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         switch (input->data.tKey.keyKind) {
                         case KEY_DELETE:
                                 erase_forwards_in_TextEdit(edit);
@@ -263,7 +294,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                 access (which doesn't provide modifiers). It's not clear at this point how
                 we should handle combinations like Ctrl+Z while respecting keyboard layout.
                 (There's a github issue for that). */
-                if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
+                if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         switch (input->data.tKey.codepoint) {
                         case 'x':
                         case 'X':
@@ -302,7 +333,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
         if (input->inputKind == INPUT_KEY) {
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
-                if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_RELEASE)) {
+                if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         int modifiers = input->data.tKey.modifierMask;
                         int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
                         switch (input->data.tKey.keyKind) {

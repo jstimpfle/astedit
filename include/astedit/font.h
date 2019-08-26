@@ -38,7 +38,7 @@ struct GlyphLayoutInfo {
 };
 
 #include <astedit/draw2d.h>  // BoundingBox
-int draw_glyphs_on_baseline(Font font, const struct BoundingBox *boundingBox,
+int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
         int size, const uint32_t *text, int length, int initX, int baselineY,
         int r, int g, int b, int a);
 
