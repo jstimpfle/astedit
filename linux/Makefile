@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall
+CFLAGS = -O2 -g -Wall
 CFLAGS += -Wno-switch -Wno-enum-compare
 CFLAGS += -D_POSIX_C_SOURE=200809LL
 

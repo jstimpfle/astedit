@@ -77,7 +77,7 @@ static const struct {
 
 static const struct {
         int glfwAction;
-        enum KeyeventKind keyeventKind;
+        enum KeyEventKind keyeventKind;
 } glfwActionToKeyeventKind[] = {
         { GLFW_PRESS, KEYEVENT_PRESS },
         { GLFW_REPEAT, KEYEVENT_REPEAT },
