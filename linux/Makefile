@@ -21,7 +21,7 @@ src/astedit/clock-linux.c \
 src/astedit/data.c \
 src/astedit/draw2d.c \
 src/astedit/eventhandling.c \
-src/astedit/filereadthread.c \
+src/astedit/filereadwritethread.c \
 src/astedit/filesystem-linux.c \
 src/astedit/font.c \
 src/astedit/font-freetype.c \
@@ -32,10 +32,12 @@ src/astedit/memoryalloc.c \
 src/astedit/osthread-linux.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
+src/astedit/texteditloadsave.c \
 src/astedit/textrope.c \
 src/astedit/textureatlas.c \
 src/astedit/utf8.c \
 src/astedit/textropeUTF8decode.c \
+src/astedit/vimode.c \
 src/astedit/window.c \
 src/astedit/window-glfw.c \
 src/blunt/lex.c \
