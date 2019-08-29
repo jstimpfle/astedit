@@ -44,4 +44,9 @@ void insert_codepoint_in_ViCmdline(uint32_t codepoint, struct ViCmdline *cmdline
 void erase_backwards_in_ViCmdline(struct ViCmdline *cmdline);
 void erase_forwards_in_ViCmdline(struct ViCmdline *cmdline);
 
+void move_cursor_to_beginning_in_cmdline(struct ViCmdline *cmdline);
+void move_cursor_to_end_in_cmdline(struct ViCmdline *cmdline);
+void move_cursor_left_in_cmdline(struct ViCmdline *cmdline);
+void move_cursor_right_in_cmdline(struct ViCmdline *cmdline);
+
 #endif

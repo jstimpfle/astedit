@@ -8,7 +8,7 @@ static int is_input_keypress(struct Input *input)
 {
         return input->inputKind == INPUT_KEY
                 && (input->data.tKey.keyEventKind == KEYEVENT_PRESS
-                        || input->data.tKey.keyEventKind == KEYEVENT_RELEASE);
+                        || input->data.tKey.keyEventKind == KEYEVENT_REPEAT);
 }
 
 static int is_input_keypress_of_key(struct Input *input, enum KeyKind keyKind)
@@ -413,10 +413,19 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
                 erase_backwards_in_ViCmdline(cmdline);
         else if (is_input_keypress_of_key(input, KEY_DELETE))
                 erase_forwards_in_ViCmdline(cmdline);
+        else if (is_input_keypress_of_key(input, KEY_HOME))
+                move_cursor_to_beginning_in_cmdline(cmdline);
+        else if (is_input_keypress_of_key(input, KEY_END))
+                move_cursor_to_end_in_cmdline(cmdline);
+        else if (is_input_keypress_of_key(input, KEY_CURSORLEFT))
+                move_cursor_left_in_cmdline(cmdline);
+        else if (is_input_keypress_of_key(input, KEY_CURSORRIGHT))
+                move_cursor_right_in_cmdline(cmdline);
         else if (is_input_keypress_of_key(input, KEY_ESCAPE))
                 cmdline->isAborted = 1;
         else if (is_input_keypress_of_key(input, KEY_ENTER))
                 cmdline->isConfirmed = 1;
+
 
         if (cmdline->isAborted) {
                 // TODO
