@@ -95,7 +95,11 @@ enum InputKind {
         INPUT_WINDOWEXPOSE,
         INPUT_WINDOWMAP,
         INPUT_WINDOWUNMAP,
+
+        NUM_INPUT_KINDS,
 };
+
+extern const char *const inputKindString[NUM_INPUT_KINDS];
 
 enum KeyEventKind {
         KEYEVENT_PRESS,
@@ -171,5 +175,8 @@ void setup_window(void);
 void teardown_window(void);
 void wait_for_events(void);
 void swap_buffers(void);
+void enter_windowing_mode(void);
+void enter_fullscreen_mode(void);
+void toggle_fullscreen(void);
 
 #endif

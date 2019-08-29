@@ -12,3 +12,17 @@ const char *const vimodeKindString[NUM_VIMODE_KINDS] = {
         [VIMODE_SELECTING] = "SELECTING",
         [VIMODE_COMMAND] = "COMMAND",
 };
+
+
+const char *const inputKindString[NUM_INPUT_KINDS] = {
+#define MAKE(x) [x] = #x
+        MAKE( INPUT_KEY ),
+        MAKE( INPUT_MOUSEBUTTON ),
+        MAKE( INPUT_CURSORMOVE ),
+        MAKE( INPUT_TIMETICK ),
+        MAKE( INPUT_WINDOWRESIZE ),
+        MAKE( INPUT_WINDOWEXPOSE ),
+        MAKE( INPUT_WINDOWMAP ),
+        MAKE( INPUT_WINDOWUNMAP ),
+#undef MAKE
+};

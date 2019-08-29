@@ -87,7 +87,9 @@ static const struct {
 
 
 static GLFWwindow *windowGlfw;
+static int isFullscreenMode;
 
+static volatile int doingPolling;  // needed for a hack. See below
 
 
 
@@ -242,12 +244,13 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
         // during a window move or resize (see notes in GLFW docs).
         // To work around that, for now we just duplicate drawing in this callback.
         // it's not nice and likely to break, so consider it a temporary hack.
-        extern long long timeSinceProgramStartupMilliseconds;
-        extern void mainloop(void);
-        if (timeSinceProgramStartupMilliseconds > 2000) { // XXX OpenGL should be set up by now
-                mainloop();
+        if (doingPolling) {
+                extern long long timeSinceProgramStartupMilliseconds;
+                extern void mainloop(void);
+                if (timeSinceProgramStartupMilliseconds > 2000) { // XXX OpenGL should be set up by now
+                        mainloop();
+                }
         }
-
 }
 
 static void windowrefresh_cb_glfw(GLFWwindow *win)
@@ -259,6 +262,32 @@ static void windowrefresh_cb_glfw(GLFWwindow *win)
         enqueue_input(&inp);
 }
 
+void enter_windowing_mode(void)
+{
+        GLFWmonitor *monitor = NULL;
+        int pixelsW = 1024;
+        int pixelsH = 768;
+        glfwSetWindowMonitor(windowGlfw, monitor, 300, 300, pixelsW, pixelsH, GLFW_DONT_CARE);
+}
+
+void enter_fullscreen_mode(void)
+{
+        GLFWmonitor *monitor = glfwGetPrimaryMonitor();  // try full screen mode. Will stuttering go away?
+        const struct GLFWvidmode *mode = glfwGetVideoMode(monitor);
+        int pixelsW = mode->width;
+        int pixelsH = mode->height;
+        glfwSetWindowMonitor(windowGlfw, monitor, 0, 0, pixelsW, pixelsH, GLFW_DONT_CARE);
+}
+
+void toggle_fullscreen(void)
+{
+        if (isFullscreenMode)
+                enter_windowing_mode();
+        else
+                enter_fullscreen_mode();
+
+        isFullscreenMode = !isFullscreenMode;
+}
 
 void setup_window(void)
 {
@@ -274,26 +303,12 @@ void setup_window(void)
         //glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         //glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);  // window size dependent on monitor scale
 
-        GLFWmonitor *monitor;
-        int pixelsW;
-        int pixelsH;
 
-#if 1
-        monitor = NULL;
-        pixelsW = 1024;
-        pixelsH = 768;
-#else
-        monitor = glfwGetPrimaryMonitor();  // try full screen mode. Will stuttering go away?
-        {
-                struct GLFWvidmode *mode = glfwGetVideoMode(monitor);
-                pixelsW = mode->width;
-                pixelsH = mode->height;
-        }
-#endif
-
-        windowGlfw = glfwCreateWindow(pixelsW, pixelsH, "Astedit", monitor, NULL);
+        windowGlfw = glfwCreateWindow(1024, 768, "Astedit", NULL, NULL);
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
+
+        enter_windowing_mode();
 
         glfwSetMouseButtonCallback(windowGlfw, &mouse_cb_glfw);
         glfwSetScrollCallback(windowGlfw, &scroll_cb_glfw);
@@ -322,6 +337,7 @@ void teardown_window(void)
 
 void wait_for_events(void)
 {
+        doingPolling = 1;
         // TODO: Use glfwPollEvents() if it's clear that we should produce the next frame immediately
         if (0) {
                 glfwWaitEvents();
@@ -329,6 +345,7 @@ void wait_for_events(void)
         else {
                 glfwPollEvents();
         }
+        doingPolling = 0;
 
         if (glfwWindowShouldClose(windowGlfw))
                 shouldWindowClose = 1;

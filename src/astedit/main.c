@@ -17,58 +17,13 @@ static Timer *mainloopTimer;
 static Timer *waitEventsTimer;
 static Timer *handleEventsTimer;
 
-
-static void handle_input(struct Input *input)
-{
-        if (input->inputKind == INPUT_WINDOWRESIZE) {
-                /*log_postf("Window size is now %d %d",
-                        input->tWindowresize.width,
-                        input->tWindowresize.height);
-                        */
-        }
-        else if (input->inputKind == INPUT_KEY) {
-                if (input->data.tKey.keyKind == KEY_F4) {
-                        //if (input->data.tKey.modifiers & MODIFIER_MOD)
-                          //      shouldWindowClose = 1;
-                }
-                else if (!globalTextEdit.isLoading) {
-                        start_timer(keyinputTimer);
-                        process_input_in_TextEdit(input, &globalTextEdit);
-                        stop_timer(keyinputTimer);
-                        /*report_timer(keyinputTimer, "Time spent in editing operation");*/
-                }
-        }
-        else if (input->inputKind == INPUT_MOUSEBUTTON) {
-                enum MousebuttonKind mousebuttonKind = input->data.tMousebutton.mousebuttonKind;
-                enum MousebuttonEventKind mousebuttonEventKind = input->data.tMousebutton.mousebuttonEventKind;
-                const char *event = mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS? "Press" : "Release";
-                static const char *const prefix[2] = { "with", "+" };
-                int flag = 0;
-                log_begin();
-                log_writef("%s mouse button %d", event, mousebuttonKind);
-                if (input->data.tMousebutton.modifiers & MODIFIER_CONTROL) {
-                        log_writef(" %s %s", prefix[flag], "Ctrl");
-                        flag = 1;
-                }
-                if (input->data.tMousebutton.modifiers & MODIFIER_MOD) {
-                        log_writef(" %s %s", prefix[flag], "Mod");
-                        flag = 1;
-                }
-                if (input->data.tMousebutton.modifiers & MODIFIER_SHIFT) {
-                        log_writef(" %s %s", prefix[flag], "Shift");
-                        flag = 1;
-                }
-                log_end();
-        }
-}
-
 static void handle_events(void)
 {
         for (struct Input input;
                 look_input(&input);
                 consume_input())
         {
-                handle_input(&input);
+                handle_input(&input, &globalTextEdit);
         }
 
         //XXX: "TIMETICK" event
