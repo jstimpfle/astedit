@@ -271,10 +271,27 @@ void setup_window(void)
         glfwWindowHint(GLFW_SAMPLES, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-        glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+        //glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         //glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);  // window size dependent on monitor scale
 
-        windowGlfw = glfwCreateWindow(800, 600, "Astedit", NULL, NULL);
+        GLFWmonitor *monitor;
+        int pixelsW;
+        int pixelsH;
+
+#if 1
+        monitor = NULL;
+        pixelsW = 1024;
+        pixelsH = 768;
+#else
+        monitor = glfwGetPrimaryMonitor();  // try full screen mode. Will stuttering go away?
+        {
+                struct GLFWvidmode *mode = glfwGetVideoMode(monitor);
+                pixelsW = mode->width;
+                pixelsH = mode->height;
+        }
+#endif
+
+        windowGlfw = glfwCreateWindow(pixelsW, pixelsH, "Astedit", monitor, NULL);
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
 
@@ -285,7 +302,6 @@ void setup_window(void)
         glfwSetCharCallback(windowGlfw, &char_cb_glfw);
         glfwSetFramebufferSizeCallback(windowGlfw, &windowsize_cb_glfw);
         glfwSetWindowRefreshCallback(windowGlfw, &windowrefresh_cb_glfw);
-
 
         { /* call the callback artificially */
                 int pixX, pixY;
