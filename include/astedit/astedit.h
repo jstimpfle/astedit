@@ -9,6 +9,8 @@
 
 
 #ifdef _MSC_VER
+#pragma warning( disable : 4200)  // nonstandard extension used: zero-sized array in struct
+#pragma warning( disable : 4204)  // nonstandard extension used: non-constant aggregate initializer
 #define NORETURN __declspec(noreturn)
 #define UNUSEDFUNC
 #else  // assume gcc or clang

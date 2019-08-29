@@ -6,6 +6,7 @@
 #include <astedit/osthread.h>
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
+#include <astedit/texteditloadsave.h>
 #include <blunt/lex.h> /* test */
 #include <string.h> // strlen()
 
@@ -349,55 +350,6 @@ void exit_TextEdit(struct TextEdit *edit)
 }
 
 
-static void prepare_reading_from_filereadthread(void *param, FILEPOS filesizeInBytes)
-{
-        struct TextEdit *edit = param;
-        /* TODO: must protect this section */
-        edit->isLoadingCompleted = 0;
-        edit->loadingCompletedBytes = 0;
-        edit->loadingTotalBytes = filesizeInBytes;
-        edit->loadingBufferFill = 0;
-        edit->loadingTimer = create_timer();
-        start_timer(edit->loadingTimer);
-}
-
-static void finalize_reading_from_filereadthread(void *param)
-{
-        struct TextEdit *edit = param;
-
-        if (edit->loadingBufferFill > 0) {
-                /* unfinished how to handle this? */
-                log_postf("Warning: Input contains incomplete UTF-8 sequence at the end.");
-        }
-
-        /* TODO: must protect this section */
-        edit->isLoadingCompleted = 1;
-        stop_timer(edit->loadingTimer);
-        report_timer(edit->loadingTimer, "File load time");
-        destroy_timer(edit->loadingTimer);
-}
-
-static int flush_loadingBuffer_from_filereadthread(void *param)
-{
-        struct TextEdit *edit = param;
-        ENSURE(edit->isLoading);
-        ENSURE(edit->isLoadingCompleted == 0);
-
-        uint32_t utf8buf[LENGTH(edit->loadingBuffer)];
-        int utf8Fill;
-        decode_utf8_span_and_move_rest_to_front(
-                edit->loadingBuffer,
-                edit->loadingBufferFill,
-                utf8buf,
-                &edit->loadingBufferFill,
-                &utf8Fill);
-        insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
-
-        edit->loadingCompletedBytes += utf8Fill;
-
-        return 0;  /* report success */
-}
-
 /* TODO: maybe introduce TIMETICK event or sth like that? */
 void update_textedit(struct TextEdit *edit)
 {
@@ -412,28 +364,21 @@ void update_textedit(struct TextEdit *edit)
                 edit->loadingThreadCtx = NULL;  // XXX should FREE_MEMORY do that already?
                 edit->loadingThreadHandle = NULL;  // XXX should FREE_MEMORY do that already?
         }
+        else if (edit->isSaving && edit->isSavingCompleted
+                && check_if_thread_has_exited(edit->savingThreadHandle)) {
+                /* TODO: check for save errors */
+                edit->isSaving = 0;
+                dispose_thread(edit->savingThreadHandle);
+                FREE_MEMORY(&edit->savingThreadCtx->filepath);
+                FREE_MEMORY(&edit->savingThreadCtx);
+                edit->isSavingCompleted = 0;
+                edit->savingThreadCtx = NULL;  // XXX should FREE_MEMORY do that already?
+                edit->savingThreadHandle = NULL;  // XXX should FREE_MEMORY do that already?
+        }
 }
 
 void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
-        int filepathLen = (int)strlen(filepath);
-
-        struct FilereadThreadCtx *ctx;
-        ALLOC_MEMORY(&ctx, 1);
-        ALLOC_MEMORY(&ctx->filepath, filepathLen + 1);
-        COPY_ARRAY(ctx->filepath, filepath, filepathLen + 1);
-        ctx->param = edit;
-        ctx->buffer = edit->loadingBuffer;
-        ctx->bufferSize = (int) sizeof edit->loadingBuffer,
-        ctx->bufferFill = &edit->loadingBufferFill;
-        ctx->prepareFunc = &prepare_reading_from_filereadthread;
-        ctx->finalizeFunc = &finalize_reading_from_filereadthread;
-        ctx->flushBufferFunc = &flush_loadingBuffer_from_filereadthread;
-        ctx->returnStatus = 1337; //XXX: "never changed from thread"
-
-        struct OsThreadHandle *handle = create_and_start_thread(&read_file_thread_adapter, ctx);
-
-        edit->isLoading = 1;
-        edit->loadingThreadCtx = ctx;
-        edit->loadingThreadHandle = handle;
+        int filepathLength = (int) strlen(filepath);
+        load_file_into_textedit(filepath, filepathLength, edit);
 }

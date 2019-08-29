@@ -10,4 +10,5 @@ const char *const vimodeKindString[NUM_VIMODE_KINDS] = {
         [VIMODE_NORMAL] = "NORMAL",
         [VIMODE_INPUT] = "INPUT",
         [VIMODE_SELECTING] = "SELECTING",
+        [VIMODE_COMMAND] = "COMMAND",
 };

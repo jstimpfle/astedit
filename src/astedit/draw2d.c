@@ -16,7 +16,7 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 
-#if 1
+#if 0
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
 static const struct RGB normalTextColor = {0, 255, 0 };
@@ -31,7 +31,7 @@ static const struct RGB statusbarTextColor = { 0, 0, 0 };
 static const struct RGB texteditBgColor = { 255, 255, 255 };
 static const struct RGB statusbarBgColor = { 64, 64, 64 };
 static const struct RGB normalTextColor = {32, 32, 32 };
-static const struct RGB stringTokenColor = { 0, 255, 0 };
+static const struct RGB stringTokenColor = { 32, 160, 32 };
 static const struct RGB integerTokenColor = { 0, 0, 255 };
 static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
 static const struct RGB junkTokenColor = { 255, 0, 0 };
@@ -372,7 +372,7 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
                 lex_blunt_token(&readCtx, &token);
 
                 FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
-                FILEPOS whiteEndPos = currentPos + token.leadingWhiteChars;
+                //FILEPOS whiteEndPos = currentPos + token.leadingWhiteChars;
                 FILEPOS tokenEndPos = currentPos + token.length;
                 struct RGB rgb;
                 if (token.tokenKind == BLUNT_TOKEN_INTEGER)
@@ -405,6 +405,23 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
         exit_UTF8Decoder(&decoder);
 }
 
+static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, int h)
+{
+        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
+
+        struct GuiRect boundingBox;
+        struct DrawCursor drawCursor;
+        struct GuiRect *box = &boundingBox;
+        struct DrawCursor *cursor = &drawCursor;
+
+        set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
+        set_draw_cursor(cursor, x, y, 0, 0);
+        set_cursor_color(cursor, C(statusbarTextColor));
+
+        draw_text_with_cursor(cursor, box, ":", 1);
+        draw_text_with_cursor(cursor, box, edit->vistate.cmdline.buf, edit->vistate.cmdline.fill);
+}
+
 static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)
 {
         flush_all_vertex_buffers();
@@ -421,8 +438,7 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
-        // no actual bounding box currently.
-        set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
+        set_bounding_box(box, x, y, w, h);
         set_draw_cursor(cursor, x, y, 0, 0);
         set_cursor_color(cursor, C(statusbarTextColor));
 
@@ -436,17 +452,16 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
 }
 
-static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, int h)
+static void draw_textedit_loading_or_saving(const char *what, FILEPOS count, FILEPOS total, int x, int y, int w, int h)
 {
         flush_all_vertex_buffers();
 
-        // no actual bounding box currently.
         struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
         struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
-        set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
+        set_bounding_box(box, x, y, w, h);
         set_draw_cursor(cursor, x, y, 0, 0);
 
         char textbuffer[512];
@@ -454,13 +469,28 @@ static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, in
         draw_colored_rect(x, y, w, h, C(statusbarBgColor));
 
         /* XXX: this computation is very dirty */
-        FILEPOS percentage = (FILEPOS) (filepos_mul(edit->loadingCompletedBytes, 100)
-                          / (edit->loadingTotalBytes ? edit->loadingTotalBytes : 1));
+        FILEPOS percentage = (FILEPOS) (filepos_mul(count, 100) / (total ? total : 1));
 
         set_cursor_color(cursor, C(statusbarTextColor));
         draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer,
-                "Loading %"FILEPOS_PRI"%%  (%"FILEPOS_PRI" / %"FILEPOS_PRI" bytes)",
-                percentage, edit->loadingCompletedBytes, edit->loadingTotalBytes);
+                "%s %"FILEPOS_PRI"%%  (%"FILEPOS_PRI" / %"FILEPOS_PRI" bytes)",
+                what, percentage, count, total);
+}
+
+static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, int h)
+{
+        FILEPOS count = edit->loadingCompletedBytes;
+        FILEPOS total = edit->loadingTotalBytes;
+
+        draw_textedit_loading_or_saving("Loading", count, total, x, y, w, h);
+}
+
+static void draw_textedit_saving(struct TextEdit *edit, int x, int y, int w, int h)
+{
+        FILEPOS count = edit->savingCompletedBytes;
+        FILEPOS total = edit->savingTotalBytes;
+
+        draw_textedit_loading_or_saving("Saving", count, total, x, y, w, h);
 }
 
 
@@ -487,7 +517,11 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
 
         if (edit->isLoading) {
                 draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
-        } else {
+        }
+        else if (edit->isSaving) {
+                draw_textedit_saving(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+        }
+        else {
                 FILEPOS length = textrope_length(edit->rope);
 
                 if (markStart < 0) markStart = 0;
@@ -507,7 +541,10 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
 
                 draw_line_numbers(edit, firstLine, numberOfLines, linesX, linesY, linesW, linesH);
                 draw_textedit_lines(edit, firstLine, numberOfLines, textAreaX, textAreaY, textAreaW, textAreaH, markStart, markEnd);
-                draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                if (edit->vistate.vimodeKind == VIMODE_COMMAND)
+                        draw_textedit_ViCmdline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                else
+                        draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
 
                 // draw a line that separates the numbers from the text area
 

@@ -1,6 +1,37 @@
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
+#include <astedit/vimode.h>
 #include <astedit/eventhandling.h>
+
+
+static int is_input_keypress(struct Input *input)
+{
+        return input->inputKind == INPUT_KEY
+                && (input->data.tKey.keyEventKind == KEYEVENT_PRESS
+                        || input->data.tKey.keyEventKind == KEYEVENT_RELEASE);
+}
+
+static int is_input_keypress_of_key(struct Input *input, enum KeyKind keyKind)
+{
+        return is_input_keypress(input) && input->data.tKey.keyKind == keyKind;
+}
+
+static int is_input_keypress_of_key_and_modifiers(struct Input *input, enum KeyKind keyKind, int modifierBits)
+{
+        return is_input_keypress_of_key(input, keyKind)
+                && ((modifierBits & input->data.tKey.modifierMask)
+                        == modifierBits);
+}
+
+static int is_input_unicode(struct Input *input)
+{
+        return input->inputKind == INPUT_KEY && input->data.tKey.hasCodepoint;
+}
+
+static int is_input_unicode_of_codepoint(struct Input *input, uint32_t codepoint)
+{
+        return is_input_unicode(input) && input->data.tKey.codepoint == codepoint;
+}
 
 #if 0
 void process_input_in_TextEdit_line(struct Input *input, struct TextEdit *edit)
@@ -57,22 +88,6 @@ void process_input_in_TextEdit_line(struct Input *input, struct TextEdit *edit)
         }
 }
 #endif
-
-
-
-
-enum ViMovement {
-        VI_MOVEMENT_LEFT,
-        VI_MOVEMENT_RIGHT,
-        VI_MOVEMENT_UP,
-        VI_MOVEMENT_DOWN,
-        VI_MOVEMENT_WORD_FORWARDS,
-        VI_MOVEMENT_WORD_BACKWARDS,
-        VI_MOVEMENT_BEGINNING_OF_LINE,
-        VI_MOVEMENT_END_OF_LINE,
-        VI_MOVEMENT_FIRST_LINE,
-        VI_MOVEMENT_LAST_LINE,
-};
 
 
 static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
@@ -218,6 +233,10 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                 (There's a github issue for that). */
                 if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         switch (input->data.tKey.codepoint) {
+                        case ':':
+                                reset_ViCmdline(&state->cmdline);
+                                state->vimodeKind = VIMODE_COMMAND;
+                                break;
                         case 'A':
                                 move_cursor_to_end_of_line(edit, 0);
                                 state->vimodeKind = VIMODE_INPUT;
@@ -244,8 +263,8 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         case 'o':
                                 move_cursor_to_end_of_line(edit, 0);
+                                move_cursor_to_next_codepoint(edit, 0);
                                 insert_codepoint_into_textedit(edit, 0x0a);
-                                //move_cursor_lines_relative(edit, 1, 0);
                                 state->vimodeKind = VIMODE_INPUT;
                                 break;
                         case 'O':
@@ -380,6 +399,38 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
         }
 }
 
+static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
+        struct Input *input, struct TextEdit *edit, struct ViState *state)
+{
+        UNUSED(edit);
+        struct ViCmdline *cmdline = &state->cmdline;  //XXX
+        ENSURE(!cmdline->isAborted && !cmdline->isConfirmed);
+        if (!is_input_keypress(input))
+                return;
+        if (is_input_unicode(input))
+                insert_codepoint_in_ViCmdline(input->data.tKey.codepoint, cmdline);
+        else if (is_input_keypress_of_key(input, KEY_BACKSPACE))
+                erase_backwards_in_ViCmdline(cmdline);
+        else if (is_input_keypress_of_key(input, KEY_DELETE))
+                erase_forwards_in_ViCmdline(cmdline);
+        else if (is_input_keypress_of_key(input, KEY_ESCAPE))
+                cmdline->isAborted = 1;
+        else if (is_input_keypress_of_key(input, KEY_ENTER))
+                cmdline->isConfirmed = 1;
+
+        if (cmdline->isAborted) {
+                // TODO
+                reset_ViCmdline(cmdline);
+                state->vimodeKind = VIMODE_NORMAL;
+        }
+        if (cmdline->isConfirmed) {
+                // TODO
+                interpret_cmdline(cmdline, edit);
+                reset_ViCmdline(cmdline);
+                state->vimodeKind = VIMODE_NORMAL;
+        }
+}
+
 void process_input_in_TextEdit_with_ViMode(struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
         ENSURE(!edit->isLoading);
@@ -390,11 +441,9 @@ void process_input_in_TextEdit_with_ViMode(struct Input *input, struct TextEdit 
                 process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(input, edit, state);
         else if (state->vimodeKind == VIMODE_NORMAL)
                 process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(input, edit, state);
+        else if (state->vimodeKind == VIMODE_COMMAND)
+                process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(input, edit, state);
 }
-
-
-
-
 
 void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
 {

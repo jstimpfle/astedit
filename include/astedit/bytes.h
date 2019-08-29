@@ -12,4 +12,6 @@ void copy_memory(void *dst, const void *src, int numBytes);
 void copy_array(void *dst, const void *src, int numElems, int elemSize);
 void move_memory(void *ptr, int distance, int numBytes);
 
+void copy_string_and_zeroterminate(char *dst, const char *src, int length);
+
 #endif

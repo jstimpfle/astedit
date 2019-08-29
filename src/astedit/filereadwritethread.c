@@ -2,7 +2,7 @@
 #include <astedit/logging.h>
 #include <astedit/window.h>  // XXX shouldWindowClose
 #include <astedit/filesystem.h>
-#include <astedit/filereadthread.h>
+#include <astedit/filereadwritethread.h>
 #include <stdio.h>
 
 
@@ -70,4 +70,47 @@ out1:
 void read_file_thread_adapter(void *ctx)
 {
         read_file_thread(ctx);
+}
+
+
+
+
+void write_file_thread(struct FilewriteThreadCtx *ctx)
+{
+        int returnStatus = 0;
+        FILE *f = fopen(ctx->filepath, "wb");
+
+        if (f == NULL) {
+                returnStatus = -1;
+                goto out;
+        }
+
+        (*ctx->prepareFunc)(ctx->param);
+
+        for (;;) {
+                (*ctx->fillBufferFunc)(ctx->param);
+                if (*ctx->bufferFill == 0)
+                        break;
+                size_t bytesToWrite = *ctx->bufferFill;
+                size_t nw = fwrite(ctx->buffer, 1, bytesToWrite, f);
+                if (nw != bytesToWrite)
+                        break; // is ferror() below guaranteed to get an error?
+                *ctx->bufferFill = 0;
+        }
+        fflush(f);
+        if (ferror(f)) {
+                log_postf("Error writing file %s.", ctx->filepath);
+                returnStatus = -1;
+        }
+        fclose(f);
+out:
+        (*ctx->finalizeFunc)(ctx->param);
+        ctx->returnStatus = returnStatus;
+}
+
+
+void write_file_thread_adapter(void *param)
+{
+        struct FilewriteThreadCtx *ctx = param;
+        write_file_thread(ctx);
 }

@@ -28,3 +28,9 @@ void copy_array(void *dst, const void *src, int numElems, int elemSize)
         int numBytes = numElems * elemSize;  /* XXX: overflow */
         copy_memory(dst, src, numBytes);
 }
+
+void copy_string_and_zeroterminate(char *dst, const char *src, int length)
+{
+        copy_memory(dst, src, length);
+        dst[length] = 0;
+}

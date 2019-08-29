@@ -5,30 +5,9 @@
 #include <astedit/window.h>
 #include <astedit/textrope.h>
 #include <astedit/clock.h>  // timer
-#include <astedit/filereadthread.h>
-
-
-/* Optional VI mode. */
-
-enum ViMode {
-        VIMODE_NORMAL,
-        VIMODE_SELECTING,
-        VIMODE_INPUT,
-        NUM_VIMODE_KINDS,
-};
-
-enum ViNormalModeModal {
-        VIMODAL_NORMAL,
-        VIMODAL_D,
-        VIMODAL_G,
-};
-
-struct ViState {
-        enum ViMode vimodeKind;
-        enum ViNormalModeModal modalKind;
-};
-
-extern const char *const vimodeKindString[NUM_VIMODE_KINDS];
+#include <astedit/osthread.h>
+#include <astedit/filereadwritethread.h>
+#include <astedit/vimode.h>
 
 
 struct TextEdit {
@@ -44,6 +23,8 @@ struct TextEdit {
         int isSelectionMode;
         FILEPOS selectionStartBytePosition;
 
+        /***LOADING***/
+
         int isLoading;
         struct FilereadThreadCtx *loadingThreadCtx;
         struct OsThreadHandle *loadingThreadHandle;
@@ -51,18 +32,40 @@ struct TextEdit {
         /*XXX this stuff is set by a separate read thread,
         so probably must be protected with a mutex */
         /*(XXX: as well as the Textrope!!!)*/
-        int isLoadingCompleted;
-        FILEPOS loadingCompletedBytes;
+        int isLoadingCompleted;  /*the below numbers might be wrong
+                                 (files can grow while they are being read),
+                                 and that's why we have this explicit
+                                 "completed" flag */
+        FILEPOS loadingCompletedBytes;  // NOTE: completed bytes of input file
         FILEPOS loadingTotalBytes;
         Timer *loadingTimer;
 
         char loadingBuffer[512];  // TODO: heap alloc?
         int loadingBufferFill;  // fill from start
+
+
+        /***SAVING***/
+        /* only one of loading or saving is active at any one time.
+        We could use a union to make it clearer */
+        int isSaving;
+        struct FilewriteThreadCtx *savingThreadCtx;
+        struct OsThreadHandle *savingThreadHandle;
+
+        /* this stuff is set by a separate writer thread. */
+        int isSavingCompleted;
+        FILEPOS savingCompletedBytes;  // NOTE: completed bytes of internal storage
+        FILEPOS savingTotalBytes;
+        Timer *savingTimer;
+
+        char savingBuffer[512];
+        int savingBufferFill;
 };
 
 
 void init_TextEdit(struct TextEdit *edit);
 void exit_TextEdit(struct TextEdit *edit);
+
+void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints);
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
 void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
