@@ -268,6 +268,7 @@ void enter_windowing_mode(void)
         int pixelsW = 1024;
         int pixelsH = 768;
         glfwSetWindowMonitor(windowGlfw, monitor, 300, 300, pixelsW, pixelsH, GLFW_DONT_CARE);
+        isFullscreenMode = 0;
 }
 
 void enter_fullscreen_mode(void)
@@ -277,6 +278,7 @@ void enter_fullscreen_mode(void)
         int pixelsW = mode->width;
         int pixelsH = mode->height;
         glfwSetWindowMonitor(windowGlfw, monitor, 0, 0, pixelsW, pixelsH, GLFW_DONT_CARE);
+        isFullscreenMode = 1;
 }
 
 void toggle_fullscreen(void)
@@ -285,8 +287,6 @@ void toggle_fullscreen(void)
                 enter_windowing_mode();
         else
                 enter_fullscreen_mode();
-
-        isFullscreenMode = !isFullscreenMode;
 }
 
 void setup_window(void)
@@ -308,6 +308,7 @@ void setup_window(void)
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
 
+        //enter_fullscreen_mode();
         enter_windowing_mode();
 
         glfwSetMouseButtonCallback(windowGlfw, &mouse_cb_glfw);
