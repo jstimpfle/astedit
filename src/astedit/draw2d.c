@@ -289,15 +289,15 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 }
 
 
-static const int LINE_HEIGHT = 33;
+static const int LINE_HEIGHT_PIXELS = 33;
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS codepointPos, FILEPOS lineNumber)
 {
         cursor->xLeft = x;
         cursor->fontSize = 25;
         cursor->ascender = 20;
-        cursor->lineHeight = LINE_HEIGHT;
+        cursor->lineHeight = LINE_HEIGHT_PIXELS;
         cursor->x = x;
-        cursor->y = y + LINE_HEIGHT;
+        cursor->y = y + LINE_HEIGHT_PIXELS;
         cursor->codepointpos = codepointPos;
         cursor->lineNumber = lineNumber;
 }
@@ -311,9 +311,9 @@ static void set_cursor_color(struct DrawCursor *cursor, int r, int g, int b, int
 }
 
 
-static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstLine, FILEPOS numberOfLines, int x, int y, int w, int h)
+static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, int offsetPixelsY, int x, int y, int w, int h)
 {
-        UNUSED(edit);
+        FILEPOS lastLine = textrope_number_of_lines_quirky(edit->rope);
 
         struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
@@ -321,26 +321,24 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstLine, FILEPOS 
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y, 0, 0);
-
-        FILEPOS onePastLastLine = filepos_add(firstLine, numberOfLines);
+        set_draw_cursor(cursor, x, y - offsetPixelsY, 0, 0);
 
         set_cursor_color(cursor, C(normalTextColor));
-        for (FILEPOS i = firstLine; i < onePastLastLine; i++) {
+        for (FILEPOS i = firstVisibleLine; i < lastLine && cursor->y < box->y + box->h; i++) {
                 char buf[16];
                 snprintf(buf, sizeof buf, "%4"FILEPOS_PRI, i + 1);
                 draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
                 next_line(cursor);
         }
-
 }
 
-static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPOS numberOfLines,
+static void draw_textedit_lines(struct TextEdit *edit,
+        FILEPOS firstVisibleLine, int offsetPixelsY,
         int x, int y, int w, int h, FILEPOS markStart, FILEPOS markEnd)
 {
         flush_all_vertex_buffers();
 
-        FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstLine);
+        FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstVisibleLine);
         FILEPOS initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
 
         struct GuiRect boundingBox;
@@ -349,12 +347,10 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y, initialCodepointPos, firstLine);
+        set_draw_cursor(cursor, x, y - offsetPixelsY, initialCodepointPos, firstVisibleLine);
 
         struct TextropeUTF8Decoder decoder;
         init_UTF8Decoder(&decoder, edit->rope, initialReadPos);
-
-        FILEPOS onePastLastLine = filepos_add(firstLine, numberOfLines);
 
         struct Blunt_ReadCtx readCtx;
         struct Blunt_Token token;
@@ -368,7 +364,7 @@ static void draw_textedit_lines(struct TextEdit *edit, FILEPOS firstLine, FILEPO
         code.
         */
 
-        while (cursor->lineNumber < onePastLastLine) {
+        while (cursor->y < box->y + box->h) {
                 lex_blunt_token(&readCtx, &token);
 
                 FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
@@ -495,7 +491,7 @@ static void draw_textedit_saving(struct TextEdit *edit, int x, int y, int w, int
 
 
 static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
-        struct TextEdit *edit, FILEPOS firstLine, FILEPOS markStart, FILEPOS markEnd)
+        struct TextEdit *edit, FILEPOS markStart, FILEPOS markEnd)
 {
         int statusLineH = 40;
 
@@ -531,16 +527,25 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
 
                 ENSURE(markStart <= markEnd);
 
-                FILEPOS maxNumberOfLines = (textAreaH + LINE_HEIGHT - 1) / LINE_HEIGHT;
-                FILEPOS numberOfLines = textrope_number_of_lines_quirky(edit->rope) - firstLine;
-                if (numberOfLines > maxNumberOfLines)
-                        numberOfLines = maxNumberOfLines;
+                /* Compute first line and y-offset for drawing */
+                FILEPOS firstVisibleLine;
+                int offsetPixelsY;
+                if (edit->isAnimationActive) {
+                        //XXX overflow?
+                        float linesProgress = edit->animationProgress * (edit->animationTargetLine - edit->animationStartLine);
+                        firstVisibleLine = edit->animationStartLine + (FILEPOS) linesProgress;
+                        offsetPixelsY = (int) (((linesProgress) - (FILEPOS) linesProgress) * LINE_HEIGHT_PIXELS);
+                }
+                else {
+                        firstVisibleLine = edit->firstLineDisplayed;
+                        offsetPixelsY = 0;
+                }
 
                 // XXX is here the right place to do this?
-                edit->numberOfLinesDisplayed = textAreaH / LINE_HEIGHT;
+                edit->numberOfLinesDisplayed = textAreaH / LINE_HEIGHT_PIXELS;
 
-                draw_line_numbers(edit, firstLine, numberOfLines, linesX, linesY, linesW, linesH);
-                draw_textedit_lines(edit, firstLine, numberOfLines, textAreaX, textAreaY, textAreaW, textAreaH, markStart, markEnd);
+                draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
+                draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH, markStart, markEnd);
                 if (edit->vistate.vimodeKind == VIMODE_COMMAND)
                         draw_textedit_ViCmdline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
                 else
@@ -587,8 +592,7 @@ void testdraw(struct TextEdit *edit)
         begin_frame(canvasX, canvasY, canvasW, canvasH);
 
         draw_TextEdit(0, 0, canvasW, canvasH,
-                edit, edit->firstLineDisplayed,
-                markStart, markEnd);
+                edit, markStart, markEnd);
 
         end_frame();
 }

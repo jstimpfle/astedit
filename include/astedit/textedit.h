@@ -23,6 +23,13 @@ struct TextEdit {
         int isSelectionMode;
         FILEPOS selectionStartBytePosition;
 
+        /***ANIMATION***/
+        int isAnimationActive;
+        int animationStartLine;
+        int animationTargetLine;
+        float animationProgress;
+        struct Timer *animationTimer;
+
         /***LOADING***/
 
         int isLoading;

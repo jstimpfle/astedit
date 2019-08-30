@@ -42,14 +42,22 @@ void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, 
         *outOnePastEnd = compute_codepoint_position(edit->rope, onePastEnd);
 }
 
-
-
 void move_view_minimally_to_display_line(struct TextEdit *edit, FILEPOS lineNumber)
 {
+        int firstLine;
         if (edit->firstLineDisplayed > lineNumber)
-                edit->firstLineDisplayed = lineNumber;
-        if (edit->firstLineDisplayed < lineNumber - edit->numberOfLinesDisplayed + 1)
-                edit->firstLineDisplayed = lineNumber - edit->numberOfLinesDisplayed + 1;
+                firstLine = lineNumber;
+        else if (edit->firstLineDisplayed < lineNumber - edit->numberOfLinesDisplayed + 1)
+                firstLine = lineNumber - edit->numberOfLinesDisplayed + 1;
+        else
+                return;
+
+        edit->isAnimationActive = 1;
+        edit->animationStartLine = edit->firstLineDisplayed;
+        edit->animationTargetLine = firstLine;
+        edit->animationProgress = 0.0f;
+        start_timer(edit->animationTimer);
+        edit->firstLineDisplayed = firstLine;
 }
 
 void move_view_minimally_to_display_cursor(struct TextEdit *edit)
@@ -329,8 +337,13 @@ void init_TextEdit(struct TextEdit *edit)
         edit->firstLineDisplayed = 0;
         edit->numberOfLinesDisplayed = 15;  // XXX need some mechanism to set and update this
 
+        edit->isVimodeActive = 0;
+
         edit->isSelectionMode = 0;
         edit->selectionStartBytePosition = 0;
+
+        edit->isAnimationActive = 0;
+        edit->animationTimer = create_timer();
 
         edit->isLoading = 0;
         edit->loadingCompletedBytes = 0;
@@ -340,6 +353,8 @@ void init_TextEdit(struct TextEdit *edit)
 
 void exit_TextEdit(struct TextEdit *edit)
 {
+        destroy_timer(edit->animationTimer);
+
         if (edit->loadingThreadHandle != NULL) {
                 cancel_thread_and_wait(edit->loadingThreadHandle);
                 dispose_thread(edit->loadingThreadHandle);
@@ -349,10 +364,17 @@ void exit_TextEdit(struct TextEdit *edit)
         destroy_textrope(edit->rope);
 }
 
-
 /* TODO: maybe introduce TIMETICK event or sth like that? */
 void update_textedit(struct TextEdit *edit)
 {
+        if (edit->isAnimationActive) {
+                edit->animationProgress += 0.2f; //XXX
+                if (edit->animationProgress >= 1.0f) {
+                        edit->isAnimationActive = 0;
+                        stop_timer(edit->animationTimer);
+                        //report_timer(edit->animationTimer, "Animation");
+                }
+        }
         if (edit->isLoading && edit->isLoadingCompleted
                 && check_if_thread_has_exited(edit->loadingThreadHandle)) {
                 /* TODO: check for load errors */
