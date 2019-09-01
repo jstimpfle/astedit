@@ -17,10 +17,10 @@ void end_frame(void);
 struct DrawCursor {
         int xLeft;
         int fontSize;
-        int ascender;
+        int distanceYtoBaseline;
         int lineHeight;
         int x;
-        int y;
+        int lineY;
         FILEPOS codepointpos;
         FILEPOS lineNumber;  // not sure if that's a good idea
         int r;

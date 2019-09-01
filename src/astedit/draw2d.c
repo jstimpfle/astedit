@@ -26,6 +26,7 @@ static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalText
 static const struct RGB junkTokenColor = { 255, 0, 0 };
 static const struct RGB borderColor = { 32, 32, 32 };
 static const struct RGB highlightColor = { 0, 0, 255 };
+static const struct RGB cursorBorderColor = { 224, 224, 224 };
 static const struct RGB statusbarTextColor = { 0, 0, 0 };
 #else
 static const struct RGB texteditBgColor = { 255, 255, 255 };
@@ -37,7 +38,8 @@ static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalText
 static const struct RGB junkTokenColor = { 255, 0, 0 };
 static const struct RGB borderColor = { 32, 32, 32 };
 static const struct RGB highlightColor = { 192, 192, 255 };
-static const struct RGB statusbarTextColor = { 192, 192, 192 };
+static const struct RGB cursorBorderColor = { 128, 128, 128 };
+static const struct RGB statusbarTextColor = { 224, 224, 224 };
 #endif
 
 
@@ -205,6 +207,16 @@ void draw_alpha_texture_rect(Texture texture,
         push_alpha_texture_vertices(rp, LENGTH(rp));
 }
 
+void draw_colored_border(int x, int y, int w, int h, int thicknessPerSide,
+        int r, int g, int b, int a)
+{
+        int t = thicknessPerSide;
+        draw_colored_rect(x - t, y - t, w + 2 * t, 1 + 2 * t,          r, g, b, a);
+        draw_colored_rect(x - t, y + h - t, w + 2 * t, 1 + 2 * t,      r, g, b, a);
+        draw_colored_rect(x - t, y - t, 1 + 2 * t, h + 2 * t,          r, g, b, a);
+        draw_colored_rect(x + w - t, y - t, 1 + 2 * t, h + 2 * t,      r, g, b, a);
+}
+
 enum {
         DRAWSTRING_NORMAL,
         DRAWSTRING_HIGHLIGHT,
@@ -216,7 +228,7 @@ enum {
 void next_line(struct DrawCursor *cursor)
 {
         cursor->x = cursor->xLeft;
-        cursor->y += cursor->lineHeight;
+        cursor->lineY += cursor->lineHeight;
 }
 
 
@@ -232,10 +244,10 @@ static void draw_codepoint(
         uint32_t codepointToDraw = codepoint == '\n' ? ' ' : codepoint;
         int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
                 cursor->fontSize, &codepointToDraw, 1,
-                cursor->x, cursor->y,
+                cursor->x, cursor->lineY + cursor->distanceYtoBaseline,
                 cursor->r, cursor->g, cursor->b, cursor->a);
         if (drawstringKind == DRAWSTRING_HIGHLIGHT)
-                draw_colored_rect(cursor->x, cursor->y - cursor->ascender,
+                draw_colored_rect(cursor->x, cursor->lineY,
                         xEnd - cursor->x, cursor->lineHeight, C(highlightColor));
         cursor->x = xEnd;
         if (codepoint == '\n') {
@@ -294,10 +306,10 @@ static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS cod
 {
         cursor->xLeft = x;
         cursor->fontSize = 25;
-        cursor->ascender = 20;
+        cursor->distanceYtoBaseline = LINE_HEIGHT_PIXELS * 2 / 3;
         cursor->lineHeight = LINE_HEIGHT_PIXELS;
         cursor->x = x;
-        cursor->y = y + LINE_HEIGHT_PIXELS;
+        cursor->lineY = y;
         cursor->codepointpos = codepointPos;
         cursor->lineNumber = lineNumber;
 }
@@ -324,7 +336,7 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
         set_draw_cursor(cursor, x, y - offsetPixelsY, 0, 0);
 
         set_cursor_color(cursor, C(normalTextColor));
-        for (FILEPOS i = firstVisibleLine; i < lastLine && cursor->y < box->y + box->h; i++) {
+        for (FILEPOS i = firstVisibleLine; i < lastLine && cursor->lineY < box->y + box->h; i++) {
                 char buf[16];
                 snprintf(buf, sizeof buf, "%4"FILEPOS_PRI, i + 1);
                 draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
@@ -334,8 +346,32 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
 
 static void draw_textedit_lines(struct TextEdit *edit,
         FILEPOS firstVisibleLine, int offsetPixelsY,
-        int x, int y, int w, int h, FILEPOS markStart, FILEPOS markEnd)
+        int x, int y, int w, int h)
 {
+        // we want to add a tiny little bit of pad
+        int pad = 5;
+        x += pad;
+        y += pad;
+        w -= 2 * pad;
+        h -= 2 * pad;
+
+        FILEPOS textropeLength = textrope_length(edit->rope);
+        FILEPOS markStart;
+        FILEPOS markEnd;
+        if (edit->isSelectionMode)
+                get_selected_range_in_codepoints(edit, &markStart, &markEnd);
+        else {
+                markStart = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+                markEnd = markStart + 1;
+        }
+
+        if (markStart < 0) markStart = 0;
+        if (markEnd < 0) markEnd = 0;
+        if (markStart >= textropeLength) markStart = textropeLength;
+        if (markEnd >= textropeLength) markEnd = textropeLength;
+
+        ENSURE(markStart <= markEnd);
+
         flush_all_vertex_buffers();
 
         FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstVisibleLine);
@@ -364,7 +400,7 @@ static void draw_textedit_lines(struct TextEdit *edit,
         code.
         */
 
-        while (cursor->y < box->y + box->h) {
+        while (cursor->lineY < box->y + box->h) {
                 lex_blunt_token(&readCtx, &token);
 
                 FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
@@ -399,6 +435,21 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 draw_codepoint(cursor, box, DRAWSTRING_HIGHLIGHT, ' ');
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
+
+        {
+        // draw a rectangular border around the text line that has cursor
+        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
+        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
+        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
+        for (int i = 0; i < linesDiff; i++)
+                next_line(cursor);
+        int borderX = x;
+        int borderY = cursor->lineY;
+        int borderH = cursor->lineHeight;
+        int borderW = w;
+        int borderThickness = 1;
+        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C(cursorBorderColor));
+        }
 }
 
 static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, int h)
@@ -490,8 +541,7 @@ static void draw_textedit_saving(struct TextEdit *edit, int x, int y, int w, int
 }
 
 
-static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
-        struct TextEdit *edit, FILEPOS markStart, FILEPOS markEnd)
+static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, struct TextEdit *edit)
 {
         int statusLineH = 40;
 
@@ -518,15 +568,6 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
                 draw_textedit_saving(edit, statusLineX, statusLineY, statusLineW, statusLineH);
         }
         else {
-                FILEPOS length = textrope_length(edit->rope);
-
-                if (markStart < 0) markStart = 0;
-                if (markEnd < 0) markEnd = 0;
-                if (markStart >= length) markStart = length;
-                if (markEnd >= length) markEnd = length;
-
-                ENSURE(markStart <= markEnd);
-
                 /* Compute first line and y-offset for drawing */
                 FILEPOS firstVisibleLine;
                 int offsetPixelsY;
@@ -545,7 +586,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
                 edit->numberOfLinesDisplayed = textAreaH / LINE_HEIGHT_PIXELS;
 
                 draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
-                draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH, markStart, markEnd);
+                draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH);
                 if (edit->vistate.vimodeKind == VIMODE_COMMAND)
                         draw_textedit_ViCmdline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
                 else
@@ -569,15 +610,6 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
 
 void testdraw(struct TextEdit *edit)
 {
-        FILEPOS markStart;
-        FILEPOS markEnd;
-        if (edit->isSelectionMode)
-                get_selected_range_in_codepoints(edit, &markStart, &markEnd);
-        else {
-                markStart = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
-                markEnd = markStart + 1;
-        }
-
         int canvasX = 0;
         int canvasY = 0;
         int canvasW = windowWidthInPixels;
@@ -591,8 +623,7 @@ void testdraw(struct TextEdit *edit)
         clear_screen_and_drawing_state();
         begin_frame(canvasX, canvasY, canvasW, canvasH);
 
-        draw_TextEdit(0, 0, canvasW, canvasH,
-                edit, markStart, markEnd);
+        draw_TextEdit(0, 0, canvasW, canvasH, edit);
 
         end_frame();
 }
