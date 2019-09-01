@@ -28,7 +28,7 @@ struct TextEdit {
         int animationStartLine;
         int animationTargetLine;
         float animationProgress;
-        struct Timer *animationTimer;
+        Timer *animationTimer;
 
         /***LOADING***/
 
