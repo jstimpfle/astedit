@@ -18,14 +18,17 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
         log_end();
 
         // XXX parsing not nice.
-        if (cmdline->buf[0] == 'w' && cmdline->buf[1] == ' ') {
+        if (cmdline->buf[0] == 'r' && cmdline->buf[1] == ' ') {
                 const char *filepath = cmdline->buf + 2;
-                //XXX not zero terminated
-                int filepathLen = (int) strlen(filepath);
+                int filepathLen = cmdline->fill - 2;
+                load_file_into_textedit(filepath, filepathLen, edit);
+        }
+        else if (cmdline->buf[0] == 'w' && cmdline->buf[1] == ' ') {
+                const char *filepath = cmdline->buf + 2;
+                int filepathLen = cmdline->fill - 2;
                 write_contents_from_textedit_to_file(edit, filepath, filepathLen);
         }
-
-        if (cmdline->fill == 1 && cmdline->buf[0] == 'q') {
+        else if (cmdline->fill == 1 && cmdline->buf[0] == 'q') {
                 shouldWindowClose = 1;
         }
 }
