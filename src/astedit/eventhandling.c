@@ -33,63 +33,6 @@ static int is_input_unicode_of_codepoint(struct Input *input, uint32_t codepoint
         return is_input_unicode(input) && input->data.tKey.codepoint == codepoint;
 }
 
-#if 0
-void process_input_in_TextEdit_line(struct Input *input, struct TextEdit *edit)
-{
-        if (input->inputKind == INPUT_KEY) {
-                int modifiers = input->data.tKey.modifiers;
-                int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
-                switch (input->data.tKey.keyKind) {
-                case KEY_ENTER:
-                        // what to do?
-                        break;
-                case KEY_CURSORLEFT:
-                        move_cursor_left(edit, isSelecting);
-                        break;
-                case KEY_CURSORRIGHT:
-                        move_cursor_right(edit, isSelecting);
-                        break;
-                case KEY_HOME:
-                        if (modifiers & MODIFIER_CONTROL)
-                                move_to_first_line(edit, isSelecting);
-                        else
-                                move_cursor_to_beginning_of_line(edit, isSelecting);
-                        break;
-                case KEY_END:
-                        if (modifiers & MODIFIER_CONTROL)
-                                move_to_last_line(edit, isSelecting);
-                        else
-                                move_cursor_to_end_of_line(edit, isSelecting);
-                        break;
-                case KEY_DELETE:
-                        if (edit->isSelectionMode)
-                                erase_selected_in_TextEdit(edit);
-                        else
-                                erase_forwards_in_TextEdit(edit);
-                        break;
-                case KEY_BACKSPACE:
-                        if (edit->isSelectionMode)
-                                erase_selected_in_TextEdit(edit);
-                        else
-                                erase_backwards_in_TextEdit(edit);
-                        break;
-                default:
-                        if (input->data.tKey.hasCodepoint) {
-                                if (edit->isSelectionMode)
-                                        erase_selected_in_TextEdit(edit);
-                                unsigned long codepoint = input->data.tKey.codepoint;
-                                insert_codepoint_into_textedit(edit, codepoint);
-                                //debug_check_textrope(edit->rope);
-                        }
-                        break;
-                }
-
-
-        }
-}
-#endif
-
-
 static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
 {
         if (input->inputKind != INPUT_KEY)
@@ -172,9 +115,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
                                         move_cursor_to_beginning_of_line(edit, 0);
                                         delete_with_movement(edit, MOVEMENT(MOVEMENT_DOWN));
                                         state->modalKind = VIMODAL_NORMAL;
-                                        break;
-                                case 'g':
-                                        state->modalKind = VIMODAL_G;
                                         break;
                                 default:
                                         state->modalKind = VIMODAL_NORMAL;
@@ -263,6 +203,8 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         case 'o':
                                 move_cursor_to_end_of_line(edit, 0);
+                                if (edit->cursorBytePosition == textrope_length(edit->rope))
+                                        insert_codepoint_into_textedit(edit, 0x0a);
                                 move_cursor_to_next_codepoint(edit, 0);
                                 insert_codepoint_into_textedit(edit, 0x0a);
                                 state->vimodeKind = VIMODE_INPUT;
@@ -270,7 +212,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                         case 'O':
                                 move_cursor_to_beginning_of_line(edit, 0);
                                 insert_codepoint_into_textedit(edit, 0x0a);
-                                move_cursor_lines_relative(edit, -1, 0);
                                 state->vimodeKind = VIMODE_INPUT;
                                 break;
                         case 'v':
@@ -380,6 +321,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                                 break;
                         case KEY_ENTER:
                                 insert_codepoint_into_textedit(edit, 0x0a);
+                                move_cursor_to_next_codepoint(edit, 0);
                                 break;
                         case KEY_ESCAPE:
                                 state->vimodeKind = VIMODE_NORMAL;
@@ -395,6 +337,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                 else if (hasCodepoint) {
                         unsigned long codepoint = input->data.tKey.codepoint;
                         insert_codepoint_into_textedit(edit, codepoint);
+                        move_cursor_to_next_codepoint(edit, 0);
                 }
         }
 }
@@ -468,6 +411,7 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                 switch (input->data.tKey.keyKind) {
                 case KEY_ENTER:
                         insert_codepoint_into_textedit(edit, 0x0a);
+                        move_cursor_to_next_codepoint(edit, isSelecting);
                         break;
                 case KEY_CURSORLEFT:
                         move_cursor_left(edit, isSelecting);
@@ -517,6 +461,7 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                                         erase_selected_in_TextEdit(edit);
                                 unsigned long codepoint = input->data.tKey.codepoint;
                                 insert_codepoint_into_textedit(edit, codepoint);
+                                move_cursor_to_next_codepoint(edit, isSelecting);
                                 //debug_check_textrope(edit->rope);
                         }
                         break;

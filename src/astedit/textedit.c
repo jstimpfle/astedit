@@ -293,7 +293,6 @@ void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, u
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
 {
         insert_codepoints_into_textedit(edit, edit->cursorBytePosition, &codepoint, 1);
-        move_cursor_to_next_codepoint(edit, 0);  // XXX
 }
 
 void erase_selected_in_TextEdit(struct TextEdit *edit)
