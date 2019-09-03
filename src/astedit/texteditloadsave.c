@@ -16,47 +16,47 @@ static void prepare_loading_from_file_to_textedit(void *param, FILEPOS filesizeI
 {
         struct TextEdit *edit = param;
         /* TODO: must protect this section */
-        edit->isLoadingCompleted = 0;
-        edit->loadingCompletedBytes = 0;
-        edit->loadingTotalBytes = filesizeInBytes;
-        edit->loadingBufferFill = 0;
-        edit->loadingTimer = create_timer();
-        start_timer(edit->loadingTimer);
+        edit->loading.isCompleted = 0;
+        edit->loading.completedBytes = 0;
+        edit->loading.totalBytes = filesizeInBytes;
+        edit->loading.bufferFill = 0;
+        edit->loading.timer = create_timer();
+        start_timer(edit->loading.timer);
 }
 
 static void finalize_loading_from_file_to_textedit(void *param)
 {
         struct TextEdit *edit = param;
 
-        if (edit->loadingBufferFill > 0) {
+        if (edit->loading.bufferFill > 0) {
                 /* unfinished how to handle this? */
                 log_postf("Warning: Input contains incomplete UTF-8 sequence at the end.");
         }
 
         /* TODO: must protect this section */
-        edit->isLoadingCompleted = 1;
-        stop_timer(edit->loadingTimer);
-        report_timer(edit->loadingTimer, "File load time");
-        destroy_timer(edit->loadingTimer);
+        edit->loading.isCompleted = 1;
+        stop_timer(edit->loading.timer);
+        report_timer(edit->loading.timer, "File load time");
+        destroy_timer(edit->loading.timer);
 }
 
 static int flush_loadingBuffer_from_filereadthread(void *param)
 {
         struct TextEdit *edit = param;
-        ENSURE(edit->isLoading);
-        ENSURE(edit->isLoadingCompleted == 0);
+        ENSURE(edit->loading.isActive);
+        ENSURE(edit->loading.isCompleted == 0);
 
-        uint32_t utf8buf[LENGTH(edit->loadingBuffer)];
+        uint32_t utf8buf[LENGTH(edit->loading.buffer)];
         int utf8Fill;
         decode_utf8_span_and_move_rest_to_front(
-                edit->loadingBuffer,
-                edit->loadingBufferFill,
+                edit->loading.buffer,
+                edit->loading.bufferFill,
                 utf8buf,
-                &edit->loadingBufferFill,
+                &edit->loading.bufferFill,
                 &utf8Fill);
         insert_codepoints_into_textedit(edit, textrope_length(edit->rope), utf8buf, utf8Fill);
 
-        edit->loadingCompletedBytes += utf8Fill;
+        edit->loading.completedBytes += utf8Fill;
 
         return 0;  /* report success */
 }
@@ -67,9 +67,9 @@ void load_file_into_textedit(const char *filepath, int filepathLength, struct Te
         ALLOC_MEMORY(&ctx->filepath, filepathLength + 1);
         copy_string_and_zeroterminate(ctx->filepath, filepath, filepathLength);
         ctx->param = edit;
-        ctx->buffer = edit->loadingBuffer;
-        ctx->bufferSize = (int) sizeof edit->loadingBuffer,
-        ctx->bufferFill = &edit->loadingBufferFill;
+        ctx->buffer = edit->loading.buffer;
+        ctx->bufferSize = (int) sizeof edit->loading.buffer,
+        ctx->bufferFill = &edit->loading.bufferFill;
         ctx->prepareFunc = &prepare_loading_from_file_to_textedit;
         ctx->finalizeFunc = &finalize_loading_from_file_to_textedit;
         ctx->flushBufferFunc = &flush_loadingBuffer_from_filereadthread;
@@ -77,9 +77,9 @@ void load_file_into_textedit(const char *filepath, int filepathLength, struct Te
 
         struct OsThreadHandle *handle = create_and_start_thread(&read_file_thread_adapter, ctx);
 
-        edit->isLoading = 1;
-        edit->loadingThreadCtx = ctx;
-        edit->loadingThreadHandle = handle;
+        edit->loading.isActive = 1;
+        edit->loading.threadCtx = ctx;
+        edit->loading.threadHandle = handle;
 }
 
 /*
@@ -90,37 +90,37 @@ static void prepare_writing_from_textedit_to_file(void *param)
 {
         struct TextEdit *edit = param;
         FILEPOS totalBytes = textrope_length(edit->rope);
-        edit->isSavingCompleted = 0;
-        edit->savingCompletedBytes = 0;
-        edit->savingTotalBytes = totalBytes;
-        edit->savingBufferFill = 0;
-        edit->savingTimer = create_timer();
-        start_timer(edit->savingTimer);
+        edit->saving.isCompleted = 0;
+        edit->saving.completedBytes = 0;
+        edit->saving.totalBytes = totalBytes;
+        edit->saving.bufferFill = 0;
+        edit->saving.timer = create_timer();
+        start_timer(edit->saving.timer);
 }
 
 static void finalize_writing_from_textedit_to_file(void *param)
 {
         struct TextEdit *edit = param;
-        edit->isSavingCompleted = 1;
-        stop_timer(edit->savingTimer);
-        report_timer(edit->savingTimer, "File load time");
-        destroy_timer(edit->savingTimer);
+        edit->saving.isCompleted = 1;
+        stop_timer(edit->saving.timer);
+        report_timer(edit->saving.timer, "File load time");
+        destroy_timer(edit->saving.timer);
 }
 
 static void fill_buffer_for_writing_to_file(void *param)
 {
         struct TextEdit *edit = param;
-        FILEPOS readStart = edit->savingCompletedBytes;
-        FILEPOS numToRead = sizeof edit->savingBuffer - edit->savingBufferFill;
+        FILEPOS readStart = edit->saving.completedBytes;
+        FILEPOS numToRead = sizeof edit->saving.buffer - edit->saving.bufferFill;
         if (numToRead > textrope_length(edit->rope) - readStart)
                 numToRead = textrope_length(edit->rope) - readStart;
         FILEPOS numRead = copy_text_from_textrope(edit->rope, readStart,
-                edit->savingBuffer + edit->savingBufferFill, numToRead);
-        edit->savingBufferFill += cast_filepos_to_int(numRead);
+                edit->saving.buffer + edit->saving.bufferFill, numToRead);
+        edit->saving.bufferFill += cast_filepos_to_int(numRead);
 
         // we're not doing the decode/encode dance here, for now
 
-        edit->savingCompletedBytes += numRead;
+        edit->saving.completedBytes += numRead;
 }
 
 void write_contents_from_textedit_to_file(struct TextEdit *edit, const char *filepath, int filepathLength)
@@ -130,9 +130,9 @@ void write_contents_from_textedit_to_file(struct TextEdit *edit, const char *fil
         ALLOC_MEMORY(&ctx->filepath, filepathLength + 1);
         copy_memory(ctx->filepath, filepath, filepathLength + 1);
         ctx->param = edit;
-        ctx->buffer = &edit->savingBuffer[0]; // TODO
-        ctx->bufferFill = &edit->savingBufferFill;  // TODO
-        ctx->bufferSize = sizeof edit->savingBuffer;
+        ctx->buffer = &edit->saving.buffer[0]; // TODO
+        ctx->bufferFill = &edit->saving.bufferFill;  // TODO
+        ctx->bufferSize = sizeof edit->saving.buffer;
         ctx->prepareFunc = &prepare_writing_from_textedit_to_file;
         ctx->finalizeFunc = &finalize_writing_from_textedit_to_file;
         ctx->fillBufferFunc = &fill_buffer_for_writing_to_file;
@@ -140,7 +140,7 @@ void write_contents_from_textedit_to_file(struct TextEdit *edit, const char *fil
 
         struct OsThreadHandle *handle = create_and_start_thread(write_file_thread_adapter, ctx);
 
-        edit->isSaving = 1;
-        edit->savingThreadCtx = ctx;
-        edit->savingThreadHandle = handle;
+        edit->saving.isActive = 1;
+        edit->saving.threadCtx = ctx;
+        edit->saving.threadHandle = handle;
 }

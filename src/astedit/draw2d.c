@@ -526,16 +526,16 @@ static void draw_textedit_loading_or_saving(const char *what, FILEPOS count, FIL
 
 static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, int h)
 {
-        FILEPOS count = edit->loadingCompletedBytes;
-        FILEPOS total = edit->loadingTotalBytes;
+        FILEPOS count = edit->loading.completedBytes;
+        FILEPOS total = edit->loading.totalBytes;
 
         draw_textedit_loading_or_saving("Loading", count, total, x, y, w, h);
 }
 
 static void draw_textedit_saving(struct TextEdit *edit, int x, int y, int w, int h)
 {
-        FILEPOS count = edit->savingCompletedBytes;
-        FILEPOS total = edit->savingTotalBytes;
+        FILEPOS count = edit->saving.completedBytes;
+        FILEPOS total = edit->saving.totalBytes;
 
         draw_textedit_loading_or_saving("Saving", count, total, x, y, w, h);
 }
@@ -561,20 +561,20 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
 
         draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, C(texteditBgColor));
 
-        if (edit->isLoading) {
+        if (edit->loading.isActive) {
                 draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
         }
-        else if (edit->isSaving) {
+        else if (edit->saving.isActive) {
                 draw_textedit_saving(edit, statusLineX, statusLineY, statusLineW, statusLineH);
         }
         else {
                 /* Compute first line and y-offset for drawing */
                 FILEPOS firstVisibleLine;
                 int offsetPixelsY;
-                if (edit->isAnimationActive) {
+                if (edit->animation.isActive) {
                         //XXX overflow?
-                        float linesProgress = edit->animationProgress * (edit->animationTargetLine - edit->animationStartLine);
-                        firstVisibleLine = edit->animationStartLine + (FILEPOS) linesProgress;
+                        float linesProgress = edit->animation.progress * (edit->animation.targetLine - edit->animation.startLine);
+                        firstVisibleLine = edit->animation.startLine + (FILEPOS) linesProgress;
                         offsetPixelsY = (int) (((linesProgress) - (FILEPOS) linesProgress) * LINE_HEIGHT_PIXELS);
                 }
                 else {

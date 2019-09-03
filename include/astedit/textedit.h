@@ -24,48 +24,53 @@ struct TextEdit {
         FILEPOS selectionStartBytePosition;
 
         /***ANIMATION***/
-        int isAnimationActive;
-        FILEPOS animationStartLine;
-        FILEPOS animationTargetLine;
-        float animationProgress;
-        Timer *animationTimer;
+        struct {
+                int isActive;
+                FILEPOS startLine;
+                FILEPOS targetLine;
+                float progress;
+                Timer *timer;
+        } animation;
 
         /***LOADING***/
+        struct {
+                int isActive;
+                struct FilereadThreadCtx *threadCtx;
+                struct OsThreadHandle *threadHandle;
 
-        int isLoading;
-        struct FilereadThreadCtx *loadingThreadCtx;
-        struct OsThreadHandle *loadingThreadHandle;
+                /*XXX this stuff is set by a separate read thread,
+                so probably must be protected with a mutex */
+                /*(XXX: as well as the Textrope!!!)*/
+                int isCompleted;  /*the below numbers might be wrong
+                                         (files can grow while they are being read),
+                                         and that's why we have this explicit
+                                         "completed" flag */
+                FILEPOS completedBytes;  // NOTE: completed bytes of input file
+                FILEPOS totalBytes;
+                Timer *timer;
 
-        /*XXX this stuff is set by a separate read thread,
-        so probably must be protected with a mutex */
-        /*(XXX: as well as the Textrope!!!)*/
-        int isLoadingCompleted;  /*the below numbers might be wrong
-                                 (files can grow while they are being read),
-                                 and that's why we have this explicit
-                                 "completed" flag */
-        FILEPOS loadingCompletedBytes;  // NOTE: completed bytes of input file
-        FILEPOS loadingTotalBytes;
-        Timer *loadingTimer;
-
-        char loadingBuffer[512];  // TODO: heap alloc?
-        int loadingBufferFill;  // fill from start
+                char buffer[512];  // TODO: heap alloc?
+                int bufferFill;  // fill from start
+        } loading;
 
 
         /***SAVING***/
         /* only one of loading or saving is active at any one time.
         We could use a union to make it clearer */
-        int isSaving;
-        struct FilewriteThreadCtx *savingThreadCtx;
-        struct OsThreadHandle *savingThreadHandle;
+        struct {
+                int isActive;
+                struct FilewriteThreadCtx *threadCtx;
+                struct OsThreadHandle *threadHandle;
 
-        /* this stuff is set by a separate writer thread. */
-        int isSavingCompleted;
-        FILEPOS savingCompletedBytes;  // NOTE: completed bytes of internal storage
-        FILEPOS savingTotalBytes;
-        Timer *savingTimer;
+                /* this stuff is set by a separate writer thread. */
+                int isCompleted;
+                FILEPOS completedBytes;  // NOTE: completed bytes of internal storage
+                FILEPOS totalBytes;
+                Timer *timer;
 
-        char savingBuffer[512];
-        int savingBufferFill;
+                char buffer[512];
+                int bufferFill;
+        } saving;
 };
 
 

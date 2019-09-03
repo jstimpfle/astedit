@@ -52,11 +52,11 @@ void move_view_minimally_to_display_line(struct TextEdit *edit, FILEPOS lineNumb
         else
                 return;
 
-        edit->isAnimationActive = 1;
-        edit->animationStartLine = edit->firstLineDisplayed;
-        edit->animationTargetLine = firstLine;
-        edit->animationProgress = 0.0f;
-        start_timer(edit->animationTimer);
+        edit->animation.isActive = 1;
+        edit->animation.startLine = edit->firstLineDisplayed;
+        edit->animation.targetLine = firstLine;
+        edit->animation.progress = 0.0f;
+        start_timer(edit->animation.timer);
         edit->firstLineDisplayed = firstLine;
 }
 
@@ -353,23 +353,23 @@ void init_TextEdit(struct TextEdit *edit)
         edit->isSelectionMode = 0;
         edit->selectionStartBytePosition = 0;
 
-        edit->isAnimationActive = 0;
-        edit->animationTimer = create_timer();
+        edit->animation.isActive = 0;
+        edit->animation.timer = create_timer();
 
-        edit->isLoading = 0;
-        edit->loadingCompletedBytes = 0;
-        edit->loadingTotalBytes = 0;
-        edit->loadingThreadHandle = NULL;
+        edit->loading.isActive = 0;
+        edit->loading.completedBytes = 0;
+        edit->loading.totalBytes = 0;
+        edit->loading.threadHandle = NULL;
 }
 
 void exit_TextEdit(struct TextEdit *edit)
 {
-        destroy_timer(edit->animationTimer);
+        destroy_timer(edit->animation.timer);
 
-        if (edit->loadingThreadHandle != NULL) {
-                cancel_thread_and_wait(edit->loadingThreadHandle);
-                dispose_thread(edit->loadingThreadHandle);
-                edit->loadingThreadHandle = NULL;
+        if (edit->loading.threadHandle != NULL) {
+                cancel_thread_and_wait(edit->loading.threadHandle);
+                dispose_thread(edit->loading.threadHandle);
+                edit->loading.threadHandle = NULL;
         }
 
         destroy_textrope(edit->rope);
@@ -378,35 +378,35 @@ void exit_TextEdit(struct TextEdit *edit)
 /* TODO: maybe introduce TIMETICK event or sth like that? */
 void update_textedit(struct TextEdit *edit)
 {
-        if (edit->isAnimationActive) {
-                edit->animationProgress += 0.2f; //XXX
-                if (edit->animationProgress >= 1.0f) {
-                        edit->isAnimationActive = 0;
-                        stop_timer(edit->animationTimer);
+        if (edit->animation.isActive) {
+                edit->animation.progress += 0.2f; //XXX
+                if (edit->animation.progress >= 1.0f) {
+                        edit->animation.isActive = 0;
+                        stop_timer(edit->animation.timer);
                         //report_timer(edit->animationTimer, "Animation");
                 }
         }
-        if (edit->isLoading && edit->isLoadingCompleted
-                && check_if_thread_has_exited(edit->loadingThreadHandle)) {
+        if (edit->loading.isActive && edit->loading.isCompleted
+                && check_if_thread_has_exited(edit->loading.threadHandle)) {
                 /* TODO: check for load errors */
-                edit->isLoading = 0;
-                dispose_thread(edit->loadingThreadHandle);
-                FREE_MEMORY(&edit->loadingThreadCtx->filepath);
-                FREE_MEMORY(&edit->loadingThreadCtx);
-                edit->isLoadingCompleted = 0;
-                edit->loadingThreadCtx = NULL;  // XXX should FREE_MEMORY do that already?
-                edit->loadingThreadHandle = NULL;  // XXX should FREE_MEMORY do that already?
+                edit->loading.isActive = 0;
+                dispose_thread(edit->loading.threadHandle);
+                FREE_MEMORY(&edit->loading.threadCtx->filepath);
+                FREE_MEMORY(&edit->loading.threadCtx);
+                edit->loading.isCompleted = 0;
+                edit->loading.threadCtx = NULL;  // XXX should FREE_MEMORY do that already?
+                edit->loading.threadHandle = NULL;  // XXX should FREE_MEMORY do that already?
         }
-        else if (edit->isSaving && edit->isSavingCompleted
-                && check_if_thread_has_exited(edit->savingThreadHandle)) {
+        else if (edit->saving.isActive && edit->saving.isCompleted
+                && check_if_thread_has_exited(edit->saving.threadHandle)) {
                 /* TODO: check for save errors */
-                edit->isSaving = 0;
-                dispose_thread(edit->savingThreadHandle);
-                FREE_MEMORY(&edit->savingThreadCtx->filepath);
-                FREE_MEMORY(&edit->savingThreadCtx);
-                edit->isSavingCompleted = 0;
-                edit->savingThreadCtx = NULL;  // XXX should FREE_MEMORY do that already?
-                edit->savingThreadHandle = NULL;  // XXX should FREE_MEMORY do that already?
+                edit->saving.isActive = 0;
+                dispose_thread(edit->saving.threadHandle);
+                FREE_MEMORY(&edit->saving.threadCtx->filepath);
+                FREE_MEMORY(&edit->saving.threadCtx);
+                edit->saving.isCompleted = 0;
+                edit->saving.threadCtx = NULL;  // XXX should FREE_MEMORY do that already?
+                edit->saving.threadHandle = NULL;  // XXX should FREE_MEMORY do that already?
         }
 }
 

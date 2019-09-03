@@ -390,7 +390,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
 
 void process_input_in_TextEdit_with_ViMode(struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
-        ENSURE(!edit->isLoading);
+        ENSURE(!edit->loading.isActive);
 
         if (state->vimodeKind == VIMODE_INPUT)
                 process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(input, edit, state);
@@ -409,7 +409,7 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                 return;
         }
 
-        ENSURE(!edit->isLoading);
+        ENSURE(!edit->loading.isActive);
         if (input->inputKind == INPUT_KEY) {
                 int modifiers = input->data.tKey.modifierMask;
                 int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
@@ -489,7 +489,7 @@ void handle_input(struct Input *input, struct TextEdit *edit)
                 else if (is_input_keypress_of_key_and_modifiers(input, KEY_F11, MODIFIER_MOD)) {
                         toggle_fullscreen();
                 }
-                else if (!edit->isLoading) {
+                else if (!edit->loading.isActive) {
                         //start_timer(keyinputTimer);
                         process_input_in_TextEdit(input, edit);
                         //stop_timer(keyinputTimer);
