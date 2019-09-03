@@ -10,6 +10,7 @@ static const struct {
         { GLFW_KEY_BACKSPACE, KEY_BACKSPACE   },
         { GLFW_KEY_DELETE,    KEY_DELETE      },
         { GLFW_KEY_ENTER,     KEY_ENTER       },
+        { GLFW_KEY_TAB,       KEY_TAB         },
         { GLFW_KEY_UP,        KEY_CURSORUP    },
         { GLFW_KEY_DOWN,      KEY_CURSORDOWN  },
         { GLFW_KEY_LEFT,      KEY_CURSORLEFT  },
@@ -265,8 +266,8 @@ static void windowrefresh_cb_glfw(GLFWwindow *win)
 void enter_windowing_mode(void)
 {
         GLFWmonitor *monitor = NULL;
-        int pixelsW = 1024;
-        int pixelsH = 768;
+        int pixelsW = 1280;
+        int pixelsH = 1024;
         glfwSetWindowMonitor(windowGlfw, monitor, 300, 300, pixelsW, pixelsH, GLFW_DONT_CARE);
         isFullscreenMode = 0;
 }

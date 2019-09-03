@@ -25,8 +25,8 @@ struct TextEdit {
 
         /***ANIMATION***/
         int isAnimationActive;
-        int animationStartLine;
-        int animationTargetLine;
+        FILEPOS animationStartLine;
+        FILEPOS animationTargetLine;
         float animationProgress;
         Timer *animationTimer;
 
@@ -141,6 +141,9 @@ static inline void delete_to_first_line(struct TextEdit *edit) { DELETE(MOVEMENT
 static inline void delete_to_last_line(struct TextEdit *edit) { DELETE(MOVEMENT_LASTLINE); }
 
 void move_cursor_lines_relative(struct TextEdit *edit, FILEPOS linesDiff, int isSelecting);
+
+void delete_current_line(struct TextEdit *edit);  // could this be done with a MOVEMENT?
+
 
 void scroll_up_one_page(struct TextEdit *edit, int isSelecting);
 void scroll_down_one_page(struct TextEdit *edit, int isSelecting);

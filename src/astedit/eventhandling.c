@@ -112,8 +112,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
                         else if (hasCodepoint) {
                                 switch (input->data.tKey.codepoint) {
                                 case 'd':
-                                        move_cursor_to_beginning_of_line(edit, 0);
-                                        delete_with_movement(edit, MOVEMENT(MOVEMENT_DOWN));
+                                        delete_current_line(edit);
                                         state->modalKind = VIMODAL_NORMAL;
                                         break;
                                 default:
@@ -186,7 +185,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 state->vimodeKind = VIMODE_INPUT;
                                 break;
                         case 'D':
-                                // not implemented yet: delete_to_rest_of_line(edit, 0);
+                                delete_to_end_of_line(edit);
                                 break;
                         case 'a':
                                 move_cursor_right(edit, 0);
@@ -322,6 +321,12 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                         case KEY_ENTER:
                                 insert_codepoint_into_textedit(edit, 0x0a);
                                 move_cursor_to_next_codepoint(edit, 0);
+                                break;
+                        case KEY_TAB:
+                                for (int i = 0; i < 8; i++) {
+                                        insert_codepoint_into_textedit(edit, ' ');
+                                        move_cursor_to_next_codepoint(edit, 0);
+                                }
                                 break;
                         case KEY_ESCAPE:
                                 state->vimodeKind = VIMODE_NORMAL;

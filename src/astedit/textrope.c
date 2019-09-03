@@ -404,6 +404,7 @@ FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber)
         FILEPOS internalPos = 0;
         FILEPOS currentLine = iter->line;
         while (currentLine < lineNumber) {
+                ENSURE(internalPos < node->ownLength); // I believe this can break with "quirky" lines
                 if (node->text[internalPos] == '\n')
                         currentLine++;
                 internalPos++;

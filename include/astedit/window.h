@@ -5,6 +5,7 @@ enum KeyKind {
         KEY_NONE = -1,  /* we use this because we have "optional" keys in input handling */
 
         KEY_ENTER = 0,
+        KEY_TAB,
         KEY_BACKSPACE,
         KEY_DELETE,
         KEY_CURSORUP,

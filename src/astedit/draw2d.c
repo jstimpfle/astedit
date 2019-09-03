@@ -16,17 +16,17 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 
-#if 0
+#if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
 static const struct RGB normalTextColor = {0, 255, 0 };
-static const struct RGB stringTokenColor = { 0, 255, 0 };
-static const struct RGB integerTokenColor = { 0, 0, 255 };
-static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
+static const struct RGB stringTokenColor = { 255, 255, 0 };
+static const struct RGB integerTokenColor = { 255, 255, 0 };
+static const struct RGB operatorTokenColor = { 255, 255, 0 };  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
 static const struct RGB junkTokenColor = { 255, 0, 0 };
 static const struct RGB borderColor = { 32, 32, 32 };
 static const struct RGB highlightColor = { 0, 0, 255 };
-static const struct RGB cursorBorderColor = { 224, 224, 224 };
+static const struct RGB cursorBorderColor = { 32, 32, 32 };
 static const struct RGB statusbarTextColor = { 0, 0, 0 };
 #else
 static const struct RGB texteditBgColor = { 255, 255, 255 };
