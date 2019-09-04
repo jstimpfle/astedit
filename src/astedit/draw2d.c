@@ -243,7 +243,7 @@ static void draw_codepoint(
                 return;
         uint32_t codepointToDraw = codepoint == '\n' ? ' ' : codepoint;
         int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
-                cursor->fontSize, &codepointToDraw, 1,
+                cursor->fontSize, cursor->cellWidth, &codepointToDraw, 1,
                 cursor->x, cursor->lineY + cursor->distanceYtoBaseline,
                 cursor->r, cursor->g, cursor->b, cursor->a);
         if (drawstringKind == DRAWSTRING_HIGHLIGHT)
@@ -302,12 +302,14 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 
 
 static const int LINE_HEIGHT_PIXELS = 33;
+static const int CELL_WIDTH_PIXELS = -1;//22;
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS codepointPos, FILEPOS lineNumber)
 {
         cursor->xLeft = x;
         cursor->fontSize = 25;
         cursor->distanceYtoBaseline = LINE_HEIGHT_PIXELS * 2 / 3;
         cursor->lineHeight = LINE_HEIGHT_PIXELS;
+        cursor->cellWidth = CELL_WIDTH_PIXELS;
         cursor->x = x;
         cursor->lineY = y;
         cursor->codepointpos = codepointPos;

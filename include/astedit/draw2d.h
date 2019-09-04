@@ -19,6 +19,11 @@ struct DrawCursor {
         int fontSize;
         int distanceYtoBaseline;
         int lineHeight;
+        /* We have switched to monospace.
+         * That considerably simplifies calculations.
+         * Currently there's no support for non-monospace. */
+        int cellWidth;
+        /**/
         int x;
         int lineY;
         FILEPOS codepointpos;

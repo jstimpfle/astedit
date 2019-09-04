@@ -120,10 +120,12 @@ FILEPOS get_position_of_line_and_column(struct TextEdit *edit, FILEPOS lineNumbe
         FILEPOS nextLineCodepointPosition = compute_codepoint_position(edit->rope, nextLinePos);
 
         FILEPOS codepointsInLine = nextLineCodepointPosition - lineCodepointPosition;
-        if (codepointColumn > codepointsInLine) {
-                codepointColumn = codepointsInLine;
-                if (codepointColumn > 0)  /* don't place on the last column (newline) but on the column before that. Good idea? */
-                        codepointColumn--;
+        if (codepointColumn >= codepointsInLine) {
+                if (codepointsInLine > 0) {  // this doesn't hold in a quirky (last) line
+                        codepointColumn = codepointsInLine - 1;
+                        if (codepointColumn > 0)  /* don't place on the last column (newline) but on the column before that. Good idea? */
+                                codepointColumn--;
+                }
         }
 
         FILEPOS codepointPos = lineCodepointPosition + codepointColumn;

@@ -117,27 +117,29 @@ static struct CachedGlyph *lookup_or_render_glyph(Font font, int size, uint32_t 
         return cachedGlyph;
 }
 
-/*
-layouts text span returns total length.
-`text` is expected to point to an array of `length` codepoints.
-If outPositions is not NULL, it is expected to be a positions array of length
-length`. Each element of the array gets set to the corresponding character's
-width.
-*/
-int measure_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int *outPositions)
+int measure_glyph_span(Font font, int size, int cellWidth,
+        const uint32_t *text, int length,
+        int initX, int *outPositions)
 {
+        if (!outPositions && cellWidth != -1)
+                return length * cellWidth;  // XXX overflow
         int x = initX;
         for (int i = 0; i < length; i++) {
                 struct CachedGlyph *cachedGlyph = lookup_or_render_glyph(font, size, text[i]);
                 if (outPositions)
                         outPositions[i] = x;
-                x += cachedGlyph->layout.horiAdvance;
+                if (cellWidth == -1)
+                        x += cachedGlyph->layout.horiAdvance;
+                else
+                        x += cellWidth;
         }
         return x;
 }
 
 int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
-        int size, const uint32_t *text, int length, int initX, int baselineY,
+        int size, int cellWidth,
+        const uint32_t *text, int length,
+        int initX, int baselineY,
         int r, int g, int b, int a)
 {
         int x = initX;
@@ -149,6 +151,7 @@ int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
 
                 struct GlyphLayoutInfo *layout = &cachedGlyph->layout;
 
+                // TODO: fix rectX based on cellWidth (for monospace fonts)
                 int rectX = x + layout->horiBearingX;
                 int rectY = baselineY - layout->horiBearingY;
                 int rectW = layout->pixW;
@@ -174,7 +177,10 @@ int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
                                 texX, texY, texW, texH);
                 }
 
-                x += layout->horiAdvance;
+                if (cellWidth == -1)
+                        x += layout->horiAdvance;
+                else
+                        x += cellWidth;
         }
         ENSURE(x >= initX);
         return x;

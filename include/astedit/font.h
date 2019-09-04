@@ -39,18 +39,22 @@ struct GlyphLayoutInfo {
 
 #include <astedit/draw2d.h>  // BoundingBox
 int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
-        int size, const uint32_t *text, int length, int initX, int baselineY,
+        int size, int cellWidth, const uint32_t *text, int length, int initX, int baselineY,
         int r, int g, int b, int a);
 
 
 /*
 layouts text span returns total length.
+`cellWidth` is expected to be the cell width in case of a monospaced font,
+or -1 otherwise.
 `text` is expected to point to an array of `length` codepoints.
 If outPositions is not NULL, it is expected to be a positions array of length
 length`. Each element of the array gets set to the corresponding character's
 width.
 */
-int measure_glyph_span(Font font, int size, const uint32_t *text, int length, int initX, int *outPositions);
+/* XXX: should we remove this function now that we have more or less committed to monospaced fonts? */
+int measure_glyph_span(Font font, int size, int cellWidth,
+        const uint32_t *text, int length, int initX, int *outPositions);
 
 
 
