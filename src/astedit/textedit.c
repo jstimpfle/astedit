@@ -290,18 +290,23 @@ void scroll_down_one_page(struct TextEdit *edit, int isSelecting)
         move_cursor_lines_relative(edit, LINES_PER_PAGE, isSelecting);
 }
 
-void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints)
+//XXX move somewhere else
+void insert_codepoints_into_textrope(struct Textrope *rope, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints)
 {
-        UNUSED(edit);
         int codepointsPos = 0;
         FILEPOS ropePos = insertPos;
         while (codepointsPos < numCodepoints) {
                 char buf[512];
                 int bufFill;
                 encode_utf8_span(codepoints, codepointsPos, numCodepoints, buf, sizeof buf, &codepointsPos, &bufFill);
-                insert_text_into_textrope(edit->rope, ropePos, &buf[0], bufFill);
+                insert_text_into_textrope(rope, ropePos, &buf[0], bufFill);
                 ropePos += bufFill;
         }
+}
+
+void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints)
+{
+        insert_codepoints_into_textrope(edit->rope, insertPos, codepoints, numCodepoints);
 }
 
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
@@ -415,5 +420,5 @@ void update_textedit(struct TextEdit *edit)
 void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
         int filepathLength = (int) strlen(filepath);
-        load_file_into_textedit(filepath, filepathLength, edit);
+        load_file_to_textrope(&edit->loading, filepath, filepathLength, edit->rope);
 }

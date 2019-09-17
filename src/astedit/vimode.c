@@ -21,12 +21,12 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
         if (cmdline->buf[0] == 'r' && cmdline->buf[1] == ' ') {
                 const char *filepath = cmdline->buf + 2;
                 int filepathLen = cmdline->fill - 2;
-                load_file_into_textedit(filepath, filepathLen, edit);
+                load_file_to_textrope(&edit->loading, filepath, filepathLen, edit->rope);
         }
         else if (cmdline->buf[0] == 'w' && cmdline->buf[1] == ' ') {
                 const char *filepath = cmdline->buf + 2;
                 int filepathLen = cmdline->fill - 2;
-                write_contents_from_textedit_to_file(edit, filepath, filepathLen);
+                write_textrope_contents_to_file(&edit->saving, edit->rope, filepath, filepathLen);
         }
         else if (cmdline->fill == 1 && cmdline->buf[0] == 'q') {
                 shouldWindowClose = 1;

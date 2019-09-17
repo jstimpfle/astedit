@@ -6,6 +6,7 @@
 #include <astedit/textrope.h>
 #include <astedit/clock.h>  // timer
 #include <astedit/osthread.h>
+#include <astedit/texteditloadsave.h>
 #include <astedit/filereadwritethread.h>
 #include <astedit/vimode.h>
 
@@ -32,51 +33,15 @@ struct TextEdit {
                 Timer *timer;
         } animation;
 
-        /***LOADING***/
-        struct {
-                int isActive;
-                struct FilereadThreadCtx *threadCtx;
-                struct OsThreadHandle *threadHandle;
-
-                /*XXX this stuff is set by a separate read thread,
-                so probably must be protected with a mutex */
-                /*(XXX: as well as the Textrope!!!)*/
-                int isCompleted;  /*the below numbers might be wrong
-                                         (files can grow while they are being read),
-                                         and that's why we have this explicit
-                                         "completed" flag */
-                FILEPOS completedBytes;  // NOTE: completed bytes of input file
-                FILEPOS totalBytes;
-                Timer *timer;
-
-                char buffer[512];  // TODO: heap alloc?
-                int bufferFill;  // fill from start
-        } loading;
-
-
-        /***SAVING***/
-        /* only one of loading or saving is active at any one time.
-        We could use a union to make it clearer */
-        struct {
-                int isActive;
-                struct FilewriteThreadCtx *threadCtx;
-                struct OsThreadHandle *threadHandle;
-
-                /* this stuff is set by a separate writer thread. */
-                int isCompleted;
-                FILEPOS completedBytes;  // NOTE: completed bytes of internal storage
-                FILEPOS totalBytes;
-                Timer *timer;
-
-                char buffer[512];
-                int bufferFill;
-        } saving;
+        struct TextEditLoadingCtx loading;
+        struct TextEditSavingCtx saving;
 };
 
 
 void init_TextEdit(struct TextEdit *edit);
 void exit_TextEdit(struct TextEdit *edit);
 
+void insert_codepoints_into_textrope(struct Textrope *rope, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints);
 void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints);
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
