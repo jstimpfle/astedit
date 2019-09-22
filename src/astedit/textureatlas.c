@@ -42,8 +42,6 @@ static struct AtlasTexture **atlasTextures;
 static int numAtlasTextures;
 
 
-
-
 static UNUSEDFUNC void debug_print_texture(unsigned char *pixels, int pixW, int pixH, int stride)
 {
         log_begin();
@@ -61,7 +59,6 @@ static UNUSEDFUNC void debug_print_texture(unsigned char *pixels, int pixW, int 
         }
         log_end();
 }
-
 
 
 /* TODO: more efficient allocation */
@@ -111,7 +108,6 @@ void copy_texture(unsigned char *dstBuffer, unsigned char *srcBuffer,
                 dstpos += dstStride;
                 srcpos += srcStride;
         }
-
         //debug_print_texture(dstBuffer, width, height, dstStride);
 }
 

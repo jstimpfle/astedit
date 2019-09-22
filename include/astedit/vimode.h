@@ -36,7 +36,8 @@ struct ViState {
 
 extern const char *const vimodeKindString[NUM_VIMODE_KINDS];
 
-
+void setup_vistate(struct ViState *vistate);
+void teardown_vistate(struct ViState *vistate);
 
 void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit);
 void reset_ViCmdline(struct ViCmdline *cmdline);

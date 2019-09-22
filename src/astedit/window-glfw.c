@@ -86,12 +86,10 @@ static const struct {
 };
 
 
-
 static GLFWwindow *windowGlfw;
 static int isFullscreenMode;
 
 static volatile int doingPolling;  // needed for a hack. See below
-
 
 
 static void error_cb_glfw(int err, const char *msg)
@@ -304,7 +302,6 @@ void setup_window(void)
         //glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         //glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);  // window size dependent on monitor scale
 
-
         windowGlfw = glfwCreateWindow(1024, 768, "Astedit", NULL, NULL);
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
@@ -331,7 +328,6 @@ void setup_window(void)
 
 void teardown_window(void)
 {
-
         glfwMakeContextCurrent(NULL);
         glfwDestroyWindow(windowGlfw);
         glfwTerminate();

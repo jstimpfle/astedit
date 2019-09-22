@@ -11,8 +11,39 @@
 #include <string.h> // strlen()
 
 
-enum { LINES_PER_PAGE = 15 };  // XXX this value should be dependent on the current GUI viewport probably.
+enum {
+        LINES_PER_PAGE = 15,   // XXX this value should be dependent on the current GUI viewport probably.
+};
 
+static void setup_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)
+{
+        scrollAnimation->isActive = 0;
+        scrollAnimation->timer = create_timer();
+}
+
+static void teardown_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)
+{
+        destroy_timer(scrollAnimation->timer);
+}
+
+static void start_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation, FILEPOS startLine, FILEPOS targetLine)
+{
+        scrollAnimation->isActive = 1;
+        scrollAnimation->startLine = startLine;
+        scrollAnimation->targetLine = targetLine;
+        scrollAnimation->progress = 0.0f;
+        start_timer(scrollAnimation->timer);
+}
+
+static void update_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)
+{
+        scrollAnimation->progress += 0.2f; //XXX
+        if (scrollAnimation->progress >= 1.0f) {
+                scrollAnimation->isActive = 0;
+                stop_timer(scrollAnimation->timer);
+                //report_timer(edit->animationTimer, "Animation");
+        }
+}
 
 static void make_range(FILEPOS a, FILEPOS b, FILEPOS *outStart, FILEPOS *outEnd)
 {
@@ -44,20 +75,16 @@ void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, 
 
 void move_view_minimally_to_display_line(struct TextEdit *edit, FILEPOS lineNumber)
 {
-        FILEPOS firstLine;
+        FILEPOS targetLine;
         if (edit->firstLineDisplayed > lineNumber)
-                firstLine = lineNumber;
+                targetLine = lineNumber;
         else if (edit->firstLineDisplayed < lineNumber - edit->numberOfLinesDisplayed + 1)
-                firstLine = lineNumber - edit->numberOfLinesDisplayed + 1;
+                targetLine = lineNumber - edit->numberOfLinesDisplayed + 1;
         else
                 return;
-
-        edit->animation.isActive = 1;
-        edit->animation.startLine = edit->firstLineDisplayed;
-        edit->animation.targetLine = firstLine;
-        edit->animation.progress = 0.0f;
-        start_timer(edit->animation.timer);
-        edit->firstLineDisplayed = firstLine;
+        FILEPOS startLine = edit->firstLineDisplayed;
+        start_LinescrollAnimation(&edit->scrollAnimation, startLine, targetLine);
+        edit->firstLineDisplayed = targetLine;
 }
 
 void move_view_minimally_to_display_cursor(struct TextEdit *edit)
@@ -71,10 +98,8 @@ void move_cursor_to_byte_position(struct TextEdit *edit, FILEPOS pos, int isSele
         if (!edit->isSelectionMode && isSelecting)
                 edit->selectionStartBytePosition = edit->cursorBytePosition;
         edit->isSelectionMode = isSelecting;
-
         edit->cursorBytePosition = pos;
         move_view_minimally_to_display_cursor(edit);
-        //log_postf("Cursor is in line %d", compute_line_number(edit->rope, pos));
 }
 
 void move_cursor_to_codepoint(struct TextEdit *edit, FILEPOS codepointPos, int isSelecting)
@@ -118,7 +143,6 @@ FILEPOS get_position_of_line_and_column(struct TextEdit *edit, FILEPOS lineNumbe
         FILEPOS lineCodepointPosition = compute_codepoint_position(edit->rope, linePos);
         FILEPOS nextLinePos = compute_pos_of_line(edit->rope, lineNumber + 1);
         FILEPOS nextLineCodepointPosition = compute_codepoint_position(edit->rope, nextLinePos);
-
         FILEPOS codepointsInLine = nextLineCodepointPosition - lineCodepointPosition;
         if (codepointColumn >= codepointsInLine) {
                 if (codepointsInLine > 0) {  // this doesn't hold in a quirky (last) line
@@ -127,7 +151,6 @@ FILEPOS get_position_of_line_and_column(struct TextEdit *edit, FILEPOS lineNumbe
                                 codepointColumn--;
                 }
         }
-
         FILEPOS codepointPos = lineCodepointPosition + codepointColumn;
         return compute_pos_of_codepoint(edit->rope, codepointPos);
 }
@@ -138,14 +161,11 @@ FILEPOS get_position_lines_relative(struct TextEdit *edit, FILEPOS linesDiff)
         FILEPOS oldCodepointPosition;
         compute_line_number_and_codepoint_position(edit->rope, edit->cursorBytePosition,
                 &oldLineNumber, &oldCodepointPosition);
-
         FILEPOS newLineNumber = oldLineNumber + linesDiff;
-
         if (newLineNumber < 0)
                 newLineNumber = 0;
         else if (newLineNumber >= textrope_number_of_lines(edit->rope))
                 newLineNumber = textrope_number_of_lines(edit->rope);
-
         FILEPOS oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
         FILEPOS oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
         FILEPOS codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
@@ -350,6 +370,8 @@ void init_TextEdit(struct TextEdit *edit)
 {
         UNUSED(edit);
         edit->rope = create_textrope();
+        setup_vistate(&edit->vistate);
+        setup_LinescrollAnimation(&edit->scrollAnimation);
 
         edit->cursorBytePosition = 0;
         edit->firstLineDisplayed = 0;
@@ -360,9 +382,6 @@ void init_TextEdit(struct TextEdit *edit)
         edit->isSelectionMode = 0;
         edit->selectionStartBytePosition = 0;
 
-        edit->animation.isActive = 0;
-        edit->animation.timer = create_timer();
-
         edit->loading.isActive = 0;
         edit->loading.completedBytes = 0;
         edit->loading.totalBytes = 0;
@@ -371,28 +390,22 @@ void init_TextEdit(struct TextEdit *edit)
 
 void exit_TextEdit(struct TextEdit *edit)
 {
-        destroy_timer(edit->animation.timer);
+        destroy_textrope(edit->rope);
+        teardown_LinescrollAnimation(&edit->scrollAnimation);
+        teardown_vistate(&edit->vistate);
 
         if (edit->loading.threadHandle != NULL) {
                 cancel_thread_and_wait(edit->loading.threadHandle);
                 dispose_thread(edit->loading.threadHandle);
                 edit->loading.threadHandle = NULL;
         }
-
-        destroy_textrope(edit->rope);
 }
 
 /* TODO: maybe introduce TIMETICK event or sth like that? */
 void update_textedit(struct TextEdit *edit)
 {
-        if (edit->animation.isActive) {
-                edit->animation.progress += 0.2f; //XXX
-                if (edit->animation.progress >= 1.0f) {
-                        edit->animation.isActive = 0;
-                        stop_timer(edit->animation.timer);
-                        //report_timer(edit->animationTimer, "Animation");
-                }
-        }
+        if (edit->scrollAnimation.isActive)
+                update_LinescrollAnimation(&edit->scrollAnimation);
         if (edit->loading.isActive && edit->loading.isCompleted
                 && check_if_thread_has_exited(edit->loading.threadHandle)) {
                 /* TODO: check for load errors */
@@ -404,7 +417,7 @@ void update_textedit(struct TextEdit *edit)
                 edit->loading.threadCtx = NULL;  // XXX should FREE_MEMORY do that already?
                 edit->loading.threadHandle = NULL;  // XXX should FREE_MEMORY do that already?
         }
-        else if (edit->saving.isActive && edit->saving.isCompleted
+        if (edit->saving.isActive && edit->saving.isCompleted
                 && check_if_thread_has_exited(edit->saving.threadHandle)) {
                 /* TODO: check for save errors */
                 edit->saving.isActive = 0;

@@ -27,6 +27,8 @@ static inline NORETURN void UNREACHABLE(void)
         ENSURE(0);
 }
 
+#define NOT_IMPLEMENTED() fatalf("In %s:%ld : Not implemented", __FILE__, (long) __LINE__);
+
 #ifdef ASTEDIT_IMPLEMENT_DATA
 #define DATA
 #else

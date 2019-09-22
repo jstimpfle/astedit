@@ -8,7 +8,18 @@
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
 
-#include <string.h>  //strlen()
+void setup_vistate(struct ViState *vistate)
+{
+        vistate->vimodeKind = VIMODE_NORMAL;
+        vistate->modalKind = VIMODAL_NORMAL;
+        ZERO_MEMORY(&vistate->cmdline);
+}
+
+void teardown_vistate(struct ViState *vistate)
+{
+        // currently nothing. At some point, there will be allocations.
+        UNUSED(vistate);
+}
 
 void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
 {

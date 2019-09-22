@@ -573,10 +573,10 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
                 /* Compute first line and y-offset for drawing */
                 FILEPOS firstVisibleLine;
                 int offsetPixelsY;
-                if (edit->animation.isActive) {
+                if (edit->scrollAnimation.isActive) {
                         //XXX overflow?
-                        float linesProgress = edit->animation.progress * (edit->animation.targetLine - edit->animation.startLine);
-                        firstVisibleLine = edit->animation.startLine + (FILEPOS) linesProgress;
+                        float linesProgress = edit->scrollAnimation.progress * (edit->scrollAnimation.targetLine - edit->scrollAnimation.startLine);
+                        firstVisibleLine = edit->scrollAnimation.startLine + (FILEPOS) linesProgress;
                         offsetPixelsY = (int) (((linesProgress) - (FILEPOS) linesProgress) * LINE_HEIGHT_PIXELS);
                 }
                 else {

@@ -147,6 +147,7 @@
     <ClCompile Include="..\src\astedit\logging.c" />
     <ClCompile Include="..\src\astedit\main.c" />
     <ClCompile Include="..\src\astedit\memoryalloc.c" />
+    <ClCompile Include="..\src\astedit\mutex-win32.c" />
     <ClCompile Include="..\src\astedit\osthread-win32.c" />
     <ClCompile Include="..\src\astedit\stringpool.c" />
     <ClCompile Include="..\src\astedit\textedit.c" />
@@ -175,6 +176,7 @@
     <ClInclude Include="..\include\astedit\gfx.h" />
     <ClInclude Include="..\include\astedit\logging.h" />
     <ClInclude Include="..\include\astedit\memoryalloc.h" />
+    <ClInclude Include="..\include\astedit\mutex.h" />
     <ClInclude Include="..\include\astedit\osthread.h" />
     <ClInclude Include="..\include\astedit\stringpool.h" />
     <ClInclude Include="..\include\astedit\texteditloadsave.h" />

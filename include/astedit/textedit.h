@@ -10,6 +10,13 @@
 #include <astedit/filereadwritethread.h>
 #include <astedit/vimode.h>
 
+struct LinescrollAnimation {
+        int isActive;
+        FILEPOS startLine;
+        FILEPOS targetLine;
+        float progress;
+        Timer *timer;
+};
 
 struct TextEdit {
         struct Textrope *rope;
@@ -24,15 +31,7 @@ struct TextEdit {
         int isSelectionMode;
         FILEPOS selectionStartBytePosition;
 
-        /***ANIMATION***/
-        struct {
-                int isActive;
-                FILEPOS startLine;
-                FILEPOS targetLine;
-                float progress;
-                Timer *timer;
-        } animation;
-
+        struct LinescrollAnimation scrollAnimation;
         struct TextEditLoadingCtx loading;
         struct TextEditSavingCtx saving;
 };
