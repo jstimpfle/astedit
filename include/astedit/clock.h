@@ -4,7 +4,7 @@
 #include <astedit/astedit.h>
 
 /* Define struct Timer by including platform specific headers */
-#ifdef _MSVC  // TODO: better defined detection macros?
+#ifdef _MSC_VER  // TODO: better defined detection macros?
 #include <astedit/clock-win32.h>
 #else
 #include <astedit/clock-linux.h>
