@@ -2,7 +2,13 @@
 #define ASTEDIT_CLOCK_H_INCLUDED
 
 #include <astedit/astedit.h>
-#include <astedit/clock-win32.h>  // Defines struct Timer. TODO: linux implementation
+
+/* Define struct Timer by including platform specific headers */
+#ifdef _MSVC  // TODO: better defined detection macros?
+#include <astedit/clock-win32.h>
+#else
+#include <astedit/clock-linux.h>
+#endif
 
 DATA long long timeSinceProgramStartupMilliseconds;
 

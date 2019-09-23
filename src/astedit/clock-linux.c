@@ -36,25 +36,6 @@ void sleep_milliseconds(int ms)
         }
 }
 
-
-
-struct TimerStruct {
-        struct timespec startTime;
-        struct timespec stopTime;
-};
-
-Timer *create_timer(void)
-{
-        struct TimerStruct *timer;
-        ALLOC_MEMORY(&timer, 1);
-        return timer;
-}
-
-void destroy_timer(Timer *timer)
-{
-        FREE_MEMORY(&timer);
-}
-
 static void get_time(struct timespec *ts)
 {
         int r = clock_gettime(CLOCK_MONOTONIC, ts);
@@ -62,18 +43,27 @@ static void get_time(struct timespec *ts)
                 fatalf("clock_gettime() failed: %s\n", strerror(errno));
 }
 
-void start_timer(Timer *timer)
+
+
+
+
+
+void setup_timers(void)
+{
+}
+
+void start_timer(struct Timer *timer)
 {
         get_time(&timer->startTime);
 }
 
 
-void stop_timer(Timer *timer)
+void stop_timer(struct Timer *timer)
 {
         get_time(&timer->stopTime);
 }
 
-void report_timer(Timer *timer, const char *descriptionFmt, ...)
+void report_timer(struct Timer *timer, const char *descriptionFmt, ...)
 {
         va_list ap;
         va_start(ap, descriptionFmt);
@@ -84,7 +74,7 @@ void report_timer(Timer *timer, const char *descriptionFmt, ...)
         va_end(ap);
 }
 
-uint64_t get_elapsed_microseconds(Timer *timer)
+uint64_t get_elapsed_microseconds(struct Timer *timer)
 {
         int64_t diff = ((int64_t) timer->stopTime.tv_sec - (int64_t) timer->startTime.tv_sec) * (int64_t) 1000000
             + ((int64_t) timer->stopTime.tv_nsec - (int64_t) timer->startTime.tv_nsec) / (int64_t) 1000;

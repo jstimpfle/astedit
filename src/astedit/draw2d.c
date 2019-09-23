@@ -339,7 +339,7 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
 
         set_cursor_color(cursor, C(normalTextColor));
         for (FILEPOS i = firstVisibleLine; i < lastLine && cursor->lineY < box->y + box->h; i++) {
-                char buf[16];
+                char buf[32];
                 snprintf(buf, sizeof buf, "%4"FILEPOS_PRI, i + 1);
                 draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
                 next_line(cursor);

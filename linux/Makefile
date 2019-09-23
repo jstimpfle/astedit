@@ -29,6 +29,7 @@ src/astedit/gfx-opengl.c \
 src/astedit/logging.c \
 src/astedit/main.c \
 src/astedit/memoryalloc.c \
+src/astedit/mutex-linux.c \
 src/astedit/osthread-linux.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
