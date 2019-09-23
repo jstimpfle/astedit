@@ -382,9 +382,7 @@ void init_TextEdit(struct TextEdit *edit)
         edit->selectionStartBytePosition = 0;
 
         edit->loading.isActive = 0;
-        edit->loading.completedBytes = 0;
-        edit->loading.totalBytes = 0;
-        edit->loading.threadHandle = NULL;
+        edit->saving.isActive = 0;
 }
 
 void exit_TextEdit(struct TextEdit *edit)
@@ -393,10 +391,13 @@ void exit_TextEdit(struct TextEdit *edit)
         teardown_LinescrollAnimation(&edit->scrollAnimation);
         teardown_vistate(&edit->vistate);
 
-        if (edit->loading.threadHandle != NULL) {
+        if (edit->loading.isActive) {
                 cancel_thread_and_wait(edit->loading.threadHandle);
                 dispose_thread(edit->loading.threadHandle);
-                edit->loading.threadHandle = NULL;
+        }
+        if (edit->saving.isActive) {
+                cancel_thread_and_wait(edit->saving.threadHandle);
+                dispose_thread(edit->saving.threadHandle);
         }
 }
 
