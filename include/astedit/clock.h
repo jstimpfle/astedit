@@ -2,6 +2,7 @@
 #define ASTEDIT_CLOCK_H_INCLUDED
 
 #include <astedit/astedit.h>
+#include <astedit/clock-win32.h>  // Defines struct Timer. TODO: linux implementation
 
 DATA long long timeSinceProgramStartupMilliseconds;
 
@@ -11,14 +12,12 @@ void update_clock(void);
 void sleep_milliseconds(int ms);
 
 
-typedef struct TimerStruct Timer;
+void setup_timers(void);
 
-Timer *create_timer(void);
-void destroy_timer(Timer *timer);
+void start_timer(struct Timer *timer);
+void stop_timer(struct Timer *timer);
+void report_timer(struct Timer *timer, const char *descriptionFmt, ...);
+uint64_t get_elapsed_microseconds(struct Timer *timer);
 
-void start_timer(Timer *timer);
-void stop_timer(Timer *timer);
-void report_timer(Timer *timer, const char *descriptionFmt, ...);
-uint64_t get_elapsed_microseconds(Timer *timer);
 
 #endif

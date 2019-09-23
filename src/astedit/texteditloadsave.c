@@ -8,6 +8,41 @@
 #include <string.h>  // strlen()
 
 
+int check_if_loading_completed_and_if_so_then_cleanup(struct TextEditLoadingCtx *ctx)
+{
+        if (!ctx->isActive)
+                return 0;
+        if (!check_if_thread_has_exited(ctx->threadHandle))
+                return 0;
+        dispose_thread(ctx->threadHandle);
+        destroy_mutex(ctx->mutex);
+        FREE_MEMORY(&ctx->filereadThreadCtx);
+        if (!ctx->isCompleted)
+                fatal("TODO: we should avoid this condition: Loading failed but we did not mark it as 'done'.");
+        /* TODO: check for load errors */
+        ctx->isActive = 0;
+        ctx->isCompleted = 0;
+        return 1;
+}
+
+int check_if_saving_completed_and_if_so_then_cleanup(struct TextEditSavingCtx *ctx)
+{
+        if (!ctx->isActive)
+                return 0;
+        if (!check_if_thread_has_exited(ctx->threadHandle))
+                return 0;
+        dispose_thread(ctx->threadHandle);
+        destroy_mutex(ctx->mutex);
+        FREE_MEMORY(&ctx->filewriteThreadCtx);
+        if (!ctx->isCompleted)
+                fatal("TODO: we should avoid this condition: Saving failed but we did not mark it as 'done'.");
+        /* TODO: check for save errors */
+        ctx->isActive = 0;
+        ctx->isCompleted = 0;
+        return 1;
+}
+
+
 /*
 READ
 */
@@ -20,8 +55,7 @@ static void prepare_loading_from_file_to_textedit(void *param, FILEPOS filesizeI
         loading->completedBytes = 0;
         loading->totalBytes = filesizeInBytes;
         loading->bufferFill = 0;
-        loading->timer = create_timer();
-        start_timer(loading->timer);
+        start_timer(&loading->timer);
 }
 
 static void finalize_loading_from_file_to_textedit(void *param)
@@ -33,9 +67,8 @@ static void finalize_loading_from_file_to_textedit(void *param)
         }
         /* TODO: must protect this section */
         loading->isCompleted = 1;
-        stop_timer(loading->timer);
-        report_timer(loading->timer, "File load time");
-        destroy_timer(loading->timer);
+        stop_timer(&loading->timer);
+        report_timer(&loading->timer, "File load time");
 }
 
 static int flush_loadingBuffer_from_filereadthread(void *param)
@@ -59,8 +92,7 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
 }
 void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct Textrope *rope)
 {
-        struct FilereadThreadCtx *ctx;
-        ALLOC_MEMORY(&ctx, 1); // TODO: check it's freed?
+        struct FilereadThreadCtx *ctx = &loading->filereadThreadCtx;
         ALLOC_MEMORY(&ctx->filepath, filepathLength + 1);
         copy_string_and_zeroterminate(ctx->filepath, filepath, filepathLength);
         ctx->param = loading;
@@ -72,9 +104,9 @@ void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filep
         ctx->flushBufferFunc = &flush_loadingBuffer_from_filereadthread;
         ctx->returnStatus = 1337; //XXX: "never changed from thread"
 
+        loading->mutex = create_mutex();
         loading->rope = rope;
         loading->isActive = 1;
-        loading->threadCtx = ctx;
         loading->threadHandle = create_and_start_thread(&read_file_thread_adapter, ctx);
 }
 
@@ -90,17 +122,15 @@ static void prepare_writing_from_textedit_to_file(void *param)
         saving->completedBytes = 0;
         saving->totalBytes = totalBytes;
         saving->bufferFill = 0;
-        saving->timer = create_timer();
-        start_timer(saving->timer);
+        start_timer(&saving->timer);
 }
 
 static void finalize_writing_from_textedit_to_file(void *param)
 {
         struct TextEditSavingCtx *saving = param;
         saving->isCompleted = 1;
-        stop_timer(saving->timer);
-        report_timer(saving->timer, "File load time");
-        destroy_timer(saving->timer);
+        stop_timer(&saving->timer);
+        report_timer(&saving->timer, "File load time");
 }
 
 static void fill_buffer_for_writing_to_file(void *param)
@@ -120,8 +150,7 @@ static void fill_buffer_for_writing_to_file(void *param)
 
 void write_textrope_contents_to_file(struct TextEditSavingCtx *saving, struct Textrope *rope, const char *filepath, int filepathLength)
 {
-        struct FilewriteThreadCtx *ctx;
-        ALLOC_MEMORY(&ctx, 1);  // XXX check if freed properly
+        struct FilewriteThreadCtx *ctx = &saving->filewriteThreadCtx;
         ALLOC_MEMORY(&ctx->filepath, filepathLength + 1);
         copy_memory(ctx->filepath, filepath, filepathLength + 1);
         ctx->param = saving;
@@ -133,8 +162,9 @@ void write_textrope_contents_to_file(struct TextEditSavingCtx *saving, struct Te
         ctx->fillBufferFunc = &fill_buffer_for_writing_to_file;
         ctx->returnStatus = 0;
 
+        saving->mutex = create_mutex();
         saving->rope = rope;
         saving->isActive = 1;
-        saving->threadCtx = ctx;
+        saving->isCompleted = 0;
         saving->threadHandle = create_and_start_thread(write_file_thread_adapter, ctx);
 }

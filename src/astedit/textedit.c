@@ -18,12 +18,11 @@ enum {
 static void setup_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)
 {
         scrollAnimation->isActive = 0;
-        scrollAnimation->timer = create_timer();
 }
 
 static void teardown_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)
 {
-        destroy_timer(scrollAnimation->timer);
+        UNUSED(scrollAnimation);
 }
 
 static void start_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation, FILEPOS startLine, FILEPOS targetLine)
@@ -32,7 +31,7 @@ static void start_LinescrollAnimation(struct LinescrollAnimation *scrollAnimatio
         scrollAnimation->startLine = startLine;
         scrollAnimation->targetLine = targetLine;
         scrollAnimation->progress = 0.0f;
-        start_timer(scrollAnimation->timer);
+        start_timer(&scrollAnimation->timer);
 }
 
 static void update_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)
@@ -40,7 +39,7 @@ static void update_LinescrollAnimation(struct LinescrollAnimation *scrollAnimati
         scrollAnimation->progress += 0.2f; //XXX
         if (scrollAnimation->progress >= 1.0f) {
                 scrollAnimation->isActive = 0;
-                stop_timer(scrollAnimation->timer);
+                stop_timer(&scrollAnimation->timer);
                 //report_timer(edit->animationTimer, "Animation");
         }
 }
@@ -406,28 +405,8 @@ void update_textedit(struct TextEdit *edit)
 {
         if (edit->scrollAnimation.isActive)
                 update_LinescrollAnimation(&edit->scrollAnimation);
-        if (edit->loading.isActive && edit->loading.isCompleted
-                && check_if_thread_has_exited(edit->loading.threadHandle)) {
-                /* TODO: check for load errors */
-                edit->loading.isActive = 0;
-                dispose_thread(edit->loading.threadHandle);
-                FREE_MEMORY(&edit->loading.threadCtx->filepath);
-                FREE_MEMORY(&edit->loading.threadCtx);
-                edit->loading.isCompleted = 0;
-                edit->loading.threadCtx = NULL;  // XXX should FREE_MEMORY do that already?
-                edit->loading.threadHandle = NULL;  // XXX should FREE_MEMORY do that already?
-        }
-        if (edit->saving.isActive && edit->saving.isCompleted
-                && check_if_thread_has_exited(edit->saving.threadHandle)) {
-                /* TODO: check for save errors */
-                edit->saving.isActive = 0;
-                dispose_thread(edit->saving.threadHandle);
-                FREE_MEMORY(&edit->saving.threadCtx->filepath);
-                FREE_MEMORY(&edit->saving.threadCtx);
-                edit->saving.isCompleted = 0;
-                edit->saving.threadCtx = NULL;  // XXX should FREE_MEMORY do that already?
-                edit->saving.threadHandle = NULL;  // XXX should FREE_MEMORY do that already?
-        }
+        check_if_loading_completed_and_if_so_then_cleanup(&edit->loading);
+        check_if_saving_completed_and_if_so_then_cleanup(&edit->saving);
 }
 
 void textedit_test_init(struct TextEdit *edit, const char *filepath)

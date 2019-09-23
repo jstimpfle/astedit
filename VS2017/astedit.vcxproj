@@ -166,6 +166,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\astedit\astedit.h" />
     <ClInclude Include="..\include\astedit\bytes.h" />
+    <ClInclude Include="..\include\astedit\clock-win32.h" />
     <ClInclude Include="..\include\astedit\clock.h" />
     <ClInclude Include="..\include\astedit\draw2d.h" />
     <ClInclude Include="..\include\astedit\eventhandling.h" />

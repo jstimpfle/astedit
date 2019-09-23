@@ -1,6 +1,5 @@
 #include <astedit/astedit.h>
 #include <astedit/clock.h>
-
 #include <Windows.h>
 
 DWORD timeOfLastUpdateMs;
@@ -25,51 +24,35 @@ void sleep_milliseconds(int ms)
         Sleep(ms);
 }
 
-
-
-
-
-
-struct TimerStruct {
-        LARGE_INTEGER startTime;
-        LARGE_INTEGER stopTime;
-};
-
-#include <astedit/memoryalloc.h>
 #include <astedit/logging.h>
 
 static LARGE_INTEGER performanceFrequency;
 static double microsecondsPerTick;
 
-Timer *create_timer(void)
+void setup_timers(void)
 {
-        // TODO: do this only at program startup.
         QueryPerformanceFrequency(&performanceFrequency);
         microsecondsPerTick = 1000000.0 / performanceFrequency.QuadPart;
-
-        Timer *timer;
-        ALLOC_MEMORY(&timer, 1);
-        timer->startTime.QuadPart = 0;
-        timer->stopTime.QuadPart = 0;
-        return timer;
 }
 
-void destroy_timer(Timer *timer)
+static uint64_t query_counter(void)
 {
-        FREE_MEMORY(&timer);
+        LARGE_INTEGER counter;
+        QueryPerformanceCounter(&counter);
+        return counter.QuadPart;
 }
 
-void start_timer(Timer *timer)
+void start_timer(struct Timer *timer)
 {
-        QueryPerformanceCounter(&timer->startTime);
+        timer->startTime = query_counter();
 }
 
-void stop_timer(Timer *timer)
+void stop_timer(struct Timer *timer)
 {
-        QueryPerformanceCounter(&timer->stopTime);
+        timer->stopTime = query_counter();
 }
 
-void report_timer(Timer *timer, const char *descriptionFmt, ...)
+void report_timer(struct Timer *timer, const char *descriptionFmt, ...)
 {
         log_begin();
         va_list ap;
@@ -80,8 +63,8 @@ void report_timer(Timer *timer, const char *descriptionFmt, ...)
         log_end();
 }
 
-uint64_t get_elapsed_microseconds(Timer *timer)
+uint64_t get_elapsed_microseconds(struct Timer *timer)
 {
-        uint64_t diff = timer->stopTime.QuadPart - timer->startTime.QuadPart;
+        uint64_t diff = timer->stopTime - timer->startTime;
         return (uint64_t) (diff * microsecondsPerTick);
 }

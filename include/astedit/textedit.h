@@ -15,7 +15,7 @@ struct LinescrollAnimation {
         FILEPOS startLine;
         FILEPOS targetLine;
         float progress;
-        Timer *timer;
+        struct Timer timer;
 };
 
 struct TextEdit {

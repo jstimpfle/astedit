@@ -11,11 +11,11 @@
 
 static struct TextEdit globalTextEdit;
 
-static Timer *keyinputTimer;
-static Timer *redrawTimer;
-static Timer *mainloopTimer;
-static Timer *waitEventsTimer;
-static Timer *handleEventsTimer;
+static struct Timer keyinputTimer;
+static struct Timer redrawTimer;
+static struct Timer mainloopTimer;
+static struct Timer waitEventsTimer;
+static struct Timer handleEventsTimer;
 
 static void handle_events(void)
 {
@@ -32,24 +32,24 @@ static void handle_events(void)
 
 void mainloop(void)
 {
-        start_timer(mainloopTimer);
+        start_timer(&mainloopTimer);
 
         update_clock();
 
-        start_timer(waitEventsTimer);
+        start_timer(&waitEventsTimer);
         wait_for_events();
-        stop_timer(waitEventsTimer);
+        stop_timer(&waitEventsTimer);
 
-        start_timer(handleEventsTimer);
+        start_timer(&handleEventsTimer);
         handle_events();
-        stop_timer(handleEventsTimer);
+        stop_timer(&handleEventsTimer);
 
-        start_timer(redrawTimer);
+        start_timer(&redrawTimer);
         testdraw(&globalTextEdit);
-        stop_timer(redrawTimer);
+        stop_timer(&redrawTimer);
 
         flush_gfx();
-        stop_timer(mainloopTimer);
+        stop_timer(&mainloopTimer);
 
         /*
         report_timer(waitEventsTimer, "Wait for events");
@@ -64,17 +64,12 @@ void mainloop(void)
 
 int main(int argc, const char **argv)
 {
+        setup_timers();
         setup_window();
         setup_fonts();
         setup_gfx();
 
         init_TextEdit(&globalTextEdit);
-
-        keyinputTimer = create_timer();
-        redrawTimer = create_timer();
-        mainloopTimer = create_timer();
-        waitEventsTimer = create_timer();
-        handleEventsTimer = create_timer();
 
         if (argc == 2)
                 textedit_test_init(&globalTextEdit, argv[1]);
@@ -82,12 +77,6 @@ int main(int argc, const char **argv)
 
         while (!shouldWindowClose)
                 mainloop();
-
-        destroy_timer(keyinputTimer);
-        destroy_timer(redrawTimer);
-        destroy_timer(mainloopTimer);
-        destroy_timer(waitEventsTimer);
-        destroy_timer(handleEventsTimer);
 
         exit_TextEdit(&globalTextEdit);
 

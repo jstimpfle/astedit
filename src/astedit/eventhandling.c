@@ -374,7 +374,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
         else if (is_input_keypress_of_key(input, KEY_ENTER))
                 cmdline->isConfirmed = 1;
 
-
         if (cmdline->isAborted) {
                 // TODO
                 reset_ViCmdline(cmdline);
@@ -391,7 +390,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
 void process_input_in_TextEdit_with_ViMode(struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
         ENSURE(!edit->loading.isActive);
-
         if (state->vimodeKind == VIMODE_INPUT)
                 process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(input, edit, state);
         else if (state->vimodeKind == VIMODE_SELECTING)
@@ -408,7 +406,6 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                 process_input_in_TextEdit_with_ViMode(input, edit, &edit->vistate);
                 return;
         }
-
         ENSURE(!edit->loading.isActive);
         if (input->inputKind == INPUT_KEY) {
                 int modifiers = input->data.tKey.modifierMask;
