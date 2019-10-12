@@ -49,13 +49,14 @@ void set_clipping_rect_in_pixels(int x, int y, int w, int h);
 void clear_clipping_rect(void);
 
 Texture create_rgba_texture(int w, int h);
+Texture create_rgb_texture(int w, int h);
 Texture create_alpha_texture(int w, int h);
-void destroy_rgba_texture(Texture texHandle);
-void destroy_alpha_texture(Texture texHandle);
+void destroy_texture(Texture texHandle);
 
 void upload_rgba_texture_data(Texture texture, const unsigned char *data, int size, int w, int h);
 void upload_alpha_texture_data(Texture texture, const unsigned char *data, int size, int w, int h);
 void update_alpha_texture_subimage(Texture texture, int row, int numRows, int rowWidth, int stride, const unsigned char *data);
+void update_rgb_texture_subimage(Texture texture, int row, int numRows, int rowWidth, int stride, const unsigned char *data);
 
 void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts);
 void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts);

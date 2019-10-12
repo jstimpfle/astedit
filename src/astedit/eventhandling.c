@@ -28,10 +28,12 @@ static int is_input_unicode(struct Input *input)
         return input->inputKind == INPUT_KEY && input->data.tKey.hasCodepoint;
 }
 
+/*
 static int is_input_unicode_of_codepoint(struct Input *input, uint32_t codepoint)
 {
         return is_input_unicode(input) && input->data.tKey.codepoint == codepoint;
 }
+*/
 
 static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
 {
@@ -482,6 +484,9 @@ void handle_input(struct Input *input, struct TextEdit *edit)
                 if (input->data.tKey.keyKind == KEY_F4) {
                         //if (input->data.tKey.modifiers & MODIFIER_MOD)
                           //      shouldWindowClose = 1;
+                }
+                else if (is_input_keypress_of_key(input, KEY_F5)) {
+                        gfx_toggle_srgb();
                 }
                 else if (is_input_keypress_of_key_and_modifiers(input, KEY_F11, MODIFIER_MOD)) {
                         toggle_fullscreen();

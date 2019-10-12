@@ -36,21 +36,33 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
                         fatalf("Failed to load glyph for char %d\n", codepoint);
         }
 
+#define USE_SUBPIXEL_RENDERING 1
+#if USE_SUBPIXEL_RENDERING
+        /* FT_RENDER_MODE_NORMAL means antialiased */
+        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_LCD);
+#else
         /* FT_RENDER_MODE_NORMAL means antialiased */
         error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+#endif
         if (error)
                 /* TODO: does this mean OOM? */
                 fatalf("Failed to render glyph for char %d\n", codepoint);
 
         FT_Bitmap *bitmap = &face->glyph->bitmap;
 
+#if USE_SUBPIXEL_RENDERING
+        if (bitmap->pixel_mode != FT_PIXEL_MODE_LCD)
+                fatalf("Expected FT_PIXEL_MODE_LCD pixmap for subpixel rendering");
+#else
 	/* for simplicity, we assume that `bitmap->pixel_mode' */
 	/* is `FT_PIXEL_MODE_GRAY' (i.e., not a bitmap font)   */
 	if (bitmap->pixel_mode != FT_PIXEL_MODE_GRAY)
                 fatalf("Assertion failed\n");
+#endif
 
+        log_postf("bitmap pixels (%c): %d %d", codepoint, bitmap->width, bitmap->rows);
         *outBuffer = bitmap->buffer;
-        *outStride = bitmap->width;  /* ??? */
+        *outStride = bitmap->pitch;
         outLayout->pixW = bitmap->width;
         outLayout->pixH = bitmap->rows;
         outLayout->horiBearingX = (int) (face->glyph->metrics.horiBearingX / 64.0f);

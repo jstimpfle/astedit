@@ -91,15 +91,12 @@ static struct CachedGlyph *render_and_insert_glyph(const struct GlyphMeta *meta)
 {
         unsigned char *buffer;
         int stride;
-
         struct GlyphLayoutInfo layout;
-        struct CachedTexture *cachedTexture;
-        struct CachedGlyph *cachedGlyph;
-
         render_glyph(meta, &buffer, &stride, &layout);
 
-        cachedTexture = store_texture_in_texture_atlas(buffer, layout.pixW, layout.pixH, stride);
+        struct CachedTexture *cachedTexture = store_texture_in_texture_atlas(buffer, layout.pixW, layout.pixH, stride);
 
+        struct CachedGlyph *cachedGlyph;
         cachedGlyph = cache_glyph(meta, &layout, cachedTexture);
 
         return cachedGlyph;
@@ -154,7 +151,7 @@ int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
                 // TODO: fix rectX based on cellWidth (for monospace fonts)
                 int rectX = x + layout->horiBearingX;
                 int rectY = baselineY - layout->horiBearingY;
-                int rectW = layout->pixW;
+                int rectW = layout->pixW / 3; /* RGB format */
                 int rectH = layout->pixH;
                 Texture texture = region.texture;
                 float texX = region.texX;

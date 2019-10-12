@@ -175,8 +175,9 @@ const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
               "uniform sampler2D sampler;\n"
               "void main()\n"
               "{\n"
-              "    float alpha = texture(sampler, texPosF).x;\n"
-              "    gl_FragColor = vec4(colorF.rgb, colorF.a * alpha);\n"
+              "    vec3 t = texture(sampler, texPosF).rgb;\n"
+              //"    gl_FragColor = vec4(colorF.r * t.r, colorF.g * t.g, colorF.b * t.b, 1.0);\n"
+              "    gl_FragColor = vec4(colorF.rgb * t, (t.r+t.g+t.b)*colorF.a);\n"
               "}\n"),
         MAKE(SHADER_FRAGMENTTEXTURERGBA, GL_FRAGMENT_SHADER,
               "#version 130\n"
@@ -236,6 +237,10 @@ static GLint attribLocation[NUM_ATTRIB_KINDS];
 /* Matrix for coordinate system: top-left = (0,0). bottom-right = some other
 point */
 static struct Mat4 transformMatrix;
+
+
+static int srgbEnabled = 1;
+
 
 static void check_gl_errors(const char *filename, int line)
 {
@@ -457,6 +462,33 @@ void upload_rgba_texture_data(Texture texture, const unsigned char *data, int si
 
 }
 
+void upload_rgb_texture_data(Texture texture, const unsigned char *data, int size, int w, int h)
+{
+        //ENSURE(data != NULL);  // From now on, NULL is valid and means to allocate the texture without any initialization pixel data
+        ENSURE(texture >= 0);
+        ENSURE(size == 3 * w * h);
+        UNUSED(size);
+
+        glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
+
+        /*
+         * Setup textures
+         */
+
+        glBindTexture(GL_TEXTURE_2D, texture);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        CHECK_GL_ERRORS();
+}
+
 void upload_alpha_texture_data(Texture texture, const unsigned char *data, int size, int w, int h)
 {
         //ENSURE(data != NULL);  // From now on, NULL is valid and means to allocate the texture without any initialization pixel data
@@ -486,6 +518,7 @@ void upload_alpha_texture_data(Texture texture, const unsigned char *data, int s
 
 void update_alpha_texture_subimage(Texture texture, int row, int numRows, int rowWidth, int stride, const unsigned char *data)
 {
+        ENSURE(!(stride & 3));
         UNUSED(stride);
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, row, rowWidth, numRows, GL_RED, GL_UNSIGNED_BYTE, data);
@@ -493,12 +526,25 @@ void update_alpha_texture_subimage(Texture texture, int row, int numRows, int ro
         CHECK_GL_ERRORS();
 }
 
+void update_rgb_texture_subimage(Texture texture, int y, int h, int w, int stride, const unsigned char *data)
+{
+        log_postf("glTexSubImage2D(y=%d, h=%d, w=%d, stride=%d)\n", y, h, w, stride);
+        ENSURE(!(stride & 3));
+        ENSURE(w % 3 == 0);
+        UNUSED(stride);
+        glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, w/3, h, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        CHECK_GL_ERRORS();
+        log_postf("ok!\n");
+}
+
 
 Texture create_rgba_texture(int w, int h)
 {
         GLuint tex;
         glGenTextures(1, &tex);
-        upload_rgba_texture_data(tex, NULL, w * h, w, h);
+        upload_rgba_texture_data(tex, NULL, 4 * w * h, w, h);
         return tex;
 }
 
@@ -511,22 +557,21 @@ Texture create_alpha_texture(int w, int h)
         return tex;
 }
 
-void destroy_rgba_texture(Texture texHandle)
+Texture create_rgb_texture(int w, int h)
+{
+        GLuint tex;
+        glGenTextures(1, &tex);
+        upload_rgb_texture_data(tex, NULL, 3 * w * h, w, h);
+        return tex;
+}
+
+void destroy_texture(Texture texHandle)
 {
         ENSURE((Texture)(GLuint)texHandle == texHandle);
         GLuint tex = (GLuint)texHandle;
         glDeleteTextures(1, &tex);
         CHECK_GL_ERRORS();
 }
-
-void destroy_alpha_texture(Texture texHandle)
-{
-        ENSURE((Texture)(GLuint)texHandle == texHandle);
-        GLuint tex = (GLuint)texHandle;
-        glDeleteTextures(1, &tex);
-        CHECK_GL_ERRORS();
-}
-
 
 void set_2d_coordinate_system(int x, int y, int w, int h)
 {
@@ -564,13 +609,25 @@ void set_viewport_in_pixels(int x, int y, int w, int h)
         CHECK_GL_ERRORS();
 }
 
+void gfx_toggle_srgb(void)
+{
+        srgbEnabled ^= 1;
+        log_postf("srgbEnabled: %d\n", srgbEnabled);
+}
+
 void clear_screen_and_drawing_state(void)
 {
         glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
         glClearDepth(-1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        if (srgbEnabled)
+                glEnable(GL_FRAMEBUFFER_SRGB);
+        else
+                glDisable(GL_FRAMEBUFFER_SRGB);
+
         glActiveTexture(GL_TEXTURE0);
+        //glEnable(GL_FRAMEBUFFER_SRGB);
         glEnable(GL_DEPTH_TEST);
         //glEnable(GL_ALPHA_TEST);
         glEnable(GL_BLEND);
@@ -638,8 +695,7 @@ void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts,
-                GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);

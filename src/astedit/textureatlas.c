@@ -5,7 +5,9 @@
 #include <astedit/textureatlas.h>
 
 enum {
-        ATLASTEXTURE_WIDTH = 1024,
+        /* the actual numbers of pixels stored is ATLASTEXTURE_WIDTH / 3. (RGB
+         * format) */
+        ATLASTEXTURE_WIDTH = 768,  /* must be multiple of 4 */
         ATLASTEXTURE_HEIGHT = 1024,
 };
 
@@ -14,7 +16,6 @@ struct AtlasTexture;
 struct AtlasTextureRow {
         struct AtlasTexture *atlasTexture;
         int height;  /* height in pixels */
-        int width;  /* width in pixels */
         int x;  /* texture is used up from left to right. `x` indicates the x-offset of the first unused pixel */
         int y;  /* offset in texture */
         int dirty;
@@ -75,12 +76,17 @@ static struct AtlasTexture *alloc_AtlasTexture(void)
         int texIdx = numAtlasTextures++;
         REALLOC_MEMORY(&atlasTextures, numAtlasTextures);
         ALLOC_MEMORY(&atlasTextures[texIdx], 1);
-        return atlasTextures[texIdx];
+        struct AtlasTexture *a = atlasTextures[texIdx];
+        a->alphaTexture = create_rgb_texture(ATLASTEXTURE_WIDTH / 3, ATLASTEXTURE_HEIGHT);
+        a->width = ATLASTEXTURE_WIDTH;
+        a->height = ATLASTEXTURE_HEIGHT;
+        a->numRows = 0;
+        a->rows = NULL;
+        return a;
 }
 
-static struct AtlasTextureRow *alloc_row(struct AtlasTexture *a, int y, int w, int h)
+static struct AtlasTextureRow *alloc_row(struct AtlasTexture *a, int y, int h)
 {
-        UNUSED(w);
         ENSURE(h <= ATLASTEXTURE_HEIGHT - y);
         int index = a->numRows++;
         REALLOC_MEMORY(&a->rows, a->numRows);
@@ -90,9 +96,8 @@ static struct AtlasTextureRow *alloc_row(struct AtlasTexture *a, int y, int w, i
         row->x = 0;
         row->y = y;
         row->height = h;
-        row->width = ATLASTEXTURE_WIDTH;
         row->dirty = 0;
-        ALLOC_MEMORY(&row->buffer, h * ATLASTEXTURE_WIDTH);
+        ALLOC_MEMORY(&row->buffer, ATLASTEXTURE_WIDTH * row->height);
         return row;
 }
 
@@ -117,7 +122,6 @@ void reset_texture_atlas(void)
         /*TODO*/
 }
 
-
 static struct AtlasTextureRow *find_or_alloc_row(int w, int h)
 {
         ENSURE(w <= ATLASTEXTURE_WIDTH);
@@ -128,56 +132,58 @@ static struct AtlasTextureRow *find_or_alloc_row(int w, int h)
                 struct AtlasTexture *a = atlasTextures[i];
                 for (int j = 0; j < a->numRows; j++) {
                         struct AtlasTextureRow *row = a->rows[j];
-                        if (row->height == h && row->width - row->x >= w)
+                        if (row->height == h && ATLASTEXTURE_WIDTH - row->x >= w)
                                 return row;
                 }
         }
 
         /* look for an AtlasTexture that has enough space for a new row */
+        struct AtlasTexture *atlas = NULL;
+        int y = 0;
         for (int i = 0; i < numAtlasTextures; i++) {
                 struct AtlasTexture *a = atlasTextures[i];
-                int y = 0;
-                y = 28; //XXX for testing: don't start using the texture at the top
-                if (a->numRows > 0) {
+                if (a->numRows == 0)
+                        y = 0;
+                else /* a->numRows > 0*/ {
                         struct AtlasTextureRow *row = a->rows[a->numRows - 1];
                         y = row->y + row->height;
                 }
                 if (a->height - y >= h) {
-                        return alloc_row(a, y, w, h);
+                        atlas = a;
+                        break;
                 }
         }
-
-        struct AtlasTexture *a = alloc_AtlasTexture();
-        a->alphaTexture = create_alpha_texture(ATLASTEXTURE_WIDTH, ATLASTEXTURE_HEIGHT);
-        a->width = ATLASTEXTURE_WIDTH;
-        a->height = ATLASTEXTURE_HEIGHT;
-        a->numRows = 0;
-        a->rows = NULL;
-        return alloc_row(a, 28/*XXX same as above*/, a->width, h);
+        if (atlas == NULL) {
+                atlas = alloc_AtlasTexture();
+                y = 0;
+        }
+        return alloc_row(atlas, y, h);
 }
-
 
 struct CachedTexture *store_texture_in_texture_atlas(unsigned char *pixels, int pixW, int pixH, int stride)
 {
-        //debug_print_texture(pixels, pixH, pixW, stride);
+        //debug_print_texture(pixels, pixW, pixH, stride);
 
-        int h = (pixH + 3) / 4 * 4;  /* next multiple of 4 */
+        /* dimensions of the subimage that we want to allocate in atlas */
+        int w = pixW;
+        int h = (pixH + 3) & ~3;  /* next multiple of 4 */
 
-        struct AtlasTextureRow *row = find_or_alloc_row(pixW, h);
+        struct AtlasTextureRow *row = find_or_alloc_row(w, h);
         int pixX = row->x;
         row->x += pixW;
 
-        copy_texture(row->buffer + pixX, pixels, pixW, pixH, row->width, stride);
+        int srcStride = stride;
+        int dstStride = ATLASTEXTURE_WIDTH;
 
+        copy_texture(row->buffer + pixX, pixels, pixW, pixH, dstStride, srcStride);
         row->dirty = 1;
 
-        struct CachedTexture *out = alloc_CachedTexture();
-        out->row = row;
-        out->x = pixX;
-        out->width = pixW;
-        out->height = pixH;
-
-        return out;
+        struct CachedTexture *cachedTexture = alloc_CachedTexture();
+        cachedTexture->row = row;
+        cachedTexture->x = pixX;
+        cachedTexture->width = pixW;
+        cachedTexture->height = pixH;
+        return cachedTexture;
 }
 
 void compute_region_from_CachedTexture(struct CachedTexture *cachedTexture, struct TextureAtlasRegion *outRegion)
@@ -197,7 +203,7 @@ void commit_all_dirty_textures(void)
                         struct AtlasTextureRow *row = a->rows[j];
                         if (row->dirty) {
                                 ENSURE(row->buffer != NULL);
-                                update_alpha_texture_subimage(a->alphaTexture, row->y, row->height, row->width, row->width, row->buffer);
+                                update_rgb_texture_subimage(a->alphaTexture, row->y, row->height, ATLASTEXTURE_WIDTH, ATLASTEXTURE_WIDTH, row->buffer);
                                 row->dirty = 0;
                                 //FREE_MEMORY(&row->buffer);
                                 //ENSURE(row->buffer == NULL);

@@ -16,7 +16,7 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 
-#if 1
+#if 0
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
 static const struct RGB normalTextColor = {0, 255, 0 };
@@ -31,14 +31,14 @@ static const struct RGB statusbarTextColor = { 0, 0, 0 };
 #else
 static const struct RGB texteditBgColor = { 255, 255, 255 };
 static const struct RGB statusbarBgColor = { 64, 64, 64 };
-static const struct RGB normalTextColor = {32, 32, 32 };
+static const struct RGB normalTextColor = {0, 0, 0 };
 static const struct RGB stringTokenColor = { 32, 160, 32 };
 static const struct RGB integerTokenColor = { 0, 0, 255 };
-static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
+static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalTextColor, but MSVC won't let me use that ("initializer is not a constant")
 static const struct RGB junkTokenColor = { 255, 0, 0 };
-static const struct RGB borderColor = { 32, 32, 32 };
+static const struct RGB borderColor = { 128, 128, 128 };
 static const struct RGB highlightColor = { 192, 192, 255 };
-static const struct RGB cursorBorderColor = { 128, 128, 128 };
+static const struct RGB cursorBorderColor = { 32, 32, 32 };
 static const struct RGB statusbarTextColor = { 224, 224, 224 };
 #endif
 
@@ -301,12 +301,13 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 }
 
 
-static const int LINE_HEIGHT_PIXELS = 33;
+static const int LINE_HEIGHT_PIXELS = 20;
 static const int CELL_WIDTH_PIXELS = -1;//22;
+static const int FONT_HEIGHT_PIXELS = 14;
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS codepointPos, FILEPOS lineNumber)
 {
         cursor->xLeft = x;
-        cursor->fontSize = 25;
+        cursor->fontSize = FONT_HEIGHT_PIXELS;
         cursor->distanceYtoBaseline = LINE_HEIGHT_PIXELS * 2 / 3;
         cursor->lineHeight = LINE_HEIGHT_PIXELS;
         cursor->cellWidth = CELL_WIDTH_PIXELS;
