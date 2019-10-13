@@ -1,6 +1,7 @@
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
 #include <astedit/vimode.h>
+#include <astedit/gfx.h>  // gfx_toggle_srgb()
 #include <astedit/eventhandling.h>
 
 

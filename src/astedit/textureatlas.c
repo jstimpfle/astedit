@@ -7,7 +7,7 @@
 enum {
         /* the actual numbers of pixels stored is ATLASTEXTURE_WIDTH / 3. (RGB
          * format) */
-        ATLASTEXTURE_WIDTH = 768,  /* must be multiple of 4 */
+        ATLASTEXTURE_WIDTH = 3 * 1024,  /* must be multiple of 4 */
         ATLASTEXTURE_HEIGHT = 1024,
 };
 

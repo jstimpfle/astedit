@@ -47,6 +47,7 @@ void set_2d_coordinate_system(int x, int y, int w, int h);
 void set_viewport_in_pixels(int x, int y, int w, int h);
 void set_clipping_rect_in_pixels(int x, int y, int w, int h);
 void clear_clipping_rect(void);
+void gfx_toggle_srgb(void);  /* toggle automatic sRGB conversion on output to Framebuffer */
 
 Texture create_rgba_texture(int w, int h);
 Texture create_rgb_texture(int w, int h);

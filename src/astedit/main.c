@@ -11,7 +11,6 @@
 
 static struct TextEdit globalTextEdit;
 
-static struct Timer keyinputTimer;
 static struct Timer redrawTimer;
 static struct Timer mainloopTimer;
 static struct Timer waitEventsTimer;

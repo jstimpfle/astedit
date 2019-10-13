@@ -79,6 +79,7 @@ enum {
         SHADER_VERTEXTEXTURE,
         SHADER_FRAGMENTTEXTUREALPHA,
         SHADER_FRAGMENTTEXTURERGBA,
+        SHADER_FRAGMENTTEXTURERGBDUALSOURCE,
         NUM_SHADER_KINDS,
 };
 
@@ -86,6 +87,7 @@ enum {
         PROGRAM_VARYINGCOLOR,
         PROGRAM_TEXTUREALPHA,
         PROGRAM_TEXTURERGBA,
+        PROGRAM_TEXTURERGBDUALSOURCE,
         NUM_PROGRAM_KINDS,
 };
 
@@ -95,6 +97,8 @@ enum {
         UNIFORM_TEXTUREALPHA_sampler,
         UNIFORM_TEXTURERGBA_mat,
         UNIFORM_TEXTURERGBA_sampler,
+        UNIFORM_TEXTURERGBDUALSOURCE_mat,
+        UNIFORM_TEXTURERGBDUALSOURCE_sampler,
         NUM_UNIFORM_KINDS,
 };
 
@@ -106,6 +110,8 @@ enum {
         ATTRIB_TEXTUREALPHA_texPos,
         ATTRIB_TEXTURERGBA_pos,
         ATTRIB_TEXTURERGBA_texPos,
+        ATTRIB_TEXTURERGBDUALSOURCE_pos,
+        ATTRIB_TEXTURERGBDUALSOURCE_color,
         NUM_ATTRIB_KINDS,
 };
 
@@ -187,6 +193,19 @@ const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
               "{\n"
               "    gl_FragColor = texture(sampler, texPosF);\n"
               "}\n"),
+        MAKE(SHADER_FRAGMENTTEXTURERGBDUALSOURCE, GL_FRAGMENT_SHADER,
+             "#version 330\n"
+             "out vec4 outColor;\n"
+             "out vec4 outBlend;  /* blend factors for individual colors in outColor (Dual Source Blending) */\n"
+             "in vec4 colorF;\n"
+             "in vec2 texPosF;\n"
+             "uniform sampler2D sampler;\n"
+             "void main()\n"
+             "{\n"
+             "    vec4 t = texture(sampler, texPosF);\n"
+             "    outColor = colorF;\n"
+             "    outBlend = vec4(t.rgb, 1.0);\n"
+             "}\n"),
 #undef MAKE
 };
 
@@ -204,7 +223,9 @@ const struct ShaderLinkInfo shaderLinkInfo[] = {
         { PROGRAM_TEXTUREALPHA, SHADER_VERTEXTEXTURE },
         { PROGRAM_TEXTUREALPHA, SHADER_FRAGMENTTEXTUREALPHA },
         { PROGRAM_TEXTURERGBA, SHADER_VERTEXTEXTURE },
-        { PROGRAM_TEXTURERGBA, SHADER_FRAGMENTTEXTURERGBA }
+        { PROGRAM_TEXTURERGBA, SHADER_FRAGMENTTEXTURERGBA },
+        { PROGRAM_TEXTURERGBDUALSOURCE, SHADER_VERTEXTEXTURE },
+        { PROGRAM_TEXTURERGBDUALSOURCE, SHADER_FRAGMENTTEXTURERGBDUALSOURCE },
 };
 
 const struct UniformInfo uniformInfo[NUM_UNIFORM_KINDS] = {
@@ -213,6 +234,8 @@ const struct UniformInfo uniformInfo[NUM_UNIFORM_KINDS] = {
         [UNIFORM_TEXTUREALPHA_sampler] = { PROGRAM_TEXTUREALPHA, "sampler" },
         [UNIFORM_TEXTURERGBA_mat] = { PROGRAM_TEXTURERGBA, "mat" },
         [UNIFORM_TEXTURERGBA_sampler] = { PROGRAM_TEXTURERGBA, "sampler" },
+        [UNIFORM_TEXTURERGBDUALSOURCE_mat] = { PROGRAM_TEXTURERGBDUALSOURCE, "mat" },
+        [UNIFORM_TEXTURERGBDUALSOURCE_sampler] = { PROGRAM_TEXTURERGBDUALSOURCE, "sampler" },
 };
 
 const struct AttribInfo attribInfo[NUM_ATTRIB_KINDS] = {
@@ -223,6 +246,8 @@ const struct AttribInfo attribInfo[NUM_ATTRIB_KINDS] = {
         [ATTRIB_TEXTUREALPHA_texPos] = { PROGRAM_TEXTUREALPHA, "texPos" },
         [ATTRIB_TEXTURERGBA_pos] = { PROGRAM_TEXTURERGBA, "pos" },
         [ATTRIB_TEXTURERGBA_texPos] = { PROGRAM_TEXTURERGBA, "texPos" },
+        [ATTRIB_TEXTURERGBDUALSOURCE_pos] = { PROGRAM_TEXTURERGBDUALSOURCE, "pos" },
+        [ATTRIB_TEXTURERGBDUALSOURCE_color] = { PROGRAM_TEXTURERGBDUALSOURCE, "color" },
 };
 
 
@@ -328,6 +353,10 @@ void setup_gfx(void)
                 glAttachShader(program_GL_id[program], shader_GL_id[shader]);
         }
         CHECK_GL_ERRORS();
+
+        /* TODO: move this to descriptive structs as well */
+        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_TEXTURERGBDUALSOURCE], 0, 0, "outColor");
+        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_TEXTURERGBDUALSOURCE], 0, 1, "outBlend");
 
         for (int i = 0; i < NUM_PROGRAM_KINDS; i++) {
                 glLinkProgram(program_GL_id[i]);
@@ -528,7 +557,7 @@ void update_alpha_texture_subimage(Texture texture, int row, int numRows, int ro
 
 void update_rgb_texture_subimage(Texture texture, int y, int h, int w, int stride, const unsigned char *data)
 {
-        log_postf("glTexSubImage2D(y=%d, h=%d, w=%d, stride=%d)\n", y, h, w, stride);
+        //log_postf("glTexSubImage2D(y=%d, h=%d, w=%d, stride=%d)\n", y, h, w, stride);
         ENSURE(!(stride & 3));
         ENSURE(w % 3 == 0);
         UNUSED(stride);
@@ -536,7 +565,6 @@ void update_rgb_texture_subimage(Texture texture, int y, int h, int w, int strid
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, w/3, h, GL_RGB, GL_UNSIGNED_BYTE, data);
         glBindTexture(GL_TEXTURE_2D, 0);
         CHECK_GL_ERRORS();
-        log_postf("ok!\n");
 }
 
 
@@ -577,7 +605,7 @@ void set_2d_coordinate_system(int x, int y, int w, int h)
 {
         (void)x;
         (void)y;
-        struct Mat4 mat = { 0 };
+        struct Mat4 mat = {0};
         mat.m[0][0] = 2.0f / w;
         mat.m[1][1] = -2.0f / h;
         mat.m[2][2] = 1.0f;
@@ -627,11 +655,9 @@ void clear_screen_and_drawing_state(void)
                 glDisable(GL_FRAMEBUFFER_SRGB);
 
         glActiveTexture(GL_TEXTURE0);
-        //glEnable(GL_FRAMEBUFFER_SRGB);
         glEnable(GL_DEPTH_TEST);
         //glEnable(GL_ALPHA_TEST);
         glEnable(GL_BLEND);
-        glEnable(GL_TEXTURE_2D);
         glDisable(GL_SCISSOR_TEST);
         glDepthFunc(GL_GEQUAL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -646,6 +672,7 @@ void flush_gfx(void)
 
 void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
 {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         CHECK_GL_ERRORS();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts,
@@ -665,6 +692,8 @@ void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
 
 void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts,
                 GL_DYNAMIC_DRAW);
@@ -698,11 +727,14 @@ void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
         glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-        glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
-        glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTUREALPHA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
-        glUniform1i(uniformLocation[UNIFORM_TEXTUREALPHA_sampler], 0/*texture unit 0 ???*/);
+        //glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
+        glUseProgram(program_GL_id[PROGRAM_TEXTURERGBDUALSOURCE]);
 
-        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]);
+        glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTURERGBDUALSOURCE_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
+        glUniform1i(uniformLocation[UNIFORM_TEXTURERGBDUALSOURCE_sampler], 0/*texture unit 0 ???*/);
+
+        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]); //XXX we still don't have a separate rgbdualsource VAO
+        glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
 
         int pos = 0;
         while (pos < numVerts) {

@@ -42,6 +42,10 @@ static const struct RGB cursorBorderColor = { 32, 32, 32 };
 static const struct RGB statusbarTextColor = { 224, 224, 224 };
 #endif
 
+static const int LINE_HEIGHT_PIXELS = 26;
+static const int CELL_WIDTH_PIXELS = -1;//22;
+static const int FONT_HEIGHT_PIXELS = 10;
+
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d alphaVertexBuffer[3 * 1024];
@@ -301,9 +305,6 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 }
 
 
-static const int LINE_HEIGHT_PIXELS = 20;
-static const int CELL_WIDTH_PIXELS = -1;//22;
-static const int FONT_HEIGHT_PIXELS = 14;
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS codepointPos, FILEPOS lineNumber)
 {
         cursor->xLeft = x;
