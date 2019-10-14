@@ -128,6 +128,17 @@ struct AttribInfo {
         const char *attribName;
 };
 
+/* associate an attribute (in a VAO) with an attribute member */
+struct AttributeMemberInfo {
+        /* there is no VBO field here since we currently only have a single global VBO
+        (rewritten before each draw) */
+        int attribKind;  // e.g. ATTRIB_VARIYINGCOLOR_pos
+        int cardinality;  // how many
+        int openglType;  // type of each, e.g. GL_FLOAT
+        int stride;  // stride between attribute instances (i.e. offset to next value of this kind)
+        int offset;  // offset within data that is drawn (i.e. similar to C's offsetof())
+};
+
 const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
 #define MAKE(x, y, z) [x] = { #x, z, y }
         MAKE(SHADER_VERTEXVARYINGCOLOR, GL_VERTEX_SHADER,
@@ -239,6 +250,18 @@ const struct AttribInfo attribInfo[NUM_ATTRIB_KINDS] = {
         [ATTRIB_TEXTURERGBDUALSOURCE_color] = { PROGRAM_TEXTURERGBDUALSOURCE, "color" },
 };
 
+static struct AttributeMemberInfo attributeMemberInfo[] = {
+#define MAKE(attribKind, cardinality, openglType, containertype, membername) \
+        { attribKind, cardinality, openglType, sizeof (containertype), offsetof(containertype, membername) }
+        MAKE(ATTRIB_VARYINGCOLOR_pos, 3, GL_FLOAT, struct ColorVertex2d, x),
+        MAKE(ATTRIB_VARYINGCOLOR_color, 4, GL_FLOAT, struct ColorVertex2d, r),
+        MAKE(ATTRIB_TEXTUREALPHA_pos, 3, GL_FLOAT, struct TextureVertex2d, x),
+        MAKE(ATTRIB_TEXTUREALPHA_color, 4, GL_FLOAT, struct TextureVertex2d, r),
+        MAKE(ATTRIB_TEXTUREALPHA_texPos, 2, GL_FLOAT, struct TextureVertex2d, texX),
+        MAKE(ATTRIB_TEXTURERGBA_pos, 3, GL_FLOAT, struct TextureVertex2d, x),
+        MAKE(ATTRIB_TEXTURERGBA_texPos, 2, GL_FLOAT, struct TextureVertex2d, texX),
+#undef MAKE
+};
 
 static GLuint vaoOfProgram[NUM_PROGRAM_KINDS];
 static GLuint vbo;
@@ -251,7 +274,6 @@ static GLint attribLocation[NUM_ATTRIB_KINDS];
 /* Matrix for coordinate system: top-left = (0,0). bottom-right = some other
 point */
 static struct Mat4 transformMatrix;
-
 
 static int srgbEnabled = 1;
 
@@ -317,8 +339,7 @@ void setup_gfx(void)
         CHECK_GL_ERRORS();
 
         for (int i = 0; i < NUM_SHADER_KINDS; i++)
-                glShaderSource(shader_GL_id[i], 1,
-                        &shaderInfo[i].shaderSource, NULL);
+                glShaderSource(shader_GL_id[i], 1, &shaderInfo[i].shaderSource, NULL);
         CHECK_GL_ERRORS();
 
         for (int i = 0; i < NUM_SHADER_KINDS; i++)
@@ -333,8 +354,6 @@ void setup_gfx(void)
                 }
         }
         CHECK_GL_ERRORS();
-
-
 
         /*
          * Create programs, attach shaders, link programs
@@ -406,48 +425,17 @@ void setup_gfx(void)
         glGenBuffers(1, &vbo);  // one buffer for all, currently. Buffer gets overwritten on each draw
         CHECK_GL_ERRORS();
 
-        glBindVertexArray(vaoOfProgram[PROGRAM_VARYINGCOLOR]);
-        glEnableVertexAttribArray(attribLocation[ATTRIB_VARYINGCOLOR_pos]);
-        glEnableVertexAttribArray(attribLocation[ATTRIB_VARYINGCOLOR_color]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer(attribLocation[ATTRIB_VARYINGCOLOR_pos],
-                3, GL_FLOAT, GL_FALSE, sizeof(struct ColorVertex2d),
-                (char *)0 + offsetof(struct ColorVertex2d, x));
-        glVertexAttribPointer(attribLocation[ATTRIB_VARYINGCOLOR_color],
-                4, GL_FLOAT, GL_FALSE, sizeof(struct ColorVertex2d),
-                (char *)0 + offsetof(struct ColorVertex2d, r));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-
-        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]);
-        glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTUREALPHA_pos]);
-        glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTUREALPHA_color]);
-        glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTUREALPHA_texPos]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer(attribLocation[ATTRIB_TEXTUREALPHA_pos],
-                3, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
-                (char *)0 + offsetof(struct TextureVertex2d, x));
-        glVertexAttribPointer(attribLocation[ATTRIB_TEXTUREALPHA_color],
-                4, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
-                (char *)0 + offsetof(struct TextureVertex2d, r));
-        glVertexAttribPointer(attribLocation[ATTRIB_TEXTUREALPHA_texPos],
-                2, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
-                (char *)0 + offsetof(struct TextureVertex2d, texX));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-
-        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTURERGBA]);
-        glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTURERGBA_pos]);
-        glEnableVertexAttribArray(attribLocation[ATTRIB_TEXTURERGBA_texPos]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer(attribLocation[ATTRIB_TEXTURERGBA_pos],
-                3, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
-                (char *)0 + offsetof(struct TextureVertex2d, x));
-        glVertexAttribPointer(attribLocation[ATTRIB_TEXTURERGBA_texPos],
-                2, GL_FLOAT, GL_FALSE, sizeof(struct TextureVertex2d),
-                (char *)0 + offsetof(struct TextureVertex2d, texX));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
+        /* TODO: is there any value in optimizing this to avoid unnecessary VAO re-binds? */
+        for (int i = 0; i < LENGTH(attributeMemberInfo); i++) {
+                struct AttributeMemberInfo *ami = &attributeMemberInfo[i];
+                glBindVertexArray(vaoOfProgram[attribInfo[ami->attribKind].programKind]);
+                glEnableVertexAttribArray(attribLocation[ami->attribKind]);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo /* global VBO */);
+                glVertexAttribPointer(attribLocation[ami->attribKind], ami->cardinality,
+                        ami->openglType, GL_FALSE, ami->stride, (char*)0 + ami->offset);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glBindVertexArray(0);
+        }
 
         CHECK_GL_ERRORS();
 }
