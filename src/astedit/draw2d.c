@@ -46,7 +46,6 @@ static const int LINE_HEIGHT_PIXELS = 26;
 static const int CELL_WIDTH_PIXELS = -1;//22;
 static const int FONT_HEIGHT_PIXELS = 16;
 
-
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d subpixelRenderedFontVertexBuffer[3 * 1024];
 
@@ -65,7 +64,7 @@ void flush_color_vertices(void)
 void flush_subpixelRenderedFont_texture_vertices(void)
 {
         if (subpixelRenderedFontVertexCount > 0) {
-                draw_alpha_texture_vertices(subpixelRenderedFontVertexBuffer, subpixelRenderedFontVertexCount);
+                draw_subpixelRenderedFont_vertices(subpixelRenderedFontVertexBuffer, subpixelRenderedFontVertexCount);
                 subpixelRenderedFontVertexCount = 0;
         }
 }

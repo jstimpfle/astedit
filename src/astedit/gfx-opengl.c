@@ -246,7 +246,7 @@ static struct AttribInfo attribInfo[] = {
         MAKE(ATTRIB_TEXTURERGBA_pos, PROGRAM_TEXTURERGBA, "pos", 3, GL_FLOAT, struct TextureVertex2d, x),
         MAKE(ATTRIB_TEXTURERGBA_texPos, PROGRAM_TEXTURERGBA, "texPos", 2, GL_FLOAT, struct TextureVertex2d, texX),
         MAKE(ATTRIB_SUBPIXELRENDEREDFONT_pos, PROGRAM_SUBPIXELRENDEREDFONT, "pos", 3, GL_FLOAT, struct TextureVertex2d, x),
-        MAKE(ATTRIB_SUBPIXELRENDEREDFONT_color, PROGRAM_SUBPIXELRENDEREDFONT, "color", 4, GL_FLOAT, struct TextureVertex2d, x),
+        MAKE(ATTRIB_SUBPIXELRENDEREDFONT_color, PROGRAM_SUBPIXELRENDEREDFONT, "color", 4, GL_FLOAT, struct TextureVertex2d, r),
         MAKE(ATTRIB_SUBPIXELRENDEREDFONT_texPos, PROGRAM_SUBPIXELRENDEREDFONT, "texPos", 2, GL_FLOAT, struct TextureVertex2d, texX),
 #undef MAKE
 };
@@ -438,28 +438,20 @@ void teardown_gfx(void)
         CHECK_GL_ERRORS();
 }
 
-
 void upload_rgba_texture_data(Texture texture, const unsigned char *data, int size, int w, int h)
 {
         ENSURE(size == w * h * 4);
         UNUSED(size);
 
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
-        /*
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        */
-
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        CHECK_GL_ERRORS();
-
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
         CHECK_GL_ERRORS();
-
 }
 
 void upload_rgb_texture_data(Texture texture, const unsigned char *data, int size, int w, int h)
@@ -470,19 +462,10 @@ void upload_rgb_texture_data(Texture texture, const unsigned char *data, int siz
         UNUSED(size);
 
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
-
-        /*
-         * Setup textures
-         */
-
-        glBindTexture(GL_TEXTURE_2D, texture);
-
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -497,19 +480,10 @@ void upload_alpha_texture_data(Texture texture, const unsigned char *data, int s
         UNUSED(size);
 
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
-
-        /*
-         * Setup textures
-         */
-
-        glBindTexture(GL_TEXTURE_2D, texture);
-
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -538,7 +512,6 @@ void update_rgb_texture_subimage(Texture texture, int y, int h, int w, int strid
         CHECK_GL_ERRORS();
 }
 
-
 Texture create_rgba_texture(int w, int h)
 {
         GLuint tex;
@@ -546,7 +519,6 @@ Texture create_rgba_texture(int w, int h)
         upload_rgba_texture_data(tex, NULL, 4 * w * h, w, h);
         return tex;
 }
-
 
 Texture create_alpha_texture(int w, int h)
 {
@@ -641,19 +613,36 @@ void flush_gfx(void)
         CHECK_GL_ERRORS();
 }
 
+static void upload_vbo_data(const void *data, int numElems, int elemSize)
+{
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, numElems * elemSize, data, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+static void draw_texture_vertices_of_any_kind(struct TextureVertex2d *verts, int numVerts)
+{
+        int pos = 0;
+        while (pos < numVerts) {
+                GLuint texture = (GLuint)verts[pos].tex;
+                int num = 0;
+                while (pos + num < numVerts && verts[pos + num].tex == verts[pos].tex)
+                        num++;
+                glBindTexture(GL_TEXTURE_2D, texture);
+                glDrawArrays(GL_TRIANGLES, pos, num);
+                glBindTexture(GL_TEXTURE_2D, 0);
+                CHECK_GL_ERRORS();
+                pos += num;
+        }
+}
+
 void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
 {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        CHECK_GL_ERRORS();
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts,
-                GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        CHECK_GL_ERRORS();
+        upload_vbo_data(verts, numVerts, sizeof *verts);
 
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glUseProgram(program_GL_id[PROGRAM_VARYINGCOLOR]);
-        glUniformMatrix4fv(uniformLocation[UNIFORM_VARYINGCOLOR_mat],
-                1, GL_TRUE, &transformMatrix.m[0][0]);
+        glUniformMatrix4fv(uniformLocation[UNIFORM_VARYINGCOLOR_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
         glBindVertexArray(vaoOfProgram[PROGRAM_VARYINGCOLOR]);
         glDrawArrays(GL_TRIANGLES, 0, numVerts);
         glBindVertexArray(0);
@@ -663,30 +652,16 @@ void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
 
 void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
+        upload_vbo_data(verts, numVerts, sizeof *verts);
+
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts,
-                GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-
         glUseProgram(program_GL_id[PROGRAM_TEXTURERGBA]);
-        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTURERGBA]);
         glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTURERGBA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
-        glUniform1i(uniformLocation[UNIFORM_TEXTURERGBA_sampler], 0/*texture unit 0 ???*/);
+        glUniform1i(uniformLocation[UNIFORM_TEXTURERGBA_sampler], 0);
+        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTURERGBA]);
 
-        int pos = 0;
-        while (pos < numVerts) {
-                GLuint texture = (GLuint)verts[pos].tex;
-                int num = 0;
-                while (pos + num < numVerts && verts[pos + num].tex == verts[pos].tex)
-                        num++;
-                glBindTexture(GL_TEXTURE_2D, texture);
-                glDrawArrays(GL_TRIANGLES, pos, num);
-                glBindTexture(GL_TEXTURE_2D, 0);
-                CHECK_GL_ERRORS();
-                pos += num;
-        }
+        draw_texture_vertices_of_any_kind(verts, numVerts);
+
         glBindVertexArray(0);
         glUseProgram(0);
         CHECK_GL_ERRORS();
@@ -694,31 +669,33 @@ void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 
 void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof *verts, verts, GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        upload_vbo_data(verts, numVerts, sizeof *verts);
 
-        //glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
+        glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTUREALPHA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
+        glUniform1i(uniformLocation[UNIFORM_TEXTUREALPHA_sampler], 0/*texture unit 0 ???*/);
+        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]);
+
+        draw_texture_vertices_of_any_kind(verts, numVerts);
+
+        glBindVertexArray(0);
+        glUseProgram(0);
+        CHECK_GL_ERRORS();
+}
+
+void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVerts)
+{
+        upload_vbo_data(verts, numVerts, sizeof *verts);
+
+        glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
         glUseProgram(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT]);
-
         glUniformMatrix4fv(uniformLocation[UNIFORM_SUBPIXELRENDEREDFONT_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
         glUniform1i(uniformLocation[UNIFORM_SUBPIXELRENDEREDFONT_sampler], 0/*texture unit 0 ???*/);
+        glBindVertexArray(vaoOfProgram[PROGRAM_SUBPIXELRENDEREDFONT]);
 
-        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]); //XXX we still don't have a separate rgbdualsource VAO
-        glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
+        draw_texture_vertices_of_any_kind(verts, numVerts);
 
-        int pos = 0;
-        while (pos < numVerts) {
-                GLuint texture = (GLuint)verts[pos].tex;
-                int num = 0;
-                while (pos + num < numVerts && verts[pos + num].tex == verts[pos].tex)
-                        num++;
-                glBindTexture(GL_TEXTURE_2D, texture);
-                glDrawArrays(GL_TRIANGLES, pos, num);
-                glBindTexture(GL_TEXTURE_2D, 0);
-                CHECK_GL_ERRORS();
-                pos += num;
-        }
         glBindVertexArray(0);
         glUseProgram(0);
         CHECK_GL_ERRORS();

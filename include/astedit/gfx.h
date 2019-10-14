@@ -62,6 +62,7 @@ void update_rgb_texture_subimage(Texture texture, int row, int numRows, int rowW
 void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts);
 void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts);
 void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts);
+void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVerts);
 
 
 #endif
