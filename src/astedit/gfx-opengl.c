@@ -68,7 +68,7 @@ enum {
         SHADER_VERTEXTEXTURE,
         SHADER_FRAGMENTTEXTUREALPHA,
         SHADER_FRAGMENTTEXTURERGBA,
-        SHADER_FRAGMENTTEXTURERGBDUALSOURCE,
+        SHADER_FRAGMENTSUBPIXELRENDEREDFONT,
         NUM_SHADER_KINDS,
 };
 
@@ -76,7 +76,7 @@ enum {
         PROGRAM_VARYINGCOLOR,
         PROGRAM_TEXTUREALPHA,
         PROGRAM_TEXTURERGBA,
-        PROGRAM_TEXTURERGBDUALSOURCE,
+        PROGRAM_SUBPIXELRENDEREDFONT,
         NUM_PROGRAM_KINDS,
 };
 
@@ -86,8 +86,8 @@ enum {
         UNIFORM_TEXTUREALPHA_sampler,
         UNIFORM_TEXTURERGBA_mat,
         UNIFORM_TEXTURERGBA_sampler,
-        UNIFORM_TEXTURERGBDUALSOURCE_mat,
-        UNIFORM_TEXTURERGBDUALSOURCE_sampler,
+        UNIFORM_SUBPIXELRENDEREDFONT_mat,
+        UNIFORM_SUBPIXELRENDEREDFONT_sampler,
         NUM_UNIFORM_KINDS,
 };
 
@@ -99,8 +99,9 @@ enum {
         ATTRIB_TEXTUREALPHA_texPos,
         ATTRIB_TEXTURERGBA_pos,
         ATTRIB_TEXTURERGBA_texPos,
-        ATTRIB_TEXTURERGBDUALSOURCE_pos,
-        ATTRIB_TEXTURERGBDUALSOURCE_color,
+        ATTRIB_SUBPIXELRENDEREDFONT_pos,
+        ATTRIB_SUBPIXELRENDEREDFONT_color,
+        ATTRIB_SUBPIXELRENDEREDFONT_texPos,
         NUM_ATTRIB_KINDS,
 };
 
@@ -124,15 +125,11 @@ struct UniformInfo {
 
 /* associate a program with an attribute (a variable) */
 struct AttribInfo {
+        int attribKind;
         int programKind;  // PROGRAM_??
         const char *attribName;
-};
-
-/* associate an attribute (in a VAO) with an attribute member */
-struct AttributeMemberInfo {
         /* there is no VBO field here since we currently only have a single global VBO
         (rewritten before each draw) */
-        int attribKind;  // e.g. ATTRIB_VARIYINGCOLOR_pos
         int cardinality;  // how many
         int openglType;  // type of each, e.g. GL_FLOAT
         int stride;  // stride between attribute instances (i.e. offset to next value of this kind)
@@ -193,7 +190,7 @@ const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
               "{\n"
               "    gl_FragColor = texture(sampler, texPosF);\n"
               "}\n"),
-        MAKE(SHADER_FRAGMENTTEXTURERGBDUALSOURCE, GL_FRAGMENT_SHADER,
+        MAKE(SHADER_FRAGMENTSUBPIXELRENDEREDFONT, GL_FRAGMENT_SHADER,
              "#version 330\n"
              "out vec4 outColor;\n"
              "out vec4 outBlend;  /* blend factors for individual colors in outColor (Dual Source Blending) */\n"
@@ -224,8 +221,8 @@ const struct ShaderLinkInfo shaderLinkInfo[] = {
         { PROGRAM_TEXTUREALPHA, SHADER_FRAGMENTTEXTUREALPHA },
         { PROGRAM_TEXTURERGBA, SHADER_VERTEXTEXTURE },
         { PROGRAM_TEXTURERGBA, SHADER_FRAGMENTTEXTURERGBA },
-        { PROGRAM_TEXTURERGBDUALSOURCE, SHADER_VERTEXTEXTURE },
-        { PROGRAM_TEXTURERGBDUALSOURCE, SHADER_FRAGMENTTEXTURERGBDUALSOURCE },
+        { PROGRAM_SUBPIXELRENDEREDFONT, SHADER_VERTEXTEXTURE },
+        { PROGRAM_SUBPIXELRENDEREDFONT, SHADER_FRAGMENTSUBPIXELRENDEREDFONT },
 };
 
 const struct UniformInfo uniformInfo[NUM_UNIFORM_KINDS] = {
@@ -234,32 +231,23 @@ const struct UniformInfo uniformInfo[NUM_UNIFORM_KINDS] = {
         [UNIFORM_TEXTUREALPHA_sampler] = { PROGRAM_TEXTUREALPHA, "sampler" },
         [UNIFORM_TEXTURERGBA_mat] = { PROGRAM_TEXTURERGBA, "mat" },
         [UNIFORM_TEXTURERGBA_sampler] = { PROGRAM_TEXTURERGBA, "sampler" },
-        [UNIFORM_TEXTURERGBDUALSOURCE_mat] = { PROGRAM_TEXTURERGBDUALSOURCE, "mat" },
-        [UNIFORM_TEXTURERGBDUALSOURCE_sampler] = { PROGRAM_TEXTURERGBDUALSOURCE, "sampler" },
+        [UNIFORM_SUBPIXELRENDEREDFONT_mat] = { PROGRAM_SUBPIXELRENDEREDFONT, "mat" },
+        [UNIFORM_SUBPIXELRENDEREDFONT_sampler] = { PROGRAM_SUBPIXELRENDEREDFONT, "sampler" },
 };
 
-const struct AttribInfo attribInfo[NUM_ATTRIB_KINDS] = {
-        [ATTRIB_VARYINGCOLOR_pos] = { PROGRAM_VARYINGCOLOR, "pos" },
-        [ATTRIB_VARYINGCOLOR_color] = { PROGRAM_VARYINGCOLOR, "color" },
-        [ATTRIB_TEXTUREALPHA_pos] = { PROGRAM_TEXTUREALPHA, "pos" },
-        [ATTRIB_TEXTUREALPHA_color] = { PROGRAM_TEXTUREALPHA, "color" },
-        [ATTRIB_TEXTUREALPHA_texPos] = { PROGRAM_TEXTUREALPHA, "texPos" },
-        [ATTRIB_TEXTURERGBA_pos] = { PROGRAM_TEXTURERGBA, "pos" },
-        [ATTRIB_TEXTURERGBA_texPos] = { PROGRAM_TEXTURERGBA, "texPos" },
-        [ATTRIB_TEXTURERGBDUALSOURCE_pos] = { PROGRAM_TEXTURERGBDUALSOURCE, "pos" },
-        [ATTRIB_TEXTURERGBDUALSOURCE_color] = { PROGRAM_TEXTURERGBDUALSOURCE, "color" },
-};
-
-static struct AttributeMemberInfo attributeMemberInfo[] = {
-#define MAKE(attribKind, cardinality, openglType, containertype, membername) \
-        { attribKind, cardinality, openglType, sizeof (containertype), offsetof(containertype, membername) }
-        MAKE(ATTRIB_VARYINGCOLOR_pos, 3, GL_FLOAT, struct ColorVertex2d, x),
-        MAKE(ATTRIB_VARYINGCOLOR_color, 4, GL_FLOAT, struct ColorVertex2d, r),
-        MAKE(ATTRIB_TEXTUREALPHA_pos, 3, GL_FLOAT, struct TextureVertex2d, x),
-        MAKE(ATTRIB_TEXTUREALPHA_color, 4, GL_FLOAT, struct TextureVertex2d, r),
-        MAKE(ATTRIB_TEXTUREALPHA_texPos, 2, GL_FLOAT, struct TextureVertex2d, texX),
-        MAKE(ATTRIB_TEXTURERGBA_pos, 3, GL_FLOAT, struct TextureVertex2d, x),
-        MAKE(ATTRIB_TEXTURERGBA_texPos, 2, GL_FLOAT, struct TextureVertex2d, texX),
+static struct AttribInfo attribInfo[] = {
+#define MAKE(attribKind, programKind, attribName, cardinality, openglType, containertype, membername) \
+        [attribKind] = { attribKind, programKind, attribName, cardinality, openglType, sizeof (containertype), offsetof(containertype, membername) }
+        MAKE(ATTRIB_VARYINGCOLOR_pos, PROGRAM_VARYINGCOLOR, "pos", 3, GL_FLOAT, struct ColorVertex2d, x),
+        MAKE(ATTRIB_VARYINGCOLOR_color, PROGRAM_VARYINGCOLOR, "color", 4, GL_FLOAT, struct ColorVertex2d, r),
+        MAKE(ATTRIB_TEXTUREALPHA_pos, PROGRAM_TEXTUREALPHA, "pos", 3, GL_FLOAT, struct TextureVertex2d, x),
+        MAKE(ATTRIB_TEXTUREALPHA_color, PROGRAM_TEXTUREALPHA, "color", 4, GL_FLOAT, struct TextureVertex2d, r),
+        MAKE(ATTRIB_TEXTUREALPHA_texPos, PROGRAM_TEXTUREALPHA, "texPos", 2, GL_FLOAT, struct TextureVertex2d, texX),
+        MAKE(ATTRIB_TEXTURERGBA_pos, PROGRAM_TEXTURERGBA, "pos", 3, GL_FLOAT, struct TextureVertex2d, x),
+        MAKE(ATTRIB_TEXTURERGBA_texPos, PROGRAM_TEXTURERGBA, "texPos", 2, GL_FLOAT, struct TextureVertex2d, texX),
+        MAKE(ATTRIB_SUBPIXELRENDEREDFONT_pos, PROGRAM_SUBPIXELRENDEREDFONT, "pos", 3, GL_FLOAT, struct TextureVertex2d, x),
+        MAKE(ATTRIB_SUBPIXELRENDEREDFONT_color, PROGRAM_SUBPIXELRENDEREDFONT, "color", 4, GL_FLOAT, struct TextureVertex2d, x),
+        MAKE(ATTRIB_SUBPIXELRENDEREDFONT_texPos, PROGRAM_SUBPIXELRENDEREDFONT, "texPos", 2, GL_FLOAT, struct TextureVertex2d, texX),
 #undef MAKE
 };
 
@@ -372,8 +360,8 @@ void setup_gfx(void)
         CHECK_GL_ERRORS();
 
         /* TODO: move this to descriptive structs as well */
-        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_TEXTURERGBDUALSOURCE], 0, 0, "outColor");
-        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_TEXTURERGBDUALSOURCE], 0, 1, "outBlend");
+        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT], 0, 0, "outColor");
+        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT], 0, 1, "outBlend");
 
         for (int i = 0; i < NUM_PROGRAM_KINDS; i++) {
                 glLinkProgram(program_GL_id[i]);
@@ -426,9 +414,9 @@ void setup_gfx(void)
         CHECK_GL_ERRORS();
 
         /* TODO: is there any value in optimizing this to avoid unnecessary VAO re-binds? */
-        for (int i = 0; i < LENGTH(attributeMemberInfo); i++) {
-                struct AttributeMemberInfo *ami = &attributeMemberInfo[i];
-                glBindVertexArray(vaoOfProgram[attribInfo[ami->attribKind].programKind]);
+        for (int i = 0; i < LENGTH(attribInfo); i++) {
+                struct AttribInfo *ami = &attribInfo[i];
+                glBindVertexArray(vaoOfProgram[ami->programKind]);
                 glEnableVertexAttribArray(attribLocation[ami->attribKind]);
                 glBindBuffer(GL_ARRAY_BUFFER, vbo /* global VBO */);
                 glVertexAttribPointer(attribLocation[ami->attribKind], ami->cardinality,
@@ -714,10 +702,10 @@ void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         //glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
-        glUseProgram(program_GL_id[PROGRAM_TEXTURERGBDUALSOURCE]);
+        glUseProgram(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT]);
 
-        glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTURERGBDUALSOURCE_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
-        glUniform1i(uniformLocation[UNIFORM_TEXTURERGBDUALSOURCE_sampler], 0/*texture unit 0 ???*/);
+        glUniformMatrix4fv(uniformLocation[UNIFORM_SUBPIXELRENDEREDFONT_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
+        glUniform1i(uniformLocation[UNIFORM_SUBPIXELRENDEREDFONT_sampler], 0/*texture unit 0 ???*/);
 
         glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]); //XXX we still don't have a separate rgbdualsource VAO
         glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
