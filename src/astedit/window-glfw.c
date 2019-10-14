@@ -361,3 +361,8 @@ void swap_buffers(void)
         glfwSwapInterval(1);
         glfwSwapBuffers(windowGlfw);
 }
+
+ANY_FUNCTION *window_get_OpenGL_function_pointer(const char *name)
+{
+        return glfwGetProcAddress(name);
+}

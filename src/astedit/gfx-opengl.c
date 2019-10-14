@@ -4,8 +4,6 @@
 #include <astedit/window.h>
 #include <stddef.h>  // offsetof()
 
-
-
 /* To include <GL/gl.h>, <GL/glu.h>, and <GL/glext.h> on windows, it seems we
  * are required to include <windows.h> first, or else we'll get strange error
  * messages */
@@ -18,14 +16,6 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glext.h>
-
-  /* XXX: Load GLFW (our OpenGL context creator library) as well. We use
-   * glfwGetProcAddress. Maybe later remove this dependency and write a few lines
-   * of platform code instead? (glXGetProcAddress(), wglGetProcAddress()). */
-#include <GLFW/glfw3.h>
-
-
-#define CHECK_GL_ERRORS() check_gl_errors(__FILE__, __LINE__)
 
 
 struct OpenGLInitInfo {
@@ -45,17 +35,6 @@ const struct OpenGLInitInfo openGLInitInfo[] = {
 #undef MAKE
 };
 
-static void load_opengl_function_pointers(void)
-{
-        for (int i = 0; i < LENGTH(openGLInitInfo); i++) {
-                const char *name = openGLInitInfo[i].name;
-                void(**funcptr)(void) = openGLInitInfo[i].funcptr;
-
-                *funcptr = glfwGetProcAddress(name);
-                if (!*funcptr)
-                        fatalf("OpenGL extension %s not found\n", name);
-        }
-}
 
 
 struct Mat4 {
@@ -274,6 +253,8 @@ static void check_gl_errors(const char *filename, int line)
                         gluErrorString(err));
 }
 
+#define CHECK_GL_ERRORS() check_gl_errors(__FILE__, __LINE__)
+
 static int get_compile_status(GLint shader, const char *name)
 {
         GLint compileStatus;
@@ -316,7 +297,14 @@ void setup_gfx(void)
                         (int)ctx_glMinorVersion);
         }
 
-        load_opengl_function_pointers();
+        /* Load OpenGL function pointers */
+        for (int i = 0; i < LENGTH(openGLInitInfo); i++) {
+                const char *name = openGLInitInfo[i].name;
+                ANY_FUNCTION *funcptr = window_get_OpenGL_function_pointer(name);
+                if (funcptr == NULL)
+                        fatalf("OpenGL extension %s not found\n", name);
+                *openGLInitInfo[i].funcptr = funcptr;
+        }
 
         /* Create shaders */
         for (int i = 0; i < NUM_SHADER_KINDS; i++)
