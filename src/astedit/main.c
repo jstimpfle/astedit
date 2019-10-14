@@ -11,6 +11,9 @@
 
 static struct TextEdit globalTextEdit;
 
+static struct Timer windowSetupTimer;
+static struct Timer gfxSetupTimer;
+static struct Timer fontSetupTimer;
 static struct Timer redrawTimer;
 static struct Timer mainloopTimer;
 static struct Timer waitEventsTimer;
@@ -64,9 +67,24 @@ void mainloop(void)
 int main(int argc, const char **argv)
 {
         setup_timers();
+
+        /* 2019-10: I've measured this stuff and the setup_window() routine
+        takes more than half a second. It's all in glfwCreateWindow(). TODO:
+        check if we can speed this up by calling directly into Win32. */
+        start_timer(&windowSetupTimer);
         setup_window();
-        setup_fonts();
+        stop_timer(&windowSetupTimer);
+        report_timer(&windowSetupTimer, "Setting up graphics window");
+
+        start_timer(&gfxSetupTimer);
         setup_gfx();
+        stop_timer(&gfxSetupTimer);
+        report_timer(&gfxSetupTimer, "Setting up OpenGL context");
+
+        start_timer(&fontSetupTimer);
+        setup_fonts();
+        stop_timer(&fontSetupTimer);
+        report_timer(&fontSetupTimer, "Setting up fonts");
 
         init_TextEdit(&globalTextEdit);
 

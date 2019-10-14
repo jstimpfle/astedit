@@ -60,7 +60,6 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
                 fatalf("Assertion failed\n");
 #endif
 
-        log_postf("bitmap pixels (%c): %d %d", codepoint, bitmap->width, bitmap->rows);
         *outBuffer = bitmap->buffer;
         *outStride = bitmap->pitch;
         outLayout->pixW = bitmap->width;

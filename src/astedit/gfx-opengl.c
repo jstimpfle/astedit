@@ -318,22 +318,22 @@ void setup_gfx(void)
 
         load_opengl_function_pointers();
 
-        /*
-         * Create, load, and compile shaders
-         */
-
+        /* Create shaders */
         for (int i = 0; i < NUM_SHADER_KINDS; i++)
                 shader_GL_id[i] = glCreateShader(shaderInfo[i].glshaderKind);
         CHECK_GL_ERRORS();
 
+        /* Set shader sources */
         for (int i = 0; i < NUM_SHADER_KINDS; i++)
                 glShaderSource(shader_GL_id[i], 1, &shaderInfo[i].shaderSource, NULL);
         CHECK_GL_ERRORS();
 
+        /* Compile shaders */
         for (int i = 0; i < NUM_SHADER_KINDS; i++)
                 glCompileShader(shader_GL_id[i]);
         CHECK_GL_ERRORS();
 
+        /* Check shaders' compile status */
         for (int i = 0; i < NUM_SHADER_KINDS; i++) {
                 if (!get_compile_status(shader_GL_id[i], shaderInfo[i].shaderName)) {
                         CHECK_GL_ERRORS();
@@ -343,15 +343,18 @@ void setup_gfx(void)
         }
         CHECK_GL_ERRORS();
 
-        /*
-         * Create programs, attach shaders, link programs
-         */
-
+        /* Create programs */
         for (int i = 0; i < NUM_PROGRAM_KINDS; i++) {
                 program_GL_id[i] = glCreateProgram();
         }
         CHECK_GL_ERRORS();
 
+        /* Set some program's fragment data locations. TODO: move this to descriptive structs as well */
+        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT], 0, 0, "outColor");
+        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT], 0, 1, "outBlend");
+        CHECK_GL_ERRORS();
+
+        /* Attach shaders */
         for (int i = 0; i < LENGTH(shaderLinkInfo); i++) {
                 int program = shaderLinkInfo[i].programKind;
                 int shader = shaderLinkInfo[i].shaderKind;
@@ -359,10 +362,7 @@ void setup_gfx(void)
         }
         CHECK_GL_ERRORS();
 
-        /* TODO: move this to descriptive structs as well */
-        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT], 0, 0, "outColor");
-        glBindFragDataLocationIndexed(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT], 0, 1, "outBlend");
-
+        /* Link programs */
         for (int i = 0; i < NUM_PROGRAM_KINDS; i++) {
                 glLinkProgram(program_GL_id[i]);
                 CHECK_GL_ERRORS();
@@ -373,10 +373,7 @@ void setup_gfx(void)
         }
         CHECK_GL_ERRORS();
 
-        /*
-         * Query locations of uniforms and attributes in programs
-         */
-
+        /* Query locations of shader uniforms */
         for (int i = 0; i < NUM_UNIFORM_KINDS; i++) {
                 int programKind = uniformInfo[i].programKind;
                 const char *uniformName = uniformInfo[i].uniformName;
@@ -391,11 +388,11 @@ void setup_gfx(void)
         }
         CHECK_GL_ERRORS();
 
+        /* Query locations of shader attributes */
         for (int i = 0; i < NUM_ATTRIB_KINDS; i++) {
                 int programKind = attribInfo[i].programKind;
                 const char *attribName = attribInfo[i].attribName;
-                GLint loc = glGetAttribLocation(program_GL_id[programKind],
-                        attribName);
+                GLint loc = glGetAttribLocation(program_GL_id[programKind], attribName);
                 if (loc == -1) {
                         log_postf("Warning: Failed to query attrib "
                                 "\"%s\" of shader program %s\n",
@@ -405,14 +402,14 @@ void setup_gfx(void)
         }
         CHECK_GL_ERRORS();
 
-        /*
-         * Setup VAOs
-         */
-
+        /* Create VAOs */
         glGenVertexArrays(NUM_PROGRAM_KINDS, &vaoOfProgram[0]);
+
+        /* Create VBOs */
         glGenBuffers(1, &vbo);  // one buffer for all, currently. Buffer gets overwritten on each draw
         CHECK_GL_ERRORS();
 
+        /* Setup vertex attribute pointers */
         /* TODO: is there any value in optimizing this to avoid unnecessary VAO re-binds? */
         for (int i = 0; i < LENGTH(attribInfo); i++) {
                 struct AttribInfo *ami = &attribInfo[i];
