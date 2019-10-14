@@ -73,8 +73,9 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
 
 
 static const char *faceKindToFontpath[NUM_FONTFACES] = {
-        "fontfiles/NotoSans/NotoSans-Regular.ttf",
-        "fontfiles/NotoSans/NotoSans-Bold.ttf",
+        //[FONTFACE_REGULAR] = "fontfiles/NotoSans/NotoSans-Regular.ttf",
+        [FONTFACE_REGULAR] ="fontfiles/NotoMono/NotoMono-Regular.ttf",
+        [FONTFACE_BOLD] ="fontfiles/NotoSans/NotoSans-Bold.ttf",
 };
 
 
