@@ -16,7 +16,7 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 
-#if 0
+#if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
 static const struct RGB normalTextColor = {0, 255, 0 };
@@ -44,14 +44,14 @@ static const struct RGB statusbarTextColor = { 224, 224, 224 };
 
 static const int LINE_HEIGHT_PIXELS = 26;
 static const int CELL_WIDTH_PIXELS = -1;//22;
-static const int FONT_HEIGHT_PIXELS = 10;
+static const int FONT_HEIGHT_PIXELS = 16;
 
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
-static struct TextureVertex2d alphaVertexBuffer[3 * 1024];
+static struct TextureVertex2d subpixelRenderedFontVertexBuffer[3 * 1024];
 
 static int colorVertexCount;
-static int alphaVertexCount;
+static int subpixelRenderedFontVertexCount;
 
 
 void flush_color_vertices(void)
@@ -62,11 +62,11 @@ void flush_color_vertices(void)
         }
 }
 
-void flush_alpha_texture_vertices(void)
+void flush_subpixelRenderedFont_texture_vertices(void)
 {
-        if (alphaVertexCount > 0) {
-                draw_alpha_texture_vertices(alphaVertexBuffer, alphaVertexCount);
-                alphaVertexCount = 0;
+        if (subpixelRenderedFontVertexCount > 0) {
+                draw_alpha_texture_vertices(subpixelRenderedFontVertexBuffer, subpixelRenderedFontVertexCount);
+                subpixelRenderedFontVertexCount = 0;
         }
 }
 
@@ -86,30 +86,30 @@ void push_color_vertices(struct ColorVertex2d *verts, int length)
         }
 }
 
-void push_alpha_texture_vertices(struct TextureVertex2d *verts, int length)
+void push_subpixelRenderedFont_texture_vertices(struct TextureVertex2d *verts, int length)
 {
         flush_color_vertices();
 
         int i = 0;
         while (i < length) {
-                int remainingBytes = LENGTH(alphaVertexBuffer) - alphaVertexCount;
+                int remainingBytes = LENGTH(subpixelRenderedFontVertexBuffer) - subpixelRenderedFontVertexCount;
                 int n = length - i;
                 if (n > remainingBytes)
                         n = remainingBytes;
 
-                COPY_ARRAY(alphaVertexBuffer + alphaVertexCount, verts + i, n);
-                alphaVertexCount += n;
+                COPY_ARRAY(subpixelRenderedFontVertexBuffer + subpixelRenderedFontVertexCount, verts + i, n);
+                subpixelRenderedFontVertexCount += n;
                 i += n;
 
-                if (alphaVertexCount == LENGTH(alphaVertexBuffer))
-                        flush_alpha_texture_vertices();
+                if (subpixelRenderedFontVertexCount == LENGTH(subpixelRenderedFontVertexBuffer))
+                        flush_subpixelRenderedFont_texture_vertices();
         }
 }
 
 void push_rgba_texture_vertices(struct TextureVertex2d *verts, int length)
 {
         flush_color_vertices();
-        flush_alpha_texture_vertices();
+        flush_subpixelRenderedFont_texture_vertices();
         draw_rgba_texture_vertices(verts, length);
 }
 
@@ -117,14 +117,14 @@ void push_rgba_texture_vertices(struct TextureVertex2d *verts, int length)
 static void flush_all_vertex_buffers(void)
 {
         flush_color_vertices();
-        flush_alpha_texture_vertices();
+        flush_subpixelRenderedFont_texture_vertices();
         //flush_rgba_texture_vertices();
 }
 
 void begin_frame(int x, int y, int w, int h)
 {
         ENSURE(colorVertexCount == 0);
-        ENSURE(alphaVertexCount == 0);
+        ENSURE(subpixelRenderedFontVertexCount == 0);
         set_viewport_in_pixels(x, y, w, h);
         set_2d_coordinate_system(x, y, w, h);
 }
@@ -196,7 +196,7 @@ void draw_rgba_texture_rect(Texture texture,
         push_rgba_texture_vertices(rp, LENGTH(rp));
 }
 
-void draw_alpha_texture_rect(Texture texture,
+void draw_subpixelRenderedFont_texture_rect(Texture texture,
         int r, int g, int b, int a,
         int x, int y, int w, int h,
         float texX, float texY, float texW, float texH)
@@ -208,7 +208,7 @@ void draw_alpha_texture_rect(Texture texture,
         for (int i = 0; i < 6; i++)
                 rp[i].tex = texture;
 
-        push_alpha_texture_vertices(rp, LENGTH(rp));
+        push_subpixelRenderedFont_texture_vertices(rp, LENGTH(rp));
 }
 
 void draw_colored_border(int x, int y, int w, int h, int thicknessPerSide,

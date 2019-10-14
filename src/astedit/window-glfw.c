@@ -126,7 +126,7 @@ static void enqueue_key_input(
 
 static void mouse_cb_glfw(GLFWwindow *win, int button, int action, int mods)
 {
-        (void)win;
+        UNUSED(win);
         enum MousebuttonEventKind mousebuttonEventKind;
 
         if (action == GLFW_PRESS)
@@ -161,7 +161,7 @@ static void cursor_cb_glfw(GLFWwindow *win, double xoff, double yoff)
 
 static void scroll_cb_glfw(GLFWwindow *win, double xoff, double yoff)
 {
-        (void)win;
+        UNUSED(win);
 
         enum KeyKind keyKind;
         if (xoff < 0.0)
@@ -183,8 +183,8 @@ static void scroll_cb_glfw(GLFWwindow *win, double xoff, double yoff)
 
 static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int mods)
 {
-        (void)win;
-        (void)scancode;
+        UNUSED(win);
+        UNUSED(scancode);
 
         for (int i = 0; i < LENGTH(keymap); i++) {
                 if (key == keymap[i].glfwKey) {
@@ -205,7 +205,7 @@ static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int 
 
 static void char_cb_glfw(GLFWwindow *win, unsigned int codepoint)
 {
-        (void)win;
+        UNUSED(win);
         enum KeyKind keyKind = KEY_NONE;
         int modifiers = 0;
         if (65 <= codepoint && codepoint <= 90) {
@@ -222,7 +222,7 @@ static void char_cb_glfw(GLFWwindow *win, unsigned int codepoint)
 
 static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
 {
-        (void)win;
+        UNUSED(win);
         ENSURE(win == windowGlfw);
         if (!width && !height) {
                 /* for now, this is our weird workaround against division
@@ -254,7 +254,7 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
 
 static void windowrefresh_cb_glfw(GLFWwindow *win)
 {
-        (void)win;
+        UNUSED(win);
         ENSURE(win == windowGlfw);
         struct Input inp;
         inp.inputKind = INPUT_WINDOWEXPOSE;

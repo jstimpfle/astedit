@@ -101,8 +101,7 @@ static struct AtlasTextureRow *alloc_row(struct AtlasTexture *a, int y, int h)
         return row;
 }
 
-
-void copy_texture(unsigned char *dstBuffer, unsigned char *srcBuffer,
+static void copy_texture(unsigned char *dstBuffer, unsigned char *srcBuffer,
         int width, int height, int dstStride, int srcStride)
 {
         int dstpos = 0;
@@ -114,12 +113,6 @@ void copy_texture(unsigned char *dstBuffer, unsigned char *srcBuffer,
                 srcpos += srcStride;
         }
         //debug_print_texture(dstBuffer, width, height, dstStride);
-}
-
-
-void reset_texture_atlas(void)
-{
-        /*TODO*/
 }
 
 static struct AtlasTextureRow *find_or_alloc_row(int w, int h)
@@ -210,4 +203,9 @@ void commit_all_dirty_textures(void)
                         }
                 }
         }
+}
+
+void reset_texture_atlas(void)
+{
+        /*TODO*/
 }

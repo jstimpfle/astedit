@@ -169,7 +169,8 @@ int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
 
                 if (rectY + rectH >= boundingBox->y &&
                     rectY <= boundingBox->y + boundingBox->h) {
-                        draw_alpha_texture_rect(texture, r, g, b, a,
+                        draw_subpixelRenderedFont_texture_rect(
+                                texture, r, g, b, a,
                                 rectX, rectY, rectW, rectH,
                                 texX, texY, texW, texH);
                 }
