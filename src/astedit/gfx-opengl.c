@@ -45,19 +45,8 @@ const struct OpenGLInitInfo openGLInitInfo[] = {
 #undef MAKE
 };
 
-static GLint ctx_glMajorVersion;
-static GLint ctx_glMinorVersion;
-
 static void load_opengl_function_pointers(void)
 {
-        /* This interface only exists in OpenGL 3.0 and higher */
-        glGetIntegerv(GL_MAJOR_VERSION, &ctx_glMajorVersion);
-        glGetIntegerv(GL_MINOR_VERSION, &ctx_glMinorVersion);
-
-        log_postf("OpenGL version: %d.%d\n",
-                (int)ctx_glMajorVersion,
-                (int)ctx_glMinorVersion);
-
         for (int i = 0; i < LENGTH(openGLInitInfo); i++) {
                 const char *name = openGLInitInfo[i].name;
                 void(**funcptr)(void) = openGLInitInfo[i].funcptr;
@@ -304,10 +293,19 @@ static int get_link_status(GLint program)
         return linkStatus == GL_TRUE;
 }
 
-
-
 void setup_gfx(void)
 {
+        {
+                GLint ctx_glMajorVersion;
+                GLint ctx_glMinorVersion;
+                /* This interface only exists in OpenGL 3.0 and higher */
+                glGetIntegerv(GL_MAJOR_VERSION, &ctx_glMajorVersion);
+                glGetIntegerv(GL_MINOR_VERSION, &ctx_glMinorVersion);
+                log_postf("OpenGL version: %d.%d\n",
+                        (int)ctx_glMajorVersion,
+                        (int)ctx_glMinorVersion);
+        }
+
         load_opengl_function_pointers();
 
         /*
