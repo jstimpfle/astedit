@@ -53,7 +53,7 @@ uint32_t read_codepoint_from_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
                 move_bytes_in_TextropeReadBuffer_to_front(decoder);
                 refill_UTF8Decoder(decoder);
         }
-        
+
         uint32_t codepoint;
         int r = decode_codepoint_from_utf8(decoder->buffer,
                 decoder->bufferStart, decoder->bufferEnd,

@@ -85,11 +85,9 @@ static const struct {
         { GLFW_RELEASE, KEYEVENT_RELEASE },
 };
 
-
 static GLFWwindow *windowGlfw;
 static int isFullscreenMode;
-
-static volatile int doingPolling;  // needed for a hack. See below
+static volatile int isDoingPolling;  // needed for a hack. See below
 
 
 static void error_cb_glfw(int err, const char *msg)
@@ -108,7 +106,6 @@ static int glfwmods_to_modifiers(int mods)
                 modifiers |= MODIFIER_SHIFT;
         return modifiers;
 }
-
 
 static void enqueue_key_input(
         enum KeyKind keyKind, enum KeyEventKind keyEventKind,
@@ -185,7 +182,6 @@ static void key_cb_glfw(GLFWwindow *win, int key, int scancode, int action, int 
 {
         UNUSED(win);
         UNUSED(scancode);
-
         for (int i = 0; i < LENGTH(keymap); i++) {
                 if (key == keymap[i].glfwKey) {
                         enum KeyKind keyKind = keymap[i].keyKind;
@@ -229,7 +225,6 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
                 by 0 / NaN problems resulting from window minimization. */
                 return;
         }
-
         windowWidthInPixels = width;
         windowHeightInPixels = height;
 
@@ -243,7 +238,7 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
         // during a window move or resize (see notes in GLFW docs).
         // To work around that, for now we just duplicate drawing in this callback.
         // it's not nice and likely to break, so consider it a temporary hack.
-        if (doingPolling) {
+        if (isDoingPolling) {
                 extern long long timeSinceProgramStartupMilliseconds;
                 extern void mainloop(void);
                 if (timeSinceProgramStartupMilliseconds > 2000) { // XXX OpenGL should be set up by now
@@ -301,11 +296,9 @@ void setup_window(void)
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
         //glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         //glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);  // window size dependent on monitor scale
-
         windowGlfw = glfwCreateWindow(1024, 768, "Astedit", NULL, NULL);
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
-
         //enter_fullscreen_mode();
         enter_windowing_mode();
 
@@ -335,7 +328,7 @@ void teardown_window(void)
 
 void wait_for_events(void)
 {
-        doingPolling = 1;
+        isDoingPolling = 1;
         // TODO: Use glfwPollEvents() if it's clear that we should produce the next frame immediately
         if (0) {
                 glfwWaitEvents();
@@ -343,7 +336,7 @@ void wait_for_events(void)
         else {
                 glfwPollEvents();
         }
-        doingPolling = 0;
+        isDoingPolling = 0;
 
         if (glfwWindowShouldClose(windowGlfw))
                 shouldWindowClose = 1;

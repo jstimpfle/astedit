@@ -5,11 +5,16 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#define NUM_FONTFACES 2
+#define USE_SUBPIXEL_RENDERING 1
+
+static const char *faceKindToFontpath[NUM_FONTFACES] = {
+        //[FONTFACE_REGULAR] = "fontfiles/NotoSans/NotoSans-Regular.ttf",
+        [FONTFACE_REGULAR] ="fontfiles/NotoMono/NotoMono-Regular.ttf",
+        [FONTFACE_BOLD] ="fontfiles/NotoSans/NotoSans-Bold.ttf",
+};
+
 static FT_Library  library;
 static FT_Face faceKindTo_FT_Face[NUM_FONTFACES];
-
-
 
 void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *outStride, struct GlyphLayoutInfo *outLayout)
 {
@@ -27,7 +32,6 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
                 fatal("Failed to set FreeType char size\n");
 
         int glyph_index = FT_Get_Char_Index(face, codepoint);
-
         error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
         if (error) {
                 glyph_index = FT_Get_Char_Index(face, 0xFFFD);
@@ -36,29 +40,23 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
                         fatalf("Failed to load glyph for char %d\n", codepoint);
         }
 
-#define USE_SUBPIXEL_RENDERING 1
-#if USE_SUBPIXEL_RENDERING
-        /* FT_RENDER_MODE_NORMAL means antialiased */
-        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_LCD);
-#else
-        /* FT_RENDER_MODE_NORMAL means antialiased */
-        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-#endif
-        if (error)
-                /* TODO: does this mean OOM? */
+        if (USE_SUBPIXEL_RENDERING)
+                error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_LCD); /* subpixel rendering for R-G-B pixels */
+        else
+                error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL); /* antialiased */
+        if (error) /* TODO: does this mean OOM? */
                 fatalf("Failed to render glyph for char %d\n", codepoint);
 
         FT_Bitmap *bitmap = &face->glyph->bitmap;
-
-#if USE_SUBPIXEL_RENDERING
-        if (bitmap->pixel_mode != FT_PIXEL_MODE_LCD)
-                fatalf("Expected FT_PIXEL_MODE_LCD pixmap for subpixel rendering");
-#else
-	/* for simplicity, we assume that `bitmap->pixel_mode' */
-	/* is `FT_PIXEL_MODE_GRAY' (i.e., not a bitmap font)   */
-	if (bitmap->pixel_mode != FT_PIXEL_MODE_GRAY)
-                fatalf("Assertion failed\n");
-#endif
+        if (USE_SUBPIXEL_RENDERING) {
+                if (bitmap->pixel_mode != FT_PIXEL_MODE_LCD)  /* rgb bitmap for subpixel rendering */
+                        fatalf("Expected FT_PIXEL_MODE_LCD pixmap for subpixel rendering");
+        }
+        else {
+                /* FT_PIXEL_MODE_GRAY = 8-bit (antialiased) graymap */
+                if (bitmap->pixel_mode != FT_PIXEL_MODE_GRAY)
+                        fatalf("Assertion failed\n");
+        }
 
         *outBuffer = bitmap->buffer;
         *outStride = bitmap->pitch;
@@ -68,15 +66,6 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
         outLayout->horiBearingY = (int) (face->glyph->metrics.horiBearingY / 64.0f);
         outLayout->horiAdvance = (int) (face->glyph->metrics.horiAdvance / 64.0f);
 }
-
-
-
-static const char *faceKindToFontpath[NUM_FONTFACES] = {
-        //[FONTFACE_REGULAR] = "fontfiles/NotoSans/NotoSans-Regular.ttf",
-        [FONTFACE_REGULAR] ="fontfiles/NotoMono/NotoMono-Regular.ttf",
-        [FONTFACE_BOLD] ="fontfiles/NotoSans/NotoSans-Bold.ttf",
-};
-
 
 void setup_fonts(void)
 {

@@ -3,7 +3,6 @@
 #include <astedit/gfx.h>
 #include <astedit/window.h>
 #include <stddef.h>  // offsetof()
-
 /* To include <GL/gl.h>, <GL/glu.h>, and <GL/glext.h> on windows, it seems we
  * are required to include <windows.h> first, or else we'll get strange error
  * messages */
@@ -16,30 +15,6 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glext.h>
-
-
-struct OpenGLInitInfo {
-        void(**funcptr)(void);
-        const char *name;
-};
-
-/* Define function pointers for all OpenGL extensions that we want to load */
-#define MAKE(tp, name) static tp name;
-#include <astedit/opengl-extensions.inc>
-#undef MAKE
-
-/* Define initialization info for all OpenGL extensions that we want to load */
-const struct OpenGLInitInfo openGLInitInfo[] = {
-#define MAKE(tp, name)  { (void(**)(void)) &name, #name },
-#include <astedit/opengl-extensions.inc>
-#undef MAKE
-};
-
-
-
-struct Mat4 {
-        GLfloat m[4][4];
-};
 
 enum {
         SHADER_VERTEXVARYINGCOLOR,
@@ -84,6 +59,15 @@ enum {
         NUM_ATTRIB_KINDS,
 };
 
+struct OpenGLInitInfo {
+        void(**funcptr)(void);
+        const char *name;
+};
+
+struct Mat4 {
+        GLfloat m[4][4];
+};
+
 struct ShaderInfo {
         const char *shaderName;
         const char *shaderSource;
@@ -113,6 +97,18 @@ struct AttribInfo {
         int openglType;  // type of each, e.g. GL_FLOAT
         int stride;  // stride between attribute instances (i.e. offset to next value of this kind)
         int offset;  // offset within data that is drawn (i.e. similar to C's offsetof())
+};
+
+/* Define function pointers for all OpenGL extensions that we want to load */
+#define MAKE(tp, name) static tp name;
+#include <astedit/opengl-extensions.inc>
+#undef MAKE
+
+/* Define initialization info for all OpenGL extensions that we want to load */
+const struct OpenGLInitInfo openGLInitInfo[] = {
+#define MAKE(tp, name)  { (void(**)(void)) &name, #name },
+#include <astedit/opengl-extensions.inc>
+#undef MAKE
 };
 
 const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
@@ -392,6 +388,7 @@ void setup_gfx(void)
 
         /* Create VAOs */
         glGenVertexArrays(NUM_PROGRAM_KINDS, &vaoOfProgram[0]);
+        CHECK_GL_ERRORS();
 
         /* Create VBOs */
         glGenBuffers(1, &vbo);  // one buffer for all, currently. Buffer gets overwritten on each draw
@@ -409,7 +406,6 @@ void setup_gfx(void)
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
                 glBindVertexArray(0);
         }
-
         CHECK_GL_ERRORS();
 }
 
@@ -430,7 +426,6 @@ void upload_rgba_texture_data(Texture texture, const unsigned char *data, int si
 {
         ENSURE(size == w * h * 4);
         UNUSED(size);
-
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
         //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -448,7 +443,6 @@ void upload_rgb_texture_data(Texture texture, const unsigned char *data, int siz
         ENSURE(texture >= 0);
         ENSURE(size == 3 * w * h);
         UNUSED(size);
-
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -466,7 +460,6 @@ void upload_alpha_texture_data(Texture texture, const unsigned char *data, int s
         ENSURE(texture >= 0);
         ENSURE(size == w * h);
         UNUSED(size);
-
         glBindTexture(GL_TEXTURE_2D, (GLuint)texture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -534,8 +527,8 @@ void destroy_texture(Texture texHandle)
 
 void set_2d_coordinate_system(int x, int y, int w, int h)
 {
-        (void)x;
-        (void)y;
+        UNUSED(x);
+        UNUSED(y);
         struct Mat4 mat = {0};
         mat.m[0][0] = 2.0f / w;
         mat.m[1][1] = -2.0f / h;
@@ -579,12 +572,10 @@ void clear_screen_and_drawing_state(void)
         glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
         glClearDepth(-1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         if (srgbEnabled)
                 glEnable(GL_FRAMEBUFFER_SRGB);
         else
                 glDisable(GL_FRAMEBUFFER_SRGB);
-
         glActiveTexture(GL_TEXTURE0);
         glEnable(GL_DEPTH_TEST);
         //glEnable(GL_ALPHA_TEST);
@@ -627,7 +618,6 @@ static void draw_texture_vertices_of_any_kind(struct TextureVertex2d *verts, int
 void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
-
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glUseProgram(program_GL_id[PROGRAM_VARYINGCOLOR]);
         glUniformMatrix4fv(uniformLocation[UNIFORM_VARYINGCOLOR_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
@@ -641,15 +631,12 @@ void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
 void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
-
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glUseProgram(program_GL_id[PROGRAM_TEXTURERGBA]);
         glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTURERGBA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
         glUniform1i(uniformLocation[UNIFORM_TEXTURERGBA_sampler], 0);
         glBindVertexArray(vaoOfProgram[PROGRAM_TEXTURERGBA]);
-
         draw_texture_vertices_of_any_kind(verts, numVerts);
-
         glBindVertexArray(0);
         glUseProgram(0);
         CHECK_GL_ERRORS();
@@ -658,15 +645,12 @@ void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
-
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
         glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTUREALPHA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
         glUniform1i(uniformLocation[UNIFORM_TEXTUREALPHA_sampler], 0/*texture unit 0 ???*/);
         glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]);
-
         draw_texture_vertices_of_any_kind(verts, numVerts);
-
         glBindVertexArray(0);
         glUseProgram(0);
         CHECK_GL_ERRORS();
@@ -675,15 +659,12 @@ void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
-
         glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
         glUseProgram(program_GL_id[PROGRAM_SUBPIXELRENDEREDFONT]);
         glUniformMatrix4fv(uniformLocation[UNIFORM_SUBPIXELRENDEREDFONT_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
         glUniform1i(uniformLocation[UNIFORM_SUBPIXELRENDEREDFONT_sampler], 0/*texture unit 0 ???*/);
         glBindVertexArray(vaoOfProgram[PROGRAM_SUBPIXELRENDEREDFONT]);
-
         draw_texture_vertices_of_any_kind(verts, numVerts);
-
         glBindVertexArray(0);
         glUseProgram(0);
         CHECK_GL_ERRORS();
