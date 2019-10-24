@@ -18,6 +18,7 @@ LDFLAGS += -l rt  # clock_gettime() and friends
 CFILES =  \
 src/astedit/bytes.c \
 src/astedit/clock-linux.c \
+src/astedit/cmdlinehistory.c \
 src/astedit/data.c \
 src/astedit/draw2d.c \
 src/astedit/eventhandling.c \

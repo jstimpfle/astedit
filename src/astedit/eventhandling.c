@@ -176,7 +176,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                 if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         switch (input->data.tKey.codepoint) {
                         case ':':
-                                reset_ViCmdline(&state->cmdline);
+                                clear_ViCmdline(&state->cmdline);
                                 state->vimodeKind = VIMODE_COMMAND;
                                 break;
                         case 'A':
@@ -350,42 +350,88 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
         }
 }
 
+static int is_cmdline_worthy_of_interpreting(struct ViCmdline *cmdline)
+{
+        for (int i = 0; i < cmdline->fill; i++)
+                if (cmdline->buf[i] > 32) //XXX
+                        return 1;
+        return 0;
+}
+
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
-        UNUSED(edit);
-        struct ViCmdline *cmdline = &state->cmdline;  //XXX
-        ENSURE(!cmdline->isAborted && !cmdline->isConfirmed);
         if (!is_input_keypress(input))
                 return;
-        if (is_input_unicode(input))
-                insert_codepoint_in_ViCmdline(input->data.tKey.codepoint, cmdline);
-        else if (is_input_keypress_of_key(input, KEY_BACKSPACE))
-                erase_backwards_in_ViCmdline(cmdline);
-        else if (is_input_keypress_of_key(input, KEY_DELETE))
-                erase_forwards_in_ViCmdline(cmdline);
-        else if (is_input_keypress_of_key(input, KEY_HOME))
-                move_cursor_to_beginning_in_cmdline(cmdline);
-        else if (is_input_keypress_of_key(input, KEY_END))
-                move_cursor_to_end_in_cmdline(cmdline);
-        else if (is_input_keypress_of_key(input, KEY_CURSORLEFT))
-                move_cursor_left_in_cmdline(cmdline);
-        else if (is_input_keypress_of_key(input, KEY_CURSORRIGHT))
-                move_cursor_right_in_cmdline(cmdline);
+        UNUSED(edit);
+        struct ViCmdline *cmdline = &state->cmdline;  //XXX
+        struct CmdlineHistory *history = &cmdline->history; //XXX
+        ENSURE(!cmdline->isAborted && !cmdline->isConfirmed);
+        if (is_input_keypress_of_key_and_modifiers(input, KEY_C, MODIFIER_CONTROL))
+                cmdline->isAborted = 1;
         else if (is_input_keypress_of_key(input, KEY_ESCAPE))
                 cmdline->isAborted = 1;
         else if (is_input_keypress_of_key(input, KEY_ENTER))
                 cmdline->isConfirmed = 1;
+        else if (is_input_unicode(input) ||
+                 is_input_keypress_of_key(input, KEY_BACKSPACE) ||
+                 is_input_keypress_of_key(input, KEY_DELETE) ||
+                 is_input_keypress_of_key(input, KEY_HOME) ||
+                 is_input_keypress_of_key(input, KEY_END) ||
+                 is_input_keypress_of_key(input, KEY_CURSORLEFT) ||
+                 is_input_keypress_of_key(input, KEY_CURSORRIGHT)) {
+                if (cmdline->isNavigatingHistory) {
+                        cmdline->isNavigatingHistory = 0;
+                        struct RememberedCmdline *updatedItem = cmdline->history.iter;
+                        set_ViCmdline_contents_from_string(cmdline, updatedItem->cmdline, updatedItem->length);
+                }
+                if (is_input_unicode(input))
+                        insert_codepoint_in_ViCmdline(input->data.tKey.codepoint, cmdline);
+                else if (is_input_keypress_of_key(input, KEY_BACKSPACE))
+                        erase_backwards_in_ViCmdline(cmdline);
+                else if (is_input_keypress_of_key(input, KEY_DELETE))
+                        erase_forwards_in_ViCmdline(cmdline);
+                else if (is_input_keypress_of_key(input, KEY_HOME))
+                        move_cursor_to_beginning_in_cmdline(cmdline);
+                else if (is_input_keypress_of_key(input, KEY_END))
+                        move_cursor_to_end_in_cmdline(cmdline);
+                else if (is_input_keypress_of_key(input, KEY_CURSORLEFT))
+                        move_cursor_left_in_cmdline(cmdline);
+                else if (is_input_keypress_of_key(input, KEY_CURSORRIGHT))
+                        move_cursor_right_in_cmdline(cmdline);
+                else
+                        ENSURE(0);
+        }
+        else if (cmdline->isNavigatingHistory) {
+                if (is_input_keypress_of_key(input, KEY_CURSORDOWN)) {
+                        struct RememberedCmdline *updatedItem;
+                        updatedItem = go_to_next_cmdline(history);
+                        if (updatedItem == NULL) {
+                                cmdline->isNavigatingHistory = 0;
+                        }
+                }
+                else if (is_input_keypress_of_key(input, KEY_CURSORUP))
+                        go_to_previous_cmdline(history);
+        }
+        else if (!cmdline->isNavigatingHistory && is_input_keypress_of_key(input, KEY_CURSORUP)) {
+                struct RememberedCmdline *updatedItem;
+                if ((updatedItem = go_to_most_recent(&cmdline->history)) != NULL) {
+                        cmdline->isNavigatingHistory = 1;
+                }
+        }
 
         if (cmdline->isAborted) {
                 // TODO
-                reset_ViCmdline(cmdline);
+                clear_ViCmdline(cmdline);
                 state->vimodeKind = VIMODE_NORMAL;
         }
         if (cmdline->isConfirmed) {
                 // TODO
-                interpret_cmdline(cmdline, edit);
-                reset_ViCmdline(cmdline);
+                if (is_cmdline_worthy_of_interpreting(cmdline)) {
+                        interpret_cmdline(cmdline, edit);
+                        add_to_cmdline_history(&cmdline->history, cmdline->buf, cmdline->fill);
+                }
+                clear_ViCmdline(cmdline);
                 state->vimodeKind = VIMODE_NORMAL;
         }
 }
@@ -477,9 +523,11 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
 void handle_input(struct Input *input, struct TextEdit *edit)
 {
         if (input->inputKind == INPUT_WINDOWRESIZE) {
+                /*
                 log_postf("Window size is now %d %d",
                         input->data.tWindowresize.width,
                         input->data.tWindowresize.height);
+                        */
         }
         else if (input->inputKind == INPUT_KEY) {
                 if (input->data.tKey.keyKind == KEY_F4) {

@@ -469,7 +469,19 @@ static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, 
         set_cursor_color(cursor, C(statusbarTextColor));
 
         draw_text_with_cursor(cursor, box, ":", 1);
-        draw_text_with_cursor(cursor, box, edit->vistate.cmdline.buf, edit->vistate.cmdline.fill);
+
+        const char *text;
+        int textLength;
+        if (edit->vistate.cmdline.isNavigatingHistory) {
+                struct CmdlineHistory *history = &edit->vistate.cmdline.history;
+                text = history->iter->cmdline;
+                textLength = history->iter->length;
+        }
+        else {
+                text = edit->vistate.cmdline.buf;
+                textLength = edit->vistate.cmdline.fill;
+        }
+        draw_text_with_cursor(cursor, box, text, textLength);
 }
 
 static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)

@@ -44,10 +44,22 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
         }
 }
 
-
-void reset_ViCmdline(struct ViCmdline *cmdline)
+void clear_ViCmdline(struct ViCmdline *cmdline)
 {
-        ZERO_MEMORY(cmdline);
+        cmdline->fill = 0;
+        cmdline->cursorBytePosition = 0;
+        cmdline->isAborted = 0;
+        cmdline->isConfirmed = 0;
+        cmdline->isNavigatingHistory = 0;
+}
+
+void set_ViCmdline_contents_from_string(struct ViCmdline *cmdline, const char *string, int length)
+{
+        if (length > LENGTH(cmdline->buf) - 1) //XXX
+                length = LENGTH(cmdline->buf) - 1;
+        copy_string_and_zeroterminate(cmdline->buf, string, length);
+        cmdline->fill = length;
+        cmdline->cursorBytePosition = length;
 }
 
 void insert_codepoint_in_ViCmdline(uint32_t codepoint, struct ViCmdline *cmdline)
@@ -60,7 +72,6 @@ void insert_codepoint_in_ViCmdline(uint32_t codepoint, struct ViCmdline *cmdline
         move_memory(cmdline->buf + cmdline->cursorBytePosition,
                 r, cmdline->fill - cmdline->cursorBytePosition);
 
-        log_postf("ok\n");
         copy_memory(cmdline->buf + cmdline->cursorBytePosition, tmp, r);
         cmdline->cursorBytePosition += r;
         cmdline->fill += r;

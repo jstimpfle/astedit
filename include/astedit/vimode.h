@@ -1,6 +1,8 @@
 #ifndef ASTEDIT_VIMODE_H_INCLUDED
 #define ASTEDIT_VIMODE_H_INCLUDED
 
+#include <astedit/cmdlinehistory.h>
+
 // XXX forward decl, break cyclic dependency.
 struct TextEdit;
 
@@ -26,6 +28,8 @@ struct ViCmdline {
         int cursorBytePosition;
         int isAborted;
         int isConfirmed;
+        int isNavigatingHistory;
+        struct CmdlineHistory history;
 };
 
 struct ViState {
@@ -40,7 +44,8 @@ void setup_vistate(struct ViState *vistate);
 void teardown_vistate(struct ViState *vistate);
 
 void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit);
-void reset_ViCmdline(struct ViCmdline *cmdline);
+void clear_ViCmdline(struct ViCmdline *cmdline);
+void set_ViCmdline_contents_from_string(struct ViCmdline *cmdline, const char *string, int length);
 void insert_codepoint_in_ViCmdline(uint32_t codepoint, struct ViCmdline *cmdline);
 void erase_backwards_in_ViCmdline(struct ViCmdline *cmdline);
 void erase_forwards_in_ViCmdline(struct ViCmdline *cmdline);
