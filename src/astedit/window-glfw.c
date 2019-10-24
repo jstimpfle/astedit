@@ -89,6 +89,12 @@ static GLFWwindow *windowGlfw;
 static int isFullscreenMode;
 static volatile int isDoingPolling;  // needed for a hack. See below
 
+/* Local data for restoring geometries properly. We also have
+ * windowWidthInPixels / windowHeightInPixels... */
+static int windowX;
+static int windowY;
+static int windowW;
+static int windowH;
 
 static void error_cb_glfw(int err, const char *msg)
 {
@@ -259,9 +265,7 @@ static void windowrefresh_cb_glfw(GLFWwindow *win)
 void enter_windowing_mode(void)
 {
         GLFWmonitor *monitor = NULL;
-        int pixelsW = 1280;
-        int pixelsH = 1024;
-        glfwSetWindowMonitor(windowGlfw, monitor, 300, 300, pixelsW, pixelsH, GLFW_DONT_CARE);
+        glfwSetWindowMonitor(windowGlfw, monitor, windowX, windowY, windowW, windowH, GLFW_DONT_CARE);
         isFullscreenMode = 0;
 }
 
@@ -299,8 +303,12 @@ void setup_window(void)
         windowGlfw = glfwCreateWindow(1024, 768, "Astedit", NULL, NULL);
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
-        //enter_fullscreen_mode();
-        enter_windowing_mode();
+
+        { /* call the callback artificially */
+                glfwGetWindowPos(windowGlfw, &windowX, &windowY);
+                glfwGetWindowSize(windowGlfw, &windowW, &windowH);
+                windowsize_cb_glfw(windowGlfw, windowW, windowH);
+        }
 
         glfwSetMouseButtonCallback(windowGlfw, &mouse_cb_glfw);
         glfwSetScrollCallback(windowGlfw, &scroll_cb_glfw);
@@ -309,12 +317,6 @@ void setup_window(void)
         glfwSetCharCallback(windowGlfw, &char_cb_glfw);
         glfwSetFramebufferSizeCallback(windowGlfw, &windowsize_cb_glfw);
         glfwSetWindowRefreshCallback(windowGlfw, &windowrefresh_cb_glfw);
-
-        { /* call the callback artificially */
-                int pixX, pixY;
-                glfwGetWindowSize(windowGlfw, &pixX, &pixY);
-                windowsize_cb_glfw(windowGlfw, pixX, pixY);
-        }
 
         glfwMakeContextCurrent(windowGlfw);
 }
