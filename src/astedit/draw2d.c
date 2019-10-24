@@ -16,7 +16,7 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 
-#if 1
+#if 0
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
 static const struct RGB normalTextColor = {0, 255, 0 };
@@ -44,7 +44,7 @@ static const struct RGB statusbarTextColor = { 224, 224, 224 };
 
 static const int LINE_HEIGHT_PIXELS = 26;
 static const int CELL_WIDTH_PIXELS = -1;//22;
-static const int FONT_HEIGHT_PIXELS = 16;
+static const int FONT_HEIGHT_PIXELS = 14;
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d subpixelRenderedFontVertexBuffer[3 * 1024];
@@ -542,7 +542,6 @@ static void draw_textedit_saving(struct TextEdit *edit, int x, int y, int w, int
 
         draw_textedit_loading_or_saving("Saving", count, total, x, y, w, h);
 }
-
 
 static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, struct TextEdit *edit)
 {
