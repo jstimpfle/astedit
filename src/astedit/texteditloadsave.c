@@ -89,7 +89,7 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
         loading->completedBytes += utf8Fill;
 
         return 0;  /* report success */
-}
+}
 void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct Textrope *rope)
 {
         struct FilereadThreadCtx *ctx = &loading->filereadThreadCtx;
@@ -108,7 +108,7 @@ void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filep
         loading->rope = rope;
         loading->isActive = 1;
         loading->threadHandle = create_and_start_thread(&read_file_thread_adapter, ctx);
-}
+}
 
 /*
 FILE WRITE
@@ -130,7 +130,7 @@ static void finalize_writing_from_textedit_to_file(void *param)
         struct TextEditSavingCtx *saving = param;
         saving->isCompleted = 1;
         stop_timer(&saving->timer);
-        report_timer(&saving->timer, "File load time");
+        report_timer(&saving->timer, "File save time");
 }
 
 static void fill_buffer_for_writing_to_file(void *param)
