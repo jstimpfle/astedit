@@ -99,6 +99,9 @@
     <ClCompile Include="..\src\astedit\mutex-win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\astedit\cmdlinehistory.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\rb3ptr.h">
@@ -180,6 +183,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\astedit\clock-win32.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\astedit\cmdlinehistory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
