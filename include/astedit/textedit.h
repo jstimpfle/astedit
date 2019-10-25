@@ -22,7 +22,7 @@ struct TextEdit {
         struct Textrope *rope;
 
         /* Filepath that is used for saving. Can be NULL */
-        const char *filepath;
+        char *filepath;
 
         FILEPOS cursorBytePosition;
         FILEPOS firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
