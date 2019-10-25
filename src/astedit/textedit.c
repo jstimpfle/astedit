@@ -7,6 +7,7 @@
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
+#include <astedit/edithistory.h>
 #include <blunt/lex.h> /* test */
 #include <string.h> // strlen()
 
@@ -14,6 +15,20 @@
 enum {
         LINES_PER_PAGE = 15,   // XXX this value should be dependent on the current GUI viewport probably.
 };
+
+static void insert_text_into_textedit(struct TextEdit *edit, FILEPOS insertPos, const char *text, FILEPOS length)
+{
+        FILEPOS previousCursorPosition = edit->cursorBytePosition;
+        insert_text_into_textrope(edit->rope, insertPos, text, length);
+        record_insert_operation(edit, insertPos, length, previousCursorPosition);
+}
+
+static void erase_text_from_textedit(struct TextEdit *edit, FILEPOS start, FILEPOS length)
+{
+        FILEPOS previousCursorPosition = edit->cursorBytePosition;
+        record_delete_operation(edit, start, length, previousCursorPosition);
+        erase_text_from_textrope(edit->rope, start, length);
+}
 
 static void setup_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)
 {
@@ -277,7 +292,7 @@ void delete_with_movement(struct TextEdit *edit, struct Movement *movement)
         FILEPOS endPos = get_movement_position(edit, movement);
         make_range(startPos, endPos, &startPos, &endPos);
         ENSURE(startPos <= endPos);
-        erase_text_from_textrope(edit->rope, startPos, endPos - startPos);
+        erase_text_from_textedit(edit, startPos, endPos - startPos);
         move_cursor_to_byte_position(edit, startPos, 0);
 }
 
@@ -296,7 +311,7 @@ void delete_current_line(struct TextEdit *edit)
                 FILEPOS codepointPos = compute_codepoint_position(edit->rope, endpos);
                 endpos = compute_pos_of_codepoint(edit->rope, codepointPos + 1);
         }
-        erase_text_from_textrope(edit->rope, startpos, endpos - startpos);
+        erase_text_from_textedit(edit, startpos, endpos - startpos);
 }
 
 void scroll_up_one_page(struct TextEdit *edit, int isSelecting)
@@ -310,7 +325,7 @@ void scroll_down_one_page(struct TextEdit *edit, int isSelecting)
 }
 
 //XXX move somewhere else
-void insert_codepoints_into_textrope(struct Textrope *rope, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints)
+void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, FILEPOS numCodepoints)
 {
         int codepointsPos = 0;
         FILEPOS ropePos = insertPos;
@@ -318,14 +333,9 @@ void insert_codepoints_into_textrope(struct Textrope *rope, FILEPOS insertPos, u
                 char buf[512];
                 int bufFill;
                 encode_utf8_span(codepoints, codepointsPos, numCodepoints, buf, sizeof buf, &codepointsPos, &bufFill);
-                insert_text_into_textrope(rope, ropePos, &buf[0], bufFill);
+                insert_text_into_textedit(edit, ropePos, &buf[0], bufFill);
                 ropePos += bufFill;
         }
-}
-
-void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints)
-{
-        insert_codepoints_into_textrope(edit->rope, insertPos, codepoints, numCodepoints);
 }
 
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint)
@@ -339,7 +349,7 @@ void erase_selected_in_TextEdit(struct TextEdit *edit)
         FILEPOS start;
         FILEPOS onePastEnd;
         get_selected_range_in_bytes(edit, &start, &onePastEnd);
-        erase_text_from_textrope(edit->rope, start, onePastEnd - start);
+        erase_text_from_textedit(edit, start, onePastEnd - start);
         edit->isSelectionMode = 0;
         edit->cursorBytePosition = start;
 }
@@ -352,7 +362,7 @@ void erase_forwards_in_TextEdit(struct TextEdit *edit)
                 FILEPOS start = edit->cursorBytePosition;
                 FILEPOS end = compute_pos_of_codepoint(edit->rope, codepointPosition + 1);
                 if (start < end)
-                        erase_text_from_textrope(edit->rope, start, end - start);
+                        erase_text_from_textedit(edit, start, end - start);
         }
 }
 
@@ -362,7 +372,7 @@ void erase_backwards_in_TextEdit(struct TextEdit *edit)
         move_cursor_left(edit, 0); //XXX
         FILEPOS start = edit->cursorBytePosition;
         if (start < end)
-                erase_text_from_textrope(edit->rope, start, end - start);
+                erase_text_from_textedit(edit, start, end - start);
 }
 
 void init_TextEdit(struct TextEdit *edit)
@@ -413,7 +423,7 @@ void update_textedit(struct TextEdit *edit)
 void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
         int filepathLength = (int) strlen(filepath);
-        load_file_to_textrope(&edit->loading, filepath, filepathLength, edit->rope);
+        load_file_to_textedit(&edit->loading, filepath, filepathLength, edit);
 
         ALLOC_MEMORY(&edit->filepath, filepathLength + 1);
         copy_string_and_zeroterminate(edit->filepath, filepath, filepathLength);

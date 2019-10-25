@@ -21,6 +21,7 @@ src/astedit/clock-linux.c \
 src/astedit/cmdlinehistory.c \
 src/astedit/data.c \
 src/astedit/draw2d.c \
+src/astedit/edithistory.c \
 src/astedit/eventhandling.c \
 src/astedit/filereadwritethread.c \
 src/astedit/filesystem-linux.c \

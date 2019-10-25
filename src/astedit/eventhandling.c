@@ -2,6 +2,7 @@
 #include <astedit/logging.h>
 #include <astedit/vimode.h>
 #include <astedit/gfx.h>  // gfx_toggle_srgb()
+#include <astedit/edithistory.h>
 #include <astedit/eventhandling.h>
 
 
@@ -215,6 +216,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 move_cursor_to_beginning_of_line(edit, 0);
                                 insert_codepoint_into_textedit(edit, 0x0a);
                                 state->vimodeKind = VIMODE_INPUT;
+                                break;
+                        case 'u':
+                                undo_last_edit_operation(edit);
                                 break;
                         case 'v':
                                 edit->isSelectionMode = 1;

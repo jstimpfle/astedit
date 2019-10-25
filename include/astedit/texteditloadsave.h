@@ -9,7 +9,7 @@
 
 struct TextEditLoadingCtx {
         struct Mutex *mutex;
-        struct Textrope *rope;  // loading target
+        struct TextEdit *edit;  // loading target
 
         int isActive;
         int isCompleted;
@@ -44,7 +44,7 @@ struct TextEditSavingCtx {
         int bufferFill;
 };
 
-void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct Textrope *rope);
+void load_file_to_textedit(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct TextEdit *edit);
 void write_textrope_contents_to_file(struct TextEditSavingCtx *saving, struct Textrope *rope, const char *filepath, int filepathLength);
 
 int check_if_loading_completed_and_if_so_then_cleanup(struct TextEditLoadingCtx *ctx);

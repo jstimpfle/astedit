@@ -33,7 +33,7 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
         if (cmdline->buf[0] == 'r' && cmdline->buf[1] == ' ') {
                 const char *filepath = cmdline->buf + 2;
                 int filepathLen = cmdline->fill - 2;
-                load_file_to_textrope(&edit->loading, filepath, filepathLen, edit->rope);
+                load_file_to_textedit(&edit->loading, filepath, filepathLen, edit);
         }
         else if (cmdline->buf[0] == 'w') {
                 const char *filepath = NULL;

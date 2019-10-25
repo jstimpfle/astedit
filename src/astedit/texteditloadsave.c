@@ -84,11 +84,11 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
                 utf8buf,
                 &loading->bufferFill,
                 &utf8Fill);
-        insert_codepoints_into_textrope(loading->rope, textrope_length(loading->rope), utf8buf, utf8Fill);
+        insert_codepoints_into_textedit(loading->edit, textrope_length(loading->edit->rope/*XXX*/), utf8buf, utf8Fill);
         loading->completedBytes += utf8Fill;
         return 0;  /* report success */
 }
-void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct Textrope *rope)
+void load_file_to_textedit(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct TextEdit *edit)
 {
         struct FilereadThreadCtx *ctx = &loading->filereadThreadCtx;
         ALLOC_MEMORY(&ctx->filepath, filepathLength + 1);
@@ -103,7 +103,7 @@ void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filep
         ctx->returnStatus = 1337; //XXX: "never changed from thread"
 
         loading->mutex = create_mutex();
-        loading->rope = rope;
+        loading->edit = edit;
         loading->isActive = 1;
         loading->threadHandle = create_and_start_thread(&read_file_thread_adapter, ctx);
 }
