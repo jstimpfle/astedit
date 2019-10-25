@@ -4,92 +4,162 @@
 #include <astedit/edithistory.h>
 
 enum {
+        EDIT_START, /* only the very first item in our history has this kind */
         EDIT_INSERT,
         EDIT_DELETE,
 };
 
-struct InsertOperation {
-        FILEPOS insertionPoint;
-        FILEPOS length;
-};
-
-struct DeleteOperation {
-        FILEPOS deletionPoint;
-        FILEPOS length;
-        char *deletedText;
-};
-
 struct EditItem {
         struct EditItem *prev;
+        struct EditItem *next;
+        /* insert or delete. Probably there will never be more. */
+        int editKind;
         /* The difference in cursorPosition before and after an editing
          * operation is independent of the actual operation. For example,
          * loading contents from a file into the text editor won't move the
          * cursor position, but keying in some characters will. So for now,
          * we simply store the previous cursor position */
         FILEPOS previousCursorPosition;
-        int editKind;
-        union {
-                struct InsertOperation tInsert;
-                struct DeleteOperation tDelete;
-        } data;
+        FILEPOS nextCursorPosition;
+        /* We need to remember what text was inserted or deleted.
+         *  - For insertion edits that we can redo
+         *  - For deletion items that we can undo
+         */
+        FILEPOS editPosition;
+        FILEPOS editLength;
+        char *text;
 };
 
-static struct EditItem *editHistory;
+static struct EditItem startItem = { .editKind = EDIT_START };
+static struct EditItem *editHistory = &startItem;
 
-void record_insert_operation(struct TextEdit *edit, FILEPOS insertionPoint, FILEPOS length, FILEPOS previousCursorPosition)
+static void delete_item(struct EditItem *item)
 {
-        struct EditItem *item;
-        ALLOC_MEMORY(&item, 1);
-        item->previousCursorPosition = previousCursorPosition;
-        item->editKind = EDIT_INSERT;
-        item->data.tInsert.insertionPoint = insertionPoint;
-        item->data.tInsert.length = length;
+        if (item->text != NULL) {
+                FREE_MEMORY(&item->text);
+                ENSURE(item->text == NULL);
+        }
+        FREE_MEMORY(&item);
+}
+
+/* In the future we will want to have an "undo tree". But for now, when
+ * we undo a few items, and then do another operation, we will delete the
+ * undone items because they are not reachable anymore (until we improve the
+ * data structures) */
+static void delete_unreachable_items(void)
+{
+        while (editHistory->next) {
+                struct EditItem *itemToDelete = editHistory->next;
+                editHistory->next = editHistory->next->next;
+                delete_item(itemToDelete);
+        }
+}
+
+static void add_item(struct EditItem *item)
+{
+        delete_unreachable_items();
         item->prev = editHistory;
+        item->next = NULL;
+        if (item->prev)
+                item->prev->next = item;
         editHistory = item;
 }
 
-void record_delete_operation(struct TextEdit *edit, FILEPOS deletionPoint, FILEPOS length, FILEPOS previousCursorPosition)
+/* XXX: For symmetry, this should probably also erase the copied text from the
+ * text rope. But currently the caller code in textedit.c is still doing this.
+ */
+static void set_item_text(struct EditItem *item, struct TextEdit *edit)
 {
-        char *deletedText;
-        ALLOC_MEMORY(&deletedText, length + 1);
-        copy_text_from_textrope(edit->rope, deletionPoint, deletedText, length);
-        deletedText[length] = 0;
+        FILEPOS editPosition = item->editPosition;
+        FILEPOS editLength = item->editLength;
+        ENSURE(item->text == NULL);
+        ALLOC_MEMORY(&item->text, editLength + 1);
+        char *text = item->text;
+        copy_text_from_textrope(edit->rope, editPosition, text, editLength);
+        item->text[editLength] = 0;
+}
+
+static void unload_item_text(struct EditItem *item, struct TextEdit *edit)
+{
+        FILEPOS editPosition = item->editPosition;
+        FILEPOS editLength = item->editLength;
+        char *text = item->text;
+        insert_text_into_textrope(edit->rope, editPosition, text, editLength);
+        FREE_MEMORY(&item->text);
+        ENSURE(item->text == NULL);
+}
+
+void record_insert_operation(struct TextEdit *edit, FILEPOS insertionPoint, FILEPOS length,
+                             FILEPOS previousCursorPosition, FILEPOS nextCursorPosition)
+{
         struct EditItem *item;
         ALLOC_MEMORY(&item, 1);
-        item->prev = NULL;
+        item->editKind = EDIT_INSERT;
         item->previousCursorPosition = previousCursorPosition;
+        item->nextCursorPosition = nextCursorPosition;
+        item->editPosition = insertionPoint;
+        item->editLength = length;
+        item->text = NULL;
+        add_item(item);
+}
+
+void record_delete_operation(struct TextEdit *edit, FILEPOS deletionPoint, FILEPOS length,
+                             FILEPOS previousCursorPosition, FILEPOS nextCursorPosition)
+{
+        struct EditItem *item;
+        ALLOC_MEMORY(&item, 1);
         item->editKind = EDIT_DELETE;
-        item->data.tDelete.deletionPoint = deletionPoint;
-        item->data.tDelete.length = length;
-        item->data.tDelete.deletedText = deletedText;
-        item->prev = editHistory;
-        editHistory = item;
+        item->previousCursorPosition = previousCursorPosition;
+        item->nextCursorPosition = nextCursorPosition;
+        item->editPosition = deletionPoint;
+        item->editLength = length;
+        item->text = NULL;
+        set_item_text(item, edit);
+        add_item(item);
 }
 
 int undo_last_edit_operation(struct TextEdit *edit)
 {
-        if (editHistory == NULL)
+        if (editHistory == &startItem)
                 return 0;
         struct EditItem *item = editHistory;
         editHistory = item->prev;
-        edit->cursorBytePosition = item->previousCursorPosition;
         if (item->editKind == EDIT_INSERT) {
-                FILEPOS insertionPoint = item->data.tInsert.insertionPoint;
-                FILEPOS length = item->data.tInsert.length;
+                set_item_text(item, edit);
+                /* See NOTE at set_item_text() */
+                FILEPOS insertionPoint = item->editPosition;
+                FILEPOS length = item->editLength;
                 erase_text_from_textrope(edit->rope, insertionPoint, length);
-                /* we might need to record the previous cursorBytePosition as
-                 * part of the operation */
         }
         else if (item->editKind == EDIT_DELETE) {
-                FILEPOS deletionPoint = item->data.tDelete.deletionPoint;
-                FILEPOS length = item->data.tDelete.length;
-                char *deletedText = item->data.tDelete.deletedText;
-                insert_text_into_textrope(edit->rope, deletionPoint, deletedText, length);
-                /*XXX: this deletedText was provided by the caller. We shouldn't
-                 * know how to delete it. Instead, the record-deletion interface
-                 * should be changed such that we make the copy on our own */
-                FREE_MEMORY(&item->data.tDelete.deletedText);
+                unload_item_text(item, edit);
         }
-        FREE_MEMORY(&item);
+        else {
+                UNREACHABLE();
+        }
+        edit->cursorBytePosition = item->previousCursorPosition;
+        return 1;
+}
+
+int redo_next_edit_operation(struct TextEdit *edit)
+{
+        if (editHistory->next == NULL)
+                return 0;
+        editHistory = editHistory->next;
+        struct EditItem *item = editHistory;
+        if (item->editKind == EDIT_INSERT) {
+                unload_item_text(item, edit);
+        }
+        else if (item->editKind == EDIT_DELETE) {
+                set_item_text(item, edit);
+                /* See NOTE at set_item_text() */
+                FILEPOS editPosition = item->editPosition;
+                FILEPOS editLength = item->editLength;
+                erase_text_from_textrope(edit->rope, editPosition, editLength);
+        }
+        else {
+                UNREACHABLE();
+        }
+        edit->cursorBytePosition = item->nextCursorPosition;
         return 1;
 }

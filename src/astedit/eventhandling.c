@@ -237,7 +237,12 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                         }
                 }
                 else if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
+                        int modifierBits = input->data.tKey.modifierMask;
                         switch (input->data.tKey.keyKind) {
+                        case KEY_R:
+                                if (modifierBits & MODIFIER_CONTROL)
+                                        redo_next_edit_operation(edit);
+                                break;
                         case KEY_DELETE:
                                 erase_forwards_in_TextEdit(edit);
                                 break;

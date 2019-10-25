@@ -16,17 +16,19 @@ enum {
         LINES_PER_PAGE = 15,   // XXX this value should be dependent on the current GUI viewport probably.
 };
 
-static void insert_text_into_textedit(struct TextEdit *edit, FILEPOS insertPos, const char *text, FILEPOS length)
+static void insert_text_into_textedit(struct TextEdit *edit, FILEPOS insertPos, const char *text, FILEPOS length,
+                                      FILEPOS nextCursorPosition)
 {
         FILEPOS previousCursorPosition = edit->cursorBytePosition;
         insert_text_into_textrope(edit->rope, insertPos, text, length);
-        record_insert_operation(edit, insertPos, length, previousCursorPosition);
+        record_insert_operation(edit, insertPos, length, previousCursorPosition, nextCursorPosition);
 }
 
 static void erase_text_from_textedit(struct TextEdit *edit, FILEPOS start, FILEPOS length)
 {
         FILEPOS previousCursorPosition = edit->cursorBytePosition;
-        record_delete_operation(edit, start, length, previousCursorPosition);
+        FILEPOS nextCursorPosition = start; // TODO: Not sure that this is true generally.
+        record_delete_operation(edit, start, length, previousCursorPosition, nextCursorPosition);
         erase_text_from_textrope(edit->rope, start, length);
 }
 
@@ -333,7 +335,7 @@ void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, u
                 char buf[512];
                 int bufFill;
                 encode_utf8_span(codepoints, codepointsPos, numCodepoints, buf, sizeof buf, &codepointsPos, &bufFill);
-                insert_text_into_textedit(edit, ropePos, &buf[0], bufFill);
+                insert_text_into_textedit(edit, ropePos, &buf[0], bufFill, ropePos);
                 ropePos += bufFill;
         }
 }
