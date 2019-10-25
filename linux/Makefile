@@ -46,6 +46,7 @@ src/blunt/lex.c \
 src/rb3ptr.c
 
 OBJECTS = $(CFILES:%.c=BUILD/%.o)
+DEPFILES = $(CFILES:%.c=BUILD/%.dep)
 
 all: astedit
 
@@ -54,7 +55,13 @@ astedit: $(OBJECTS)
 
 BUILD/%.o: %.c
 	@mkdir -p `dirname $@`
-	$(CC) -c $(CFLAGS) -o $@ $^
+	$(CC) -MMD -MF $(@:%.o=%.dep) -c $(CFLAGS) -o $@ $<
 
 clean:
 	rm -rf astedit BUILD
+
+# Strange hack that I don't fully understand. Mention each dependency
+# file as a target so that Make won't creep out if it doesn't exist.
+$(DEPFILES):
+
+include $(DEPFILES)
