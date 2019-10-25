@@ -8,7 +8,6 @@
 #include <astedit/textedit.h>
 #include <astedit/eventhandling.h>
 
-
 static struct TextEdit globalTextEdit;
 
 static struct Timer windowSetupTimer;

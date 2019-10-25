@@ -414,4 +414,7 @@ void textedit_test_init(struct TextEdit *edit, const char *filepath)
 {
         int filepathLength = (int) strlen(filepath);
         load_file_to_textrope(&edit->loading, filepath, filepathLength, edit->rope);
+
+        ALLOC_MEMORY(&edit->filepath, filepathLength + 1);
+        copy_string_and_zeroterminate(edit->filepath, filepath, filepathLength);
 }

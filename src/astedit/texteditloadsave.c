@@ -85,9 +85,7 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
                 &loading->bufferFill,
                 &utf8Fill);
         insert_codepoints_into_textrope(loading->rope, textrope_length(loading->rope), utf8buf, utf8Fill);
-
         loading->completedBytes += utf8Fill;
-
         return 0;  /* report success */
 }
 void load_file_to_textrope(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct Textrope *rope)

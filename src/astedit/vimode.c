@@ -7,6 +7,7 @@
 #include <astedit/vimode.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
+#include <string.h>
 
 void setup_vistate(struct ViState *vistate)
 {
@@ -34,12 +35,21 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
                 int filepathLen = cmdline->fill - 2;
                 load_file_to_textrope(&edit->loading, filepath, filepathLen, edit->rope);
         }
-        else if (cmdline->buf[0] == 'w' && cmdline->buf[1] == ' ') {
-                const char *filepath = cmdline->buf + 2;
-                int filepathLen = cmdline->fill - 2;
-                write_textrope_contents_to_file(&edit->saving, edit->rope, filepath, filepathLen);
+        else if (cmdline->buf[0] == 'w') {
+                const char *filepath = NULL;
+                int filepathLen = 0;
+                if (cmdline->fill == 1 && edit->filepath != NULL) {
+                        filepath = edit->filepath;
+                        filepathLen = strlen(edit->filepath);
+                }
+                else if (cmdline->buf[1] == ' ') {
+                        filepath = cmdline->buf + 2;
+                        filepathLen = cmdline->fill - 2;
+                }
+                if (filepath != NULL)
+                        write_textrope_contents_to_file(&edit->saving, edit->rope, filepath, filepathLen);
         }
-        else if (cmdline->fill == 1 && cmdline->buf[0] == 'q') {
+        else if (cmdline->buf[0] == 'q' && cmdline->fill == 1) {
                 shouldWindowClose = 1;
         }
 }
