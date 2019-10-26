@@ -139,6 +139,7 @@
     <ClCompile Include="..\src\astedit\cmdlinehistory.c" />
     <ClCompile Include="..\src\astedit\data.c" />
     <ClCompile Include="..\src\astedit\draw2d.c" />
+    <ClCompile Include="..\src\astedit\edithistory.c" />
     <ClCompile Include="..\src\astedit\eventhandling.c" />
     <ClCompile Include="..\src\astedit\filereadwritethread.c" />
     <ClCompile Include="..\src\astedit\filesystem-win32.c" />
@@ -171,6 +172,7 @@
     <ClInclude Include="..\include\astedit\clock.h" />
     <ClInclude Include="..\include\astedit\cmdlinehistory.h" />
     <ClInclude Include="..\include\astedit\draw2d.h" />
+    <ClInclude Include="..\include\astedit\edithistory.h" />
     <ClInclude Include="..\include\astedit\eventhandling.h" />
     <ClInclude Include="..\include\astedit\filepositions.h" />
     <ClInclude Include="..\include\astedit\filereadwritethread.h" />

@@ -327,7 +327,7 @@ void scroll_down_one_page(struct TextEdit *edit, int isSelecting)
 }
 
 //XXX move somewhere else
-void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, FILEPOS numCodepoints)
+void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints)
 {
         int codepointsPos = 0;
         FILEPOS ropePos = insertPos;

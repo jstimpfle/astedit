@@ -40,7 +40,7 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
                 int filepathLen = 0;
                 if (cmdline->fill == 1 && edit->filepath != NULL) {
                         filepath = edit->filepath;
-                        filepathLen = strlen(edit->filepath);
+                        filepathLen = (int)strlen(edit->filepath);
                 }
                 else if (cmdline->buf[1] == ' ') {
                         filepath = cmdline->buf + 2;

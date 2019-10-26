@@ -43,8 +43,7 @@ struct TextEdit {
 void init_TextEdit(struct TextEdit *edit);
 void exit_TextEdit(struct TextEdit *edit);
 
-void insert_codepoints_into_textrope(struct Textrope *rope, FILEPOS insertPos, uint32_t *codepoints, FILEPOS numCodepoints);
-void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, FILEPOS numCodepoints);
+void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints);
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
 void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);

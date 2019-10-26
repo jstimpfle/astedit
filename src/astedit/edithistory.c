@@ -73,7 +73,7 @@ static void set_item_text(struct EditItem *item, struct TextEdit *edit)
         FILEPOS editPosition = item->editPosition;
         FILEPOS editLength = item->editLength;
         ENSURE(item->text == NULL);
-        ALLOC_MEMORY(&item->text, editLength + 1);
+        ALLOC_MEMORY(&item->text, /*XXX*/(int)editLength + 1);
         char *text = item->text;
         copy_text_from_textrope(edit->rope, editPosition, text, editLength);
         item->text[editLength] = 0;
@@ -92,6 +92,7 @@ static void unload_item_text(struct EditItem *item, struct TextEdit *edit)
 void record_insert_operation(struct TextEdit *edit, FILEPOS insertionPoint, FILEPOS length,
                              FILEPOS previousCursorPosition, FILEPOS nextCursorPosition)
 {
+        UNUSED(edit);
         struct EditItem *item;
         ALLOC_MEMORY(&item, 1);
         item->editKind = EDIT_INSERT;
