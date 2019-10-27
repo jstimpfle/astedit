@@ -33,6 +33,9 @@ struct TextureVertex2d {
         float x;
         float y;
         float z;
+        /* These are non-normalized pixel coordinates (from 0 to texture-width/height, not from 0.0 to 1.0)
+        We currently still store them as floats only because I haven't yet figured out the compatibility stuff
+        with all OpenGL version. (I think OpenGL ES only supports floats) */
         float texX;
         float texY;
 };

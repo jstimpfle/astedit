@@ -56,7 +56,7 @@ void draw_rgba_texture_rect(Texture texture,
 void draw_subpixelRenderedFont_texture_rect(Texture texture,
         int r, int g, int b, int a,
         int x, int y, int w, int h,
-        float texX, float texY, float texW, float texH);
+        int texX, int texY, int texW, int texH);
 
 #include <astedit/textedit.h>
 void testdraw(struct TextEdit *textedit);

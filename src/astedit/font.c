@@ -154,10 +154,10 @@ int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
                 int rectW = layout->pixW / 3; /* RGB format */
                 int rectH = layout->pixH;
                 Texture texture = region.texture;
-                float texX = region.texX;
-                float texY = region.texY;
-                float texW = region.texW;
-                float texH = region.texH;
+                int texX = region.texX;
+                int texY = region.texY;
+                int texW = region.texW;
+                int texH = region.texH;
 
                 commit_all_dirty_textures(); //XXX
 

@@ -6,10 +6,10 @@ struct CachedTexture;
 
 struct TextureAtlasRegion {
         Texture texture;
-        float texX;
-        float texY;
-        float texW;
-        float texH;
+        int texX;
+        int texY;
+        int texW;
+        int texH;
 };
 
 struct CachedTexture *store_texture_in_texture_atlas(unsigned char *pixels, int pixW, int pixH, int stride);

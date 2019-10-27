@@ -174,7 +174,7 @@ const struct ShaderInfo shaderInfo[NUM_SHADER_KINDS] = {
              "uniform sampler2D sampler;\n"
              "void main()\n"
              "{\n"
-             "    vec4 t = texture(sampler, texPosF);\n"
+             "    vec4 t = texelFetch(sampler, ivec2(int(texPosF.x), int(texPosF.y)), 0);\n"
              "    outColor = colorF;\n"
              "    outBlend = vec4(t.rgb, 1.0);\n"
              "}\n"),

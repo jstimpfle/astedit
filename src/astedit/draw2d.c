@@ -136,7 +136,7 @@ void end_frame(void)
 static void fill_texture2d_rect(struct TextureVertex2d *rp,
         int r, int g, int b, int a,
         int x, int y, int w, int h,
-        float texX, float texY, float texW, float texH)
+        int texX, int texY, int texW, int texH)
 {
         for (int i = 0; i < 6; i++) {
                 rp[i].r = r / 255.0f;
@@ -198,7 +198,7 @@ void draw_rgba_texture_rect(Texture texture,
 void draw_subpixelRenderedFont_texture_rect(Texture texture,
         int r, int g, int b, int a,
         int x, int y, int w, int h,
-        float texX, float texY, float texW, float texH)
+        int texX, int texY, int texW, int texH)
 {
         static struct TextureVertex2d rp[6];
 

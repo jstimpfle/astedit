@@ -182,10 +182,10 @@ struct CachedTexture *store_texture_in_texture_atlas(unsigned char *pixels, int 
 void compute_region_from_CachedTexture(struct CachedTexture *cachedTexture, struct TextureAtlasRegion *outRegion)
 {
         outRegion->texture = cachedTexture->row->atlasTexture->alphaTexture;
-        outRegion->texX = (float) cachedTexture->x / ATLASTEXTURE_WIDTH;
-        outRegion->texY = (float) cachedTexture->row->y / ATLASTEXTURE_HEIGHT;
-        outRegion->texW = (float) cachedTexture->width / ATLASTEXTURE_WIDTH;
-        outRegion->texH = (float) cachedTexture->height / ATLASTEXTURE_HEIGHT;
+        outRegion->texX = cachedTexture->x / 3;  /* Divide by 3: RGB format */
+        outRegion->texY = cachedTexture->row->y;
+        outRegion->texW = cachedTexture->width / 3;  /* Divide by 3: RGB format */
+        outRegion->texH = cachedTexture->height;
 }
 
 void commit_all_dirty_textures(void)
