@@ -6,6 +6,42 @@
 #include <astedit/eventhandling.h>
 
 
+/**** ONLY FOR TESTING. RMEOVE LATER */
+
+#include <astedit/search.h>
+#include <astedit/textropeUTF8decode.h>
+static struct MatchNode matchNodes[] = {
+        { MATCH_CHARACTER, 'a', 4, 1 },
+        { MATCH_CHARACTER, 'b', 2, INDEX_LASTINCHAIN },
+        { MATCH_CHARACTER, 'c', 3, INDEX_LASTINCHAIN },
+        { MATCH_CHARACTER, 'c', 4, INDEX_LASTINCHAIN },
+        { MATCH_SUCCESS, -1, INDEX_LASTINCHAIN, INDEX_LASTINCHAIN },
+};
+
+static struct CompiledPattern pattern = { &matchNodes[0], LENGTH(matchNodes) };
+
+static void test_search(struct TextEdit *edit)
+{
+        struct TextropeUTF8Decoder decoder;
+        init_UTF8Decoder(&decoder, edit->rope, 0);
+
+        struct MatchState state;
+        init_pattern_match(&pattern, &state);
+        for (FILEPOS i = 0; i < textrope_length(edit->rope); i++) {
+                /* XXX need proper way to find end of stream. */
+                /* XXX XXX UTF8 vs ASCII?? */
+                uint32_t character = read_codepoint_from_UTF8Decoder(&decoder);
+                log_postf("read character: %c", (char) character);
+                if (feed_character_into_search(&state, (char) character))
+                        log_postf("MATCH!\n");
+        }
+        exit_UTF8Decoder(&decoder);
+        log_postf("finish!\n");
+}
+
+/********/
+
+
 static int is_input_keypress(struct Input *input)
 {
         return input->inputKind == INPUT_KEY
@@ -539,7 +575,10 @@ void handle_input(struct Input *input, struct TextEdit *edit)
                         */
         }
         else if (input->inputKind == INPUT_KEY) {
-                if (input->data.tKey.keyKind == KEY_F4) {
+                if (is_input_keypress_of_key(input, KEY_F3)) {
+                        test_search(edit);
+                }
+                else if (is_input_keypress_of_key(input, KEY_F4)) {
                         //if (input->data.tKey.modifiers & MODIFIER_MOD)
                           //      shouldWindowClose = 1;
                 }

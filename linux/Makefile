@@ -33,13 +33,14 @@ src/astedit/main.c \
 src/astedit/memoryalloc.c \
 src/astedit/mutex-linux.c \
 src/astedit/osthread-linux.c \
+src/astedit/search.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
 src/astedit/texteditloadsave.c \
 src/astedit/textrope.c \
 src/astedit/textureatlas.c \
-src/astedit/utf8.c \
 src/astedit/textropeUTF8decode.c \
+src/astedit/utf8.c \
 src/astedit/vimode.c \
 src/astedit/window.c \
 src/astedit/window-glfw.c \
