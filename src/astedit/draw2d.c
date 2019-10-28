@@ -145,33 +145,33 @@ static void fill_texture2d_rect(struct TextureVertex2d *rp,
                 rp[i].a = a / 255.0f;
         }
 
-        rp[0].x = (float) x;     rp[0].y = (float) y;       rp[0].z = 0;
-        rp[1].x = (float) x;     rp[1].y = (float) y + h;   rp[1].z = 0;
-        rp[2].x = (float) x + w; rp[2].y = (float) y + h;   rp[2].z = 0;
-        rp[3].x = (float) x;     rp[3].y = (float) y;       rp[3].z = 0;
-        rp[4].x = (float) x + w; rp[4].y = (float) y + h;   rp[4].z = 0;
-        rp[5].x = (float) x + w; rp[5].y = (float) y;       rp[5].z = 0;
+        rp[0].x = (float) x;     rp[0].y = (float) y;       rp[0].z = 0.0f;
+        rp[1].x = (float) x;     rp[1].y = (float) y + h;   rp[1].z = 0.0f;
+        rp[2].x = (float) x + w; rp[2].y = (float) y + h;   rp[2].z = 0.0f;
+        rp[3].x = (float) x;     rp[3].y = (float) y;       rp[3].z = 0.0f;
+        rp[4].x = (float) x + w; rp[4].y = (float) y + h;   rp[4].z = 0.0f;
+        rp[5].x = (float) x + w; rp[5].y = (float) y;       rp[5].z = 0.0f;
 
         //for (int i = 0; i < 6; i++) rp[i].x += 0.5f;
 
-        rp[0].texX = texX;        rp[0].texY = texY;
-        rp[1].texX = texX;        rp[1].texY = texY + texH;
-        rp[2].texX = texX + texW; rp[2].texY = texY + texH;
-        rp[3].texX = texX;        rp[3].texY = texY;
-        rp[4].texX = texX + texW; rp[4].texY = texY + texH;
-        rp[5].texX = texX + texW; rp[5].texY = texY;
+        rp[0].texX = (float) texX;        rp[0].texY = (float) texY;
+        rp[1].texX = (float) texX;        rp[1].texY = (float) texY + texH;
+        rp[2].texX = (float) texX + texW; rp[2].texY = (float) texY + texH;
+        rp[3].texX = (float) texX;        rp[3].texY = (float) texY;
+        rp[4].texX = (float) texX + texW; rp[4].texY = (float) texY + texH;
+        rp[5].texX = (float) texX + texW; rp[5].texY = (float) texY;
 }
 
 void draw_colored_rect(int x, int y, int w, int h,
         unsigned r, unsigned g, unsigned b, unsigned a)
 {
         static struct ColorVertex2d rectpoints[6];
-        rectpoints[0].x = (float) x;     rectpoints[0].y = (float) y;       rectpoints[0].z = 0;
-        rectpoints[1].x = (float) x;     rectpoints[1].y = (float) y + h;   rectpoints[1].z = 0;
-        rectpoints[2].x = (float) x + w; rectpoints[2].y = (float) y + h;   rectpoints[2].z = 0;
-        rectpoints[3].x = (float) x;     rectpoints[3].y = (float) y;       rectpoints[3].z = 0;
-        rectpoints[4].x = (float) x + w; rectpoints[4].y = (float) y + h;   rectpoints[4].z = 0;
-        rectpoints[5].x = (float) x + w; rectpoints[5].y = (float) y;       rectpoints[5].z = 0;
+        rectpoints[0].x = (float) x;     rectpoints[0].y = (float) y;       rectpoints[0].z = 0.0f;
+        rectpoints[1].x = (float) x;     rectpoints[1].y = (float) y + h;   rectpoints[1].z = 0.0f;
+        rectpoints[2].x = (float) x + w; rectpoints[2].y = (float) y + h;   rectpoints[2].z = 0.0f;
+        rectpoints[3].x = (float) x;     rectpoints[3].y = (float) y;       rectpoints[3].z = 0.0f;
+        rectpoints[4].x = (float) x + w; rectpoints[4].y = (float) y + h;   rectpoints[4].z = 0.0f;
+        rectpoints[5].x = (float) x + w; rectpoints[5].y = (float) y;       rectpoints[5].z = 0.0f;
         for (int i = 0; i < 6; i++) {
                 rectpoints[i].r = r / 255.0f;
                 rectpoints[i].g = g / 255.0f;

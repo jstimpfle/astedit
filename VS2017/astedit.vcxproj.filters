@@ -105,6 +105,9 @@
     <ClCompile Include="..\src\astedit\edithistory.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\astedit\search.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\rb3ptr.h">
@@ -192,6 +195,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\astedit\edithistory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\astedit\search.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
