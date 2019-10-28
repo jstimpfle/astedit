@@ -28,22 +28,28 @@ struct CompiledPattern {
 };
 
 struct MatchState {
-        int *activeNodes;  // restrict?
-        int *nextActiveNodes;  // restrict?
-        int *isInNextActiveNodes;  // restrict?
+        int *activeNodes;
+        int *nextActiveNodes;
+        /* For each index into matchNodes, the earliest position of all the
+         * positions in the matched text that lead us to that MatchNode.
+         * If the MatchNode is currently not active, the value will be -1. */
+        FILEPOS *earliestStartPosition;
+        FILEPOS *nextEarliestStartPosition;
         struct MatchNode *matchNodes;
         int numberOfNodes;
         int numActiveNodes;
         int numNextActiveNodes;
-        /**/
-        int haveMatch;
-        FILEPOS lastMatchPosition;
+        /* the earliest-start-position of the last recorded match (or -1 if
+         * none) */
+        FILEPOS earliestMatch;
+        /* curent byte position in text file to be matched */
+        FILEPOS bytePosition;
 };
 
-int feed_character_into_search(struct MatchState *state, int character);
+void feed_character_into_search(struct MatchState *state, int character);
 void init_pattern_match(const struct CompiledPattern *pattern, struct MatchState *state);
 void cleanup_pattern_match(struct MatchState *state);
 //XXX should this be here?
-int match_pattern(const struct CompiledPattern *pattern, const char *text, int length);
+void match_pattern(const struct CompiledPattern *pattern, const char *text, int length);
 
 #endif

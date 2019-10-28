@@ -25,25 +25,30 @@ static void test_search(struct TextEdit *edit)
         struct TextropeUTF8Decoder decoder;
         init_UTF8Decoder(&decoder, edit->rope, 0);
 
-        int haveMatch = 0; // TODO: need easier interface
-
-        struct MatchState state;
-        init_pattern_match(&pattern, &state);
+        struct MatchState matchState;
+        init_pattern_match(&pattern, &matchState);
         for (FILEPOS i = 0; i < textrope_length(edit->rope); i++) {
                 /* XXX need proper way to find end of stream. */
                 /* XXX XXX UTF8 vs ASCII?? */
                 uint32_t character = read_codepoint_from_UTF8Decoder(&decoder);
-                if (feed_character_into_search(&state, (char) character)) {
-                        haveMatch = 1;
+                feed_character_into_search(&matchState, (char) character);
+                if (matchState.earliestMatch != -1)
                         break;
-                }
         }
         exit_UTF8Decoder(&decoder);
 #define SEND(x, y, z) send_notification_to_textedit(x, y, z, sizeof z - 1)
-        if (haveMatch)
+        if (matchState.earliestMatch != -1) {
                         SEND(edit, NOTIFICATION_INFO, "MATCH!\n");
-        else
+                        /*XXX need clean way to swithc on selection */
+                        edit->vistate.vimodeKind = VIMODE_SELECTING;
+                        edit->isSelectionMode = 1;
+                        edit->selectionStartBytePosition = matchState.earliestMatch;
+                        edit->cursorBytePosition = matchState.bytePosition;
+                        log_postf("start: %d", (int) matchState.earliestMatch);
+        }
+        else {
                         SEND(edit, NOTIFICATION_ERROR, "NOT FOUND!\n");
+        }
 #undef SEND
 }
 
@@ -270,6 +275,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 undo_last_edit_operation(edit);
                                 break;
                         case 'v':
+                                /*XXX need clean way to enable selection mode */
                                 edit->isSelectionMode = 1;
                                 edit->selectionStartBytePosition = edit->cursorBytePosition;
                                 state->vimodeKind = VIMODE_SELECTING;
