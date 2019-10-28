@@ -1,13 +1,22 @@
 #include <rb3ptr.h>
 #include <stddef.h>  // offsetof()
 
-#define _RB3_DIR_BIT (1<<0)
-#define _RB3_COLOR_BIT (1<<1)
-#define _RB3_BLACK (0)
-#define _RB3_RED (_RB3_COLOR_BIT)
-#define _RB3_CHILD_PTR(head, color) ((rb3_ptr)(head) | color)
-#define _RB3_PARENT_PTR(head, dir) ((rb3_ptr)(head) | dir)
+enum {
+        _RB3_DIR_BIT = 1 << 0,
+        _RB3_COLOR_BIT = 1 << 1,
+        _RB3_BLACK = 0,
+        _RB3_RED = _RB3_COLOR_BIT,
+};
 
+static inline rb3_ptr rb3_child_ptr(struct rb3_head *head, int color)
+{
+        return (rb3_ptr) head | color;
+}
+
+static inline rb3_ptr rb3_parent_ptr(struct rb3_head *head, int dir)
+{
+        return (rb3_ptr) head | dir;
+}
 
 static inline struct rb3_head *rb3_get_black_child(struct rb3_head *head, int dir)
 {
@@ -36,15 +45,15 @@ static inline void rb3_set_black(struct rb3_head *head, int dir)
 
 static inline void rb3_connect(struct rb3_head *head, int dir, struct rb3_head *child, int color)
 {
-        head->child[dir] = _RB3_CHILD_PTR(child, color);
-        child->parent = _RB3_PARENT_PTR(head, dir);
+        head->child[dir] = rb3_child_ptr(child, color);
+        child->parent = rb3_parent_ptr(head, dir);
 }
 
 static inline void rb3_connect_null(struct rb3_head *head, int dir, struct rb3_head *child, int color)
 {
-        head->child[dir] = _RB3_CHILD_PTR(child, color);
+        head->child[dir] = rb3_child_ptr(child, color);
         if (child)
-                child->parent = _RB3_PARENT_PTR(head, dir);
+                child->parent = rb3_parent_ptr(head, dir);
 }
 
 struct rb3_tree *rb3_get_containing_tree(struct rb3_head *head)
@@ -245,10 +254,10 @@ void rb3_link_and_rebalance_and_maybe_augment(struct rb3_head *head, struct rb3_
         _RB3_ASSERT(dir == RB3_LEFT || dir == RB3_RIGHT);
         _RB3_ASSERT(!rb3_has_child(parent, dir));
 
-        parent->child[dir] = _RB3_CHILD_PTR(head, _RB3_RED);
-        head->parent = _RB3_PARENT_PTR(parent, dir);
-        head->child[RB3_LEFT] = _RB3_CHILD_PTR(_RB3_NULL, _RB3_BLACK);
-        head->child[RB3_RIGHT] = _RB3_CHILD_PTR(_RB3_NULL, _RB3_BLACK);
+        parent->child[dir] = rb3_child_ptr(head, _RB3_RED);
+        head->parent = rb3_parent_ptr(parent, dir);
+        head->child[RB3_LEFT] = rb3_child_ptr(_RB3_NULL, _RB3_BLACK);
+        head->child[RB3_RIGHT] = rb3_child_ptr(_RB3_NULL, _RB3_BLACK);
         rb3_rebalance_after_link(head, augment);
 }
 
@@ -269,10 +278,10 @@ void rb3_replace_and_maybe_augment(struct rb3_head *head, struct rb3_head *newhe
         pcol = rb3_get_color_bit(parent, pdir);
 
         if (left)
-                left->parent = _RB3_PARENT_PTR(newhead, RB3_LEFT);
+                left->parent = rb3_parent_ptr(newhead, RB3_LEFT);
         if (right)
-                right->parent = _RB3_PARENT_PTR(newhead, RB3_RIGHT);
-        parent->child[pdir] = _RB3_CHILD_PTR(newhead, pcol);
+                right->parent = rb3_parent_ptr(newhead, RB3_RIGHT);
+        parent->child[pdir] = rb3_child_ptr(newhead, pcol);
 
         if (augment)
                 rb3_update_augment(newhead, augment);
@@ -396,7 +405,6 @@ void rb3_replace_and_augment(struct rb3_head *head, struct rb3_head *newhead, rb
 {
         rb3_replace_and_maybe_augment(head, newhead, augment);
 }
-
 
 
 /* DEBUG STUFF */
