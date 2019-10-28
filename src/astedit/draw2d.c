@@ -504,14 +504,20 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         set_draw_cursor(cursor, x, y, 0, 0);
         set_cursor_color(cursor, C(statusbarTextColor));
 
-        if (edit->isVimodeActive)
-                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
-
-        set_draw_cursor(cursor, x + 500, y, 0, 0);
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
+        if (edit->haveNotification) {
+                if (edit->notificationKind == NOTIFICATION_ERROR)
+                        set_cursor_color(cursor, 255, 0, 0, 255);
+                draw_text_with_cursor(cursor, box, edit->notificationBuffer, edit->notificationLength);
+        }
+        else {
+                if (edit->isVimodeActive)
+                        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
+                set_draw_cursor(cursor, x + 500, y, 0, 0);
+                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
+                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
+                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
+                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
+        }
 }
 
 static void draw_textedit_loading_or_saving(const char *what, FILEPOS count, FILEPOS total, int x, int y, int w, int h)

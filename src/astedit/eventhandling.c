@@ -25,18 +25,26 @@ static void test_search(struct TextEdit *edit)
         struct TextropeUTF8Decoder decoder;
         init_UTF8Decoder(&decoder, edit->rope, 0);
 
+        int haveMatch = 0; // TODO: need easier interface
+
         struct MatchState state;
         init_pattern_match(&pattern, &state);
         for (FILEPOS i = 0; i < textrope_length(edit->rope); i++) {
                 /* XXX need proper way to find end of stream. */
                 /* XXX XXX UTF8 vs ASCII?? */
                 uint32_t character = read_codepoint_from_UTF8Decoder(&decoder);
-                log_postf("read character: %c", (char) character);
-                if (feed_character_into_search(&state, (char) character))
-                        log_postf("MATCH!\n");
+                if (feed_character_into_search(&state, (char) character)) {
+                        haveMatch = 1;
+                        break;
+                }
         }
         exit_UTF8Decoder(&decoder);
-        log_postf("finish!\n");
+#define SEND(x, y, z) send_notification_to_textedit(x, y, z, sizeof z - 1)
+        if (haveMatch)
+                        SEND(edit, NOTIFICATION_INFO, "MATCH!\n");
+        else
+                        SEND(edit, NOTIFICATION_ERROR, "NOT FOUND!\n");
+#undef SEND
 }
 
 /********/
@@ -201,6 +209,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
         }
 
         if (input->inputKind == INPUT_KEY) {
+                if (input->data.tKey.keyEventKind == KEYEVENT_PRESS)
+                        if (edit->haveNotification)
+                                // clear notification
+                                edit->haveNotification = 0;
+
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 /* !hasCodepoint currently means that the event came from GLFW's low-level

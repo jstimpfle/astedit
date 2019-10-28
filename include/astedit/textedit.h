@@ -10,6 +10,11 @@
 #include <astedit/filereadwritethread.h>
 #include <astedit/vimode.h>
 
+enum {
+        NOTIFICATION_INFO,
+        NOTIFICATION_ERROR,
+};
+
 struct LinescrollAnimation {
         int isActive;
         FILEPOS startLine;
@@ -37,6 +42,11 @@ struct TextEdit {
         struct LinescrollAnimation scrollAnimation;
         struct TextEditLoadingCtx loading;
         struct TextEditSavingCtx saving;
+
+        int haveNotification;
+        int notificationLength;
+        int notificationKind;
+        char notificationBuffer[1024];
 };
 
 
@@ -125,6 +135,8 @@ void scroll_down_one_page(struct TextEdit *edit, int isSelecting);
 void erase_selected_in_TextEdit(struct TextEdit *edit);
 void erase_forwards_in_TextEdit(struct TextEdit *edit);
 void erase_backwards_in_TextEdit(struct TextEdit *edit);
+
+void send_notification_to_textedit(struct TextEdit *edit, int notificationKind, const char *message, int messageLength);
 
 
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint);

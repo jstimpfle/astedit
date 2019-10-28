@@ -377,6 +377,18 @@ void erase_backwards_in_TextEdit(struct TextEdit *edit)
                 erase_text_from_textedit(edit, start, end - start);
 }
 
+void send_notification_to_textedit(struct TextEdit *edit, int notificationKind, const char *notification, int notificationLength)
+{
+        /* What to do when there is already a message? */
+        edit->haveNotification = 1;
+        if (notificationLength > LENGTH(edit->notificationBuffer) - 1)
+                notificationLength = LENGTH(edit->notificationBuffer) - 1;
+        edit->haveNotification = 1;
+        edit->notificationKind = notificationKind;
+        edit->notificationLength = notificationLength;
+        copy_string_and_zeroterminate(edit->notificationBuffer, notification, notificationLength);
+}
+
 void init_TextEdit(struct TextEdit *edit)
 {
         UNUSED(edit);
@@ -395,6 +407,10 @@ void init_TextEdit(struct TextEdit *edit)
 
         edit->loading.isActive = 0;
         edit->saving.isActive = 0;
+
+        edit->haveNotification = 0;
+        edit->notificationLength = 0;
+        edit->notificationBuffer[0] = 0;
 }
 
 void exit_TextEdit(struct TextEdit *edit)
