@@ -9,7 +9,6 @@
 /**** ONLY FOR TESTING. RMEOVE LATER */
 
 #include <astedit/search.h>
-#include <astedit/textropeUTF8decode.h>
 static struct MatchNode matchNodes[] = {
         { MATCH_CHARACTER, 'a', 4, 1 },
         { MATCH_CHARACTER, 'b', 2, INDEX_LASTINCHAIN },
@@ -20,22 +19,53 @@ static struct MatchNode matchNodes[] = {
 
 static struct CompiledPattern pattern = { &matchNodes[0], LENGTH(matchNodes) };
 
+#include <astedit/filepositions.h>
+struct TextropeReadBuffer {
+        unsigned char buffer[1024];
+        int numBufferedBytes;
+        int numConsumedBytes;  // of buffered bytes
+        struct Textrope *rope;
+        FILEPOS readpos;
+};
+
+static void reset_TextropeReadBuffer(struct TextropeReadBuffer *buffer, struct Textrope *rope)
+{
+        buffer->numBufferedBytes = 0;
+        buffer->numConsumedBytes = 0;
+        buffer->readpos = 0;
+        buffer->rope = rope;
+}
+
+static int read_next_character_from_rope(struct TextropeReadBuffer *buffer)
+{
+        if (buffer->numConsumedBytes == buffer->numBufferedBytes) {
+                FILEPOS numBytesToRead = textrope_length(buffer->rope) - buffer->readpos;
+                if (numBytesToRead == 0)
+                        return -1; /*EOF*/
+                if (numBytesToRead > LENGTH(buffer->buffer))
+                        numBytesToRead = LENGTH(buffer->buffer);
+                copy_text_from_textrope(buffer->rope, buffer->readpos, (char*)buffer->buffer, numBytesToRead);
+                buffer->numBufferedBytes = cast_filepos_to_int(numBytesToRead);
+                buffer->numConsumedBytes = 0;
+        }
+        return buffer->buffer[buffer->numConsumedBytes++];
+}
+
 static void test_search(struct TextEdit *edit)
 {
-        struct TextropeUTF8Decoder decoder;
-        init_UTF8Decoder(&decoder, edit->rope, 0);
+        struct TextropeReadBuffer buffer;
+        reset_TextropeReadBuffer(&buffer, edit->rope);
 
         struct MatchState matchState;
         init_pattern_match(&pattern, &matchState);
-        for (FILEPOS i = 0; i < textrope_length(edit->rope); i++) {
-                /* XXX need proper way to find end of stream. */
-                /* XXX XXX UTF8 vs ASCII?? */
-                uint32_t character = read_codepoint_from_UTF8Decoder(&decoder);
+        for (;;) {
+                int character = read_next_character_from_rope(&buffer);
+                if (character == -1)
+                        break;
                 feed_character_into_search(&matchState, (char) character);
                 if (matchState.earliestMatch != -1)
                         break;
         }
-        exit_UTF8Decoder(&decoder);
 #define SEND(x, y, z) send_notification_to_textedit(x, y, z, sizeof z - 1)
         if (matchState.earliestMatch != -1) {
                         SEND(edit, NOTIFICATION_INFO, "MATCH!\n");
