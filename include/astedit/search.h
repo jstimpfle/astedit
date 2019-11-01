@@ -46,8 +46,11 @@ struct MatchState {
         FILEPOS bytePosition;
 };
 
+void compile_pattern_from_fixed_string(struct CompiledPattern *pattern, const char *fixed, int length);
+void free_pattern(struct CompiledPattern *pattern);
+
 void feed_character_into_search(struct MatchState *state, int character);
-void init_pattern_match(const struct CompiledPattern *pattern, struct MatchState *state);
+void init_pattern_match(const struct CompiledPattern *pattern, struct MatchState *state, FILEPOS startpos);
 void cleanup_pattern_match(struct MatchState *state);
 //XXX should this be here?
 void match_pattern(const struct CompiledPattern *pattern, const char *text, int length);

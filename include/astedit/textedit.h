@@ -53,6 +53,23 @@ struct TextEdit {
 void init_TextEdit(struct TextEdit *edit);
 void exit_TextEdit(struct TextEdit *edit);
 
+FILEPOS get_position_next_codepoint(struct TextEdit *edit);
+FILEPOS get_position_prev_codepoint(struct TextEdit *edit);
+FILEPOS get_position_codepoints_relative(struct TextEdit *edit, FILEPOS codepointsDiff);
+FILEPOS get_position_of_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS codepointColumn);
+FILEPOS get_position_lines_relative(struct TextEdit *edit, FILEPOS linesDiff);
+FILEPOS get_position_line_begin(struct TextEdit *edit);
+FILEPOS get_position_line_end(struct TextEdit *edit);
+FILEPOS get_position_left(struct TextEdit *edit);
+FILEPOS get_position_right(struct TextEdit *edit);
+FILEPOS get_position_up(struct TextEdit *edit);
+FILEPOS get_position_down(struct TextEdit *edit);
+FILEPOS get_position_pageup(struct TextEdit *edit);
+FILEPOS get_position_pagedown(struct TextEdit *edit);
+FILEPOS get_position_first_line(struct TextEdit *edit);
+FILEPOS get_position_last_line(struct TextEdit *edit);
+FILEPOS get_position_of_line(struct TextEdit *edit, FILEPOS lineNumber);
+
 void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints);
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);

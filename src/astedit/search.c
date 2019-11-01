@@ -65,7 +65,7 @@ void feed_character_into_search(struct MatchState *state, int character)
         }
 }
 
-void init_pattern_match(const struct CompiledPattern *pattern, struct MatchState *state)
+void init_pattern_match(const struct CompiledPattern *pattern, struct MatchState *state, FILEPOS startpos)
 {
         state->matchNodes = pattern->matchNodes;
         state->numberOfNodes = pattern->numberOfNodes;
@@ -80,7 +80,7 @@ void init_pattern_match(const struct CompiledPattern *pattern, struct MatchState
                 state->nextEarliestStartPosition[i] = -1;
         }
         state->earliestMatch = -1;
-        state->bytePosition = 0;
+        state->bytePosition = startpos;
 }
 
 void cleanup_pattern_match(struct MatchState *state)
@@ -91,12 +91,41 @@ void cleanup_pattern_match(struct MatchState *state)
         FREE_MEMORY(&state->nextEarliestStartPosition);
 }
 
+// TODO: remove this?
 void match_pattern(const struct CompiledPattern *pattern, const char *text, int length)
 {
         struct MatchState matchState;
         struct MatchState *state = &matchState;
-        init_pattern_match(pattern, state);
+        init_pattern_match(pattern, state, 0);
         for (int i = 0; i < length; i++)
                 feed_character_into_search(state, text[i]);
         cleanup_pattern_match(state);
+}
+
+
+void compile_pattern_from_fixed_string(struct CompiledPattern *pattern, const char *fixed, int length)
+{
+        pattern->numberOfNodes = length + 1;
+        ALLOC_MEMORY(&pattern->matchNodes, pattern->numberOfNodes);
+        for (int i = 0; i < length; i++) {
+                int character = fixed[i];
+                struct MatchNode *node = &pattern->matchNodes[i];
+                node->matchKind = MATCH_CHARACTER;
+                node->characterToMatch = character;
+                node->firstSuccessorIndex = i + 1;
+                node->alternativeNodeIndex = INDEX_LASTINCHAIN;
+        }
+        {
+                struct MatchNode *node = &pattern->matchNodes[length];
+                node->matchKind = MATCH_SUCCESS;
+                node->characterToMatch = -1;
+                node->firstSuccessorIndex = INDEX_LASTINCHAIN;
+                node->alternativeNodeIndex = INDEX_LASTINCHAIN;
+        }
+}
+
+void free_pattern(struct CompiledPattern *pattern)
+{
+        pattern->numberOfNodes = 0;
+        FREE_MEMORY(&pattern->matchNodes);
 }

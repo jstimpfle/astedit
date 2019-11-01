@@ -7,19 +7,9 @@
 
 
 /**** ONLY FOR TESTING. RMEOVE LATER */
-
 #include <astedit/search.h>
-static struct MatchNode matchNodes[] = {
-        { MATCH_CHARACTER, 'a', 4, 1 },
-        { MATCH_CHARACTER, 'b', 2, INDEX_LASTINCHAIN },
-        { MATCH_CHARACTER, 'c', 3, INDEX_LASTINCHAIN },
-        { MATCH_CHARACTER, 'c', 4, INDEX_LASTINCHAIN },
-        { MATCH_SUCCESS, -1, INDEX_LASTINCHAIN, INDEX_LASTINCHAIN },
-};
-
-static struct CompiledPattern pattern = { &matchNodes[0], LENGTH(matchNodes) };
-
 #include <astedit/filepositions.h>
+
 struct TextropeReadBuffer {
         unsigned char buffer[1024];
         int numBufferedBytes;
@@ -28,11 +18,11 @@ struct TextropeReadBuffer {
         FILEPOS readpos;
 };
 
-static void reset_TextropeReadBuffer(struct TextropeReadBuffer *buffer, struct Textrope *rope)
+static void reset_TextropeReadBuffer(struct TextropeReadBuffer *buffer, struct Textrope *rope, FILEPOS readpos)
 {
         buffer->numBufferedBytes = 0;
         buffer->numConsumedBytes = 0;
-        buffer->readpos = 0;
+        buffer->readpos = readpos;
         buffer->rope = rope;
 }
 
@@ -45,24 +35,29 @@ static int read_next_character_from_rope(struct TextropeReadBuffer *buffer)
                 if (numBytesToRead > LENGTH(buffer->buffer))
                         numBytesToRead = LENGTH(buffer->buffer);
                 copy_text_from_textrope(buffer->rope, buffer->readpos, (char*)buffer->buffer, numBytesToRead);
+                buffer->readpos += numBytesToRead;
                 buffer->numBufferedBytes = cast_filepos_to_int(numBytesToRead);
                 buffer->numConsumedBytes = 0;
         }
         return buffer->buffer[buffer->numConsumedBytes++];
 }
 
-static void test_search(struct TextEdit *edit)
+static void test_search_with_pattern(struct TextEdit *edit, struct CompiledPattern *pattern)
 {
         struct TextropeReadBuffer buffer;
-        reset_TextropeReadBuffer(&buffer, edit->rope);
-
         struct MatchState matchState;
-        init_pattern_match(&pattern, &matchState);
+        {
+                //XXX TODO: what if there is no next codepoint?
+                FILEPOS readpos = edit->cursorBytePosition;
+                reset_TextropeReadBuffer(&buffer, edit->rope, readpos);
+                init_pattern_match(pattern, &matchState, readpos);
+        }
+
         for (;;) {
                 int character = read_next_character_from_rope(&buffer);
                 if (character == -1)
                         break;
-                feed_character_into_search(&matchState, (char) character);
+                feed_character_into_search(&matchState, character);
                 if (matchState.earliestMatch != -1)
                         break;
         }
@@ -70,16 +65,21 @@ static void test_search(struct TextEdit *edit)
         if (matchState.earliestMatch != -1) {
                         SEND(edit, NOTIFICATION_INFO, "MATCH!\n");
                         /*XXX need clean way to swithc on selection */
-                        edit->vistate.vimodeKind = VIMODE_SELECTING;
-                        edit->isSelectionMode = 1;
-                        edit->selectionStartBytePosition = matchState.earliestMatch;
-                        edit->cursorBytePosition = matchState.bytePosition;
-                        log_postf("start: %d", (int) matchState.earliestMatch);
+                        move_cursor_to_byte_position(edit, matchState.earliestMatch, 0);
+                        move_cursor_to_byte_position(edit, matchState.bytePosition, 1);
         }
         else {
                         SEND(edit, NOTIFICATION_ERROR, "NOT FOUND!\n");
         }
 #undef SEND
+}
+
+static void test_search(struct TextEdit *edit)
+{
+        struct CompiledPattern pattern;
+        compile_pattern_from_fixed_string(&pattern, "foobar", 6);
+        test_search_with_pattern(edit, &pattern);
+        free_pattern(&pattern);
 }
 
 /********/
@@ -306,9 +306,8 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         case 'v':
                                 /*XXX need clean way to enable selection mode */
-                                edit->isSelectionMode = 1;
-                                edit->selectionStartBytePosition = edit->cursorBytePosition;
-                                state->vimodeKind = VIMODE_SELECTING;
+                                move_cursor_to_byte_position(edit, edit->cursorBytePosition, 0);
+                                move_cursor_to_byte_position(edit, edit->cursorBytePosition + 1, 1);
                                 break;
                         case 'x':
                                 erase_forwards_in_TextEdit(edit);

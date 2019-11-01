@@ -16,7 +16,7 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 
-#if 0
+#if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
 static const struct RGB normalTextColor = {0, 255, 0 };

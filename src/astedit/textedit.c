@@ -114,6 +114,9 @@ void move_cursor_to_byte_position(struct TextEdit *edit, FILEPOS pos, int isSele
         if (!edit->isSelectionMode && isSelecting)
                 edit->selectionStartBytePosition = edit->cursorBytePosition;
         edit->isSelectionMode = isSelecting;
+        if (isSelecting && edit->isVimodeActive)
+                if (edit->vistate.vimodeKind != VIMODE_SELECTING)
+                        edit->vistate.vimodeKind = VIMODE_SELECTING;
         edit->cursorBytePosition = pos;
         move_view_minimally_to_display_cursor(edit);
 }
