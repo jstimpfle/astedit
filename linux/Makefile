@@ -37,6 +37,7 @@ src/astedit/search.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
 src/astedit/texteditloadsave.c \
+src/astedit/texteditsearch.c \
 src/astedit/textrope.c \
 src/astedit/textureatlas.c \
 src/astedit/textropeUTF8decode.c \

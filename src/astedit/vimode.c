@@ -7,6 +7,7 @@
 #include <astedit/vimode.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
+#include <astedit/texteditsearch.h>
 #include <string.h>
 
 void setup_vistate(struct ViState *vistate)
@@ -24,10 +25,12 @@ void teardown_vistate(struct ViState *vistate)
 
 void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
 {
+        /*
         log_begin();
         log_writef("Got cmdline: ");
         log_write(cmdline->buf, cmdline->fill);
         log_end();
+        */
 
         // XXX parsing not nice.
         if (cmdline->buf[0] == 'r' && cmdline->buf[1] == ' ') {
@@ -48,6 +51,16 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
                 }
                 if (filepath != NULL)
                         write_textrope_contents_to_file(&edit->saving, edit->rope, filepath, filepathLen);
+        }
+        else if (cmdline->buf[0] == '/') {
+                const char *buf = cmdline->buf;
+                int length = cmdline->fill;
+                int start = 1;
+                int i = 2;
+                while (i < length && buf[i] != '/')
+                        i++;
+                int end = i;
+                start_search(edit, cmdline->buf + start, end - start);
         }
         else if (cmdline->buf[0] == 'q' && cmdline->fill == 1) {
                 shouldWindowClose = 1;
