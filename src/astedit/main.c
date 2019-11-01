@@ -7,6 +7,7 @@
 #include <astedit/gfx.h>
 #include <astedit/textedit.h>
 #include <astedit/eventhandling.h>
+#include <string.h>
 
 static struct TextEdit globalTextEdit;
 
@@ -65,6 +66,14 @@ void mainloop(void)
 
 int main(int argc, const char **argv)
 {
+        configuredFontdir = "fontfiles/";  // default
+
+        int argind = 1;
+        if (argind + 1 < argc && !strcmp(argv[argind], "--fontpath")) {
+                configuredFontdir = argv[argind + 1];
+                argind += 2;
+        }
+
         setup_timers();
 
         /* 2019-10: I've measured this stuff and the setup_window() routine

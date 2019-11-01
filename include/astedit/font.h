@@ -15,6 +15,7 @@ enum {
 };
 
 
+DATA const char *configuredFontdir;
 
 
 #include <stdint.h>

@@ -1,5 +1,7 @@
 #include <astedit/astedit.h>
+#include <astedit/bytes.h>
 #include <astedit/logging.h>
+#include <astedit/memoryalloc.h>
 #include <astedit/font.h>
 
 #include <ft2build.h>
@@ -8,9 +10,9 @@
 #define USE_SUBPIXEL_RENDERING 1
 
 static const char *faceKindToFontpath[NUM_FONTFACES] = {
-        //[FONTFACE_REGULAR] = "fontfiles/NotoSans/NotoSans-Regular.ttf",
-        [FONTFACE_REGULAR] ="fontfiles/NotoMono/NotoMono-Regular.ttf",
-        [FONTFACE_BOLD] ="fontfiles/NotoSans/NotoSans-Bold.ttf",
+        //[FONTFACE_REGULAR] = "NotoSans/NotoSans-Regular.ttf",
+        [FONTFACE_REGULAR] ="NotoMono/NotoMono-Regular.ttf",
+        [FONTFACE_BOLD] ="NotoSans/NotoSans-Bold.ttf",
 };
 
 static FT_Library  library;
@@ -67,6 +69,27 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
         outLayout->horiAdvance = (int) (face->glyph->metrics.horiAdvance / 64.0f);
 }
 
+static char *fontpath;
+static int fontpathLength;
+
+static void make_fontpath_from_pathspec(const char *pathspec)
+{
+        int fontdirLength = strlen(configuredFontdir);
+        int specLength = strlen(pathspec);
+        fontpathLength = fontdirLength + 1 + specLength + 1;
+        REALLOC_MEMORY(&fontpath, fontpathLength);
+        copy_memory(fontpath, configuredFontdir, fontdirLength);
+        copy_memory(fontpath + fontdirLength, "/", 1);
+        copy_memory(fontpath + fontdirLength + 1, pathspec, specLength);
+        copy_memory(fontpath + fontdirLength + 1 + specLength, "", 1); // zero-terminate
+}
+
+static void release_fontpath(void)
+{
+        FREE_MEMORY(&fontpath);
+        fontpathLength = 0;
+}
+
 void setup_fonts(void)
 {
         {
@@ -76,13 +99,14 @@ void setup_fonts(void)
         }
 
         for (int i = 0; i < NUM_FONTFACES; i++) {
-                int error = FT_New_Face(library, faceKindToFontpath[i], 0,
-                                                &faceKindTo_FT_Face[i]);
+                make_fontpath_from_pathspec(faceKindToFontpath[i]);
+                int error = FT_New_Face(library, fontpath, 0, &faceKindTo_FT_Face[i]);
                 if (error == FT_Err_Unknown_File_Format)
                         fatal("Unsupported font file format\n");
                 else if (error)
                         fatal("Error reading font file\n");
         }
+        release_fontpath();
 }
 
 void teardown_fonts(void)
