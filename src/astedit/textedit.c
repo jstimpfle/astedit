@@ -16,7 +16,7 @@ enum {
         LINES_PER_PAGE = 15,   // XXX this value should be dependent on the current GUI viewport probably.
 };
 
-static void insert_text_into_textedit(struct TextEdit *edit, FILEPOS insertPos, const char *text, FILEPOS length,
+void insert_text_into_textedit(struct TextEdit *edit, FILEPOS insertPos, const char *text, FILEPOS length,
                                       FILEPOS nextCursorPosition)
 {
         FILEPOS previousCursorPosition = edit->cursorBytePosition;

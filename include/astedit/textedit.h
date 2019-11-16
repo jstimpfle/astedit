@@ -70,7 +70,15 @@ FILEPOS get_position_first_line(struct TextEdit *edit);
 FILEPOS get_position_last_line(struct TextEdit *edit);
 FILEPOS get_position_of_line(struct TextEdit *edit, FILEPOS lineNumber);
 
+/* insert codepoints. They will be stored UTF-8 encoded in the rope. This
+ * function might be removed later since it is not very inefficient. */
 void insert_codepoints_into_textedit(struct TextEdit *edit, FILEPOS insertPos, uint32_t *codepoints, int numCodepoints);
+
+/* Just insert plain bytes. The rope shouldn't care much whether it is valid
+ * UTF-8 encoded text. Some other parts will still crash on invalid UTF-8 but
+ * we will work on that. */
+void insert_text_into_textedit(struct TextEdit *edit, FILEPOS insertPos, const char *text, FILEPOS length,
+                                      FILEPOS nextCursorPosition);
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
 void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);

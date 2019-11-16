@@ -76,8 +76,10 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
         struct TextEditLoadingCtx *loading = param;
         ENSURE(loading->isActive);
         ENSURE(loading->isCompleted == 0);
+#if 0
         uint32_t utf8buf[LENGTH(loading->buffer)];
         int utf8Fill;
+
         decode_utf8_span_and_move_rest_to_front(
                 loading->buffer,
                 loading->bufferFill,
@@ -86,6 +88,18 @@ static int flush_loadingBuffer_from_filereadthread(void *param)
                 &utf8Fill);
         insert_codepoints_into_textedit(loading->edit, textrope_length(loading->edit->rope/*XXX*/), utf8buf, utf8Fill);
         loading->completedBytes += utf8Fill;
+#else
+        {
+
+                FILEPOS currentPosition = textrope_length(loading->edit->rope/*XXX*/);
+                FILEPOS nextPosition = currentPosition + loading->bufferFill;
+
+                insert_text_into_textedit(loading->edit, currentPosition, loading->buffer, loading->bufferFill, nextPosition);
+                loading->completedBytes += loading->bufferFill;
+                loading->bufferFill = 0;
+        }
+#endif
+
         return 0;  /* report success */
 }
 void load_file_to_textedit(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct TextEdit *edit)
