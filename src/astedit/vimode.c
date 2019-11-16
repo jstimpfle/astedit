@@ -9,6 +9,7 @@
 #include <astedit/texteditloadsave.h>
 #include <astedit/texteditsearch.h>
 #include <string.h>
+#include <stdlib.h> // strtol()
 
 void setup_vistate(struct ViState *vistate)
 {
@@ -33,7 +34,17 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
         */
 
         // XXX parsing not nice.
-        if (cmdline->buf[0] == 'r' && cmdline->buf[1] == ' ') {
+        if (cmdline->buf[0] == 'g' && cmdline->buf[1] == ' ') {
+                FILEPOS numberOfLines = textrope_number_of_lines(edit->rope);
+                FILEPOS gotoLine = strtol(cmdline->buf + 2, NULL, 0) - 1;
+                if (gotoLine < 0)
+                        gotoLine = 0;
+                else if (gotoLine > numberOfLines)
+                        gotoLine = numberOfLines;
+                //log_postf("go to line: %ld\n", (long) gotoLine);
+                move_cursor_to_line(edit, gotoLine, 0);
+        }
+        else if (cmdline->buf[0] == 'r' && cmdline->buf[1] == ' ') {
                 const char *filepath = cmdline->buf + 2;
                 int filepathLen = cmdline->fill - 2;
                 load_file_to_textedit(&edit->loading, filepath, filepathLen, edit);

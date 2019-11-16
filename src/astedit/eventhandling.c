@@ -388,8 +388,15 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
                 cmdline->isAborted = 1;
         else if (is_input_keypress_of_key(input, KEY_ESCAPE))
                 cmdline->isAborted = 1;
-        else if (is_input_keypress_of_key(input, KEY_ENTER))
+        else if (is_input_keypress_of_key(input, KEY_ENTER)) {
+                // if still navigating, then first apply the currently "hovered"
+                // cmdline
+                if (cmdline->isNavigatingHistory) {
+                        struct RememberedCmdline *updatedItem = cmdline->history.iter;
+                        set_ViCmdline_contents_from_string(cmdline, updatedItem->cmdline, updatedItem->length);
+                }
                 cmdline->isConfirmed = 1;
+        }
         else if (is_input_unicode(input) ||
                  is_input_keypress_of_key(input, KEY_BACKSPACE) ||
                  is_input_keypress_of_key(input, KEY_DELETE) ||
