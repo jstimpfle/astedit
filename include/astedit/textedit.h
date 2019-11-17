@@ -97,6 +97,8 @@ enum MovementKind {
         MOVEMENT_DOWN,
         MOVEMENT_NEXT_CODEPOINT,  // like RIGHT but won't stop at end of line
         MOVEMENT_PREVIOUS_CODEPOINT,  // like LEFT but won't stop at beginning of line
+        MOVEMENT_NEXT_WORD,
+        MOVEMENT_PREVIOUS_WORD,
         MOVEMENT_PAGEUP,
         MOVEMENT_PAGEDOWN,
         MOVEMENT_LINEBEGIN,
@@ -126,6 +128,8 @@ static inline void move_cursor_up(struct TextEdit *edit, int isSelecting) { MOVE
 static inline void move_cursor_down(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_DOWN); }
 static inline void move_cursor_to_next_codepoint(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_NEXT_CODEPOINT); }
 static inline void move_cursor_to_previous_codepoint(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_PREVIOUS_CODEPOINT); }
+static inline void move_cursor_to_next_word(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_NEXT_WORD); }
+static inline void move_cursor_to_previous_word(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_PREVIOUS_WORD); }
 static inline void move_cursor_to_beginning_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEBEGIN); }
 static inline void move_cursor_to_end_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEEND); }
 static inline void move_cursor_to_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS columnCodepoint, int isSelecting) { MOVE(MOVEMENT_SPECIFICLINEANDCOLUMN, lineNumber, columnCodepoint); }

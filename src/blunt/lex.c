@@ -69,25 +69,29 @@ static int is_digit(int c)
         return '0' <= c && c <= '9';
 }
 
-/* TODO: return more information than just a token kind. */
-void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
+void find_start_of_next_token(struct Blunt_ReadCtx *ctx)
 {
-        enum Blunt_TokenKind tokenKind;
-        int c;
-
-        FILEPOS parseStart = ctx->readPos;
-        FILEPOS leadingWhiteChars = 0;
-
         for (;;) {
-                c = look_byte(ctx);
+                int c = look_byte(ctx);
                 if (c == -1)
                         break;
                 if (!is_whitespace(c))
                         break;
                 consume_byte(ctx);
         }
+}
+
+/* TODO: return more information than just a token kind. */
+void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
+{
+        FILEPOS parseStart = ctx->readPos;
+        FILEPOS leadingWhiteChars = 0;
+
+        find_start_of_next_token(ctx);
         leadingWhiteChars = filepos_sub(ctx->readPos, parseStart);
 
+        enum Blunt_TokenKind tokenKind;
+        int c = look_byte(ctx);  // we already called find_start_of_next_token(). Calling look_byte() again is not very nice
         if (c == -1) {
                 tokenKind = BLUNT_TOKEN_EOF;
         }

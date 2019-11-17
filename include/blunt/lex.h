@@ -43,6 +43,7 @@ struct Blunt_ReadCtx {
         int bufferLength;
 };
 
+void find_start_of_next_token(struct Blunt_ReadCtx *ctx);
 void begin_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx, struct Textrope *rope, FILEPOS startPos);
 void end_lexing_blunt_tokens(struct Blunt_ReadCtx *ctx);
 

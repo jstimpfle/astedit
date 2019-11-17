@@ -82,6 +82,8 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
                 case 'k': movement = (struct Movement) { MOVEMENT_UP }; break;
                 case 'l': movement = (struct Movement) { MOVEMENT_RIGHT }; break;
                 case 'G': movement = (struct Movement) { MOVEMENT_LASTLINE }; break;
+                case 'w': movement = (struct Movement) { MOVEMENT_NEXT_WORD }; break;
+                case 'b': movement = (struct Movement) { MOVEMENT_PREVIOUS_WORD }; break;
                 default:
                         badKey = 1;
                 }

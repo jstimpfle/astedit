@@ -144,6 +144,53 @@ FILEPOS get_position_prev_codepoint(struct TextEdit *edit)
         return edit->cursorBytePosition;
 }
 
+FILEPOS get_position_next_word(struct TextEdit *edit)
+{
+        FILEPOS stopPos = edit->cursorBytePosition;
+        FILEPOS linePos = get_position_line_begin(edit);
+        struct Blunt_ReadCtx readCtx;
+        begin_lexing_blunt_tokens(&readCtx, edit->rope, linePos);
+        for (;;) {
+                if (readCtx.readPos > stopPos)
+                        break;
+                struct Blunt_Token token;
+                lex_blunt_token(&readCtx, &token);
+                if (token.tokenKind == BLUNT_TOKEN_EOF)
+                        break;
+                find_start_of_next_token(&readCtx);
+        }
+        return readCtx.readPos;
+}
+
+FILEPOS get_position_previous_word(struct TextEdit *edit)
+{
+        FILEPOS previousLinePos;
+        {
+                /* we need to start in the line before the current line, in case the
+                previous word is on the previous line */
+                FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+                FILEPOS previousLineNumber = lineNumber - 1;
+                if (previousLineNumber < 0)
+                        previousLineNumber = 0;
+                previousLinePos = compute_pos_of_line(edit->rope, previousLineNumber);
+        }
+        FILEPOS stopPos = edit->cursorBytePosition;
+        struct Blunt_ReadCtx readCtx;
+        begin_lexing_blunt_tokens(&readCtx, edit->rope, previousLinePos);
+        FILEPOS lastPos = 0;
+        for (;;) {
+                if (readCtx.readPos >= stopPos)
+                        break;
+                lastPos = readCtx.readPos;
+                struct Blunt_Token token;
+                lex_blunt_token(&readCtx, &token);
+                if (token.tokenKind == BLUNT_TOKEN_EOF)
+                        break;
+                find_start_of_next_token(&readCtx);
+        }
+        return lastPos;
+}
+
 FILEPOS get_position_codepoints_relative(struct TextEdit *edit, FILEPOS codepointsDiff)
 {
         FILEPOS totalCodepoints = textrope_number_of_codepoints(edit->rope);
@@ -273,6 +320,8 @@ FILEPOS get_movement_position(struct TextEdit *edit, struct Movement *movement)
         case MOVEMENT_DOWN:   return get_position_down(edit);
         case MOVEMENT_NEXT_CODEPOINT: return get_position_next_codepoint(edit);
         case MOVEMENT_PREVIOUS_CODEPOINT: return get_position_prev_codepoint(edit);
+        case MOVEMENT_NEXT_WORD: return get_position_next_word(edit);
+        case MOVEMENT_PREVIOUS_WORD: return get_position_previous_word(edit);
         case MOVEMENT_PAGEUP: return get_position_pageup(edit);
         case MOVEMENT_PAGEDOWN: return get_position_pagedown(edit);
         case MOVEMENT_LINEBEGIN: return get_position_line_begin(edit);
