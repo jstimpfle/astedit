@@ -1,6 +1,7 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
 #include <astedit/textrope.h>
+#include <astedit/logging.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/utf8.h>
 #include <astedit/textropeUTF8decode.h>
@@ -58,9 +59,17 @@ uint32_t read_codepoint_from_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
         int r = decode_codepoint_from_utf8(decoder->buffer,
                 decoder->bufferStart, decoder->bufferEnd,
                 &decoder->bufferStart, &codepoint);
-        if (r == 0)
-                return (uint32_t) -1;
-        if (r == -1)
-                return (uint32_t) '?'; //XXX
+        if (r == 0) {
+                ENSURE(decoder->bufferStart == decoder->bufferEnd);  // is that true?
+                return -1;
+        }
+        if (r == -1) {
+                /* Just eat one (invalid) byte to allow progress.
+                 * Alternatively, we could try to find the start of the next
+                 * UTF-8 sequence. */
+                if (decoder->bufferStart < decoder->bufferEnd)
+                        decoder->bufferStart ++;
+                return (uint32_t) 0xFFFD;
+        }
         return codepoint;
 }
