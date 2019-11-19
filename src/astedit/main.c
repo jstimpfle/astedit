@@ -1,4 +1,5 @@
 #include <astedit/astedit.h>
+#include <astedit/buffers.h>
 #include <astedit/draw2d.h>
 #include <astedit/window.h>
 #include <astedit/clock.h>
@@ -6,10 +7,9 @@
 #include <astedit/font.h>
 #include <astedit/gfx.h>
 #include <astedit/textedit.h>
+#include <astedit/texteditloadsave.h>
 #include <astedit/eventhandling.h>
 #include <string.h>
-
-static struct TextEdit globalTextEdit;
 
 static struct Timer windowSetupTimer;
 static struct Timer gfxSetupTimer;
@@ -25,11 +25,11 @@ static void handle_events(void)
                 look_input(&input);
                 consume_input())
         {
-                handle_input(&input, &globalTextEdit);
+                handle_input(&input, activeTextEdit);
         }
 
         //XXX: "TIMETICK" event
-        update_textedit(&globalTextEdit);
+        update_textedit(activeTextEdit);
 }
 
 void mainloop(void)
@@ -47,7 +47,7 @@ void mainloop(void)
         stop_timer(&handleEventsTimer);
 
         start_timer(&redrawTimer);
-        testdraw(&globalTextEdit);
+        testdraw(activeTextEdit);
         stop_timer(&redrawTimer);
 
         flush_gfx();
@@ -94,16 +94,27 @@ int main(int argc, const char **argv)
         stop_timer(&fontSetupTimer);
         report_timer(&fontSetupTimer, "Setting up fonts");
 
-        init_TextEdit(&globalTextEdit);
+        if (argc == 2) {
+                const char *filepath = argv[1];
+                int filepathLength = (int) strlen(filepath);
 
-        if (argc == 2)
-                textedit_test_init(&globalTextEdit, argv[1]);
-        globalTextEdit.isVimodeActive = 1;
+                //XXX currently have to switch to the buffer to set activeTextEdit
+                struct Buffer *buffer = create_new_buffer(filepath);
+                switch_to_buffer(buffer);
+
+                load_file_to_textedit(&activeTextEdit->loading, filepath, filepathLength, activeTextEdit);
+        }
+        else {
+                struct Buffer *buffer = create_new_buffer("(unnamed buffer)");
+                switch_to_buffer(buffer);
+        }
+
+        activeTextEdit->isVimodeActive = 1;
 
         while (!shouldWindowClose)
                 mainloop();
 
-        exit_TextEdit(&globalTextEdit);
+        exit_TextEdit(activeTextEdit);
 
         teardown_gfx();
         teardown_fonts();

@@ -328,6 +328,11 @@ void teardown_window(void)
         glfwTerminate();
 }
 
+void set_window_title(const char *title)
+{
+        glfwSetWindowTitle(windowGlfw, title);
+}
+
 void wait_for_events(void)
 {
         isDoingPolling = 1;

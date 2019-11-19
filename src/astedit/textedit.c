@@ -489,12 +489,3 @@ void update_textedit(struct TextEdit *edit)
         check_if_loading_completed_and_if_so_then_cleanup(&edit->loading);
         check_if_saving_completed_and_if_so_then_cleanup(&edit->saving);
 }
-
-void textedit_test_init(struct TextEdit *edit, const char *filepath)
-{
-        int filepathLength = (int) strlen(filepath);
-        load_file_to_textedit(&edit->loading, filepath, filepathLength, edit);
-
-        ALLOC_MEMORY(&edit->filepath, filepathLength + 1);
-        copy_string_and_zeroterminate(edit->filepath, filepath, filepathLength);
-}

@@ -1,6 +1,8 @@
 #ifndef ASTEDIT_WINDOW_H_INCLUDED
 #define ASTEDIT_WINDOW_H_INCLUDED
 
+#include <astedit/astedit.h>
+
 enum KeyKind {
         KEY_NONE = -1,  /* we use this because we have "optional" keys in input handling */
 
@@ -166,7 +168,6 @@ DATA int windowWidthInPixels;
 DATA int windowHeightInPixels;
 
 
-
 void enqueue_input(const struct Input *input);
 int look_input(struct Input *input);
 void consume_input(void);
@@ -174,6 +175,7 @@ void consume_input(void);
 /* implemented in backend-specific file (window-XXX.c) */
 void setup_window(void);
 void teardown_window(void);
+void set_window_title(const char *title);
 void wait_for_events(void);
 void swap_buffers(void);
 void enter_windowing_mode(void);

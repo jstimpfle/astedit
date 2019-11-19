@@ -174,9 +174,8 @@ void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint);
 handle updates as part of event processing? */
 void update_textedit(struct TextEdit *edit);
 
-/* fill TextEdit with some text loaded from a file. For debugging purposes. */
-void textedit_test_init(struct TextEdit *edit, const char *filepath);
-
+/* XXX: currently we have one active text edit that receive the input keys */
+DATA struct TextEdit *activeTextEdit;
 
 
 #endif
