@@ -40,6 +40,19 @@ static int is_input_unicode_of_codepoint(struct Input *input, uint32_t codepoint
 }
 */
 
+static void go_to_major_mode_in_vi(struct ViState *vi, enum ViMode vimodeKind)
+{
+        vi->vimodeKind = vimodeKind;
+        if (vimodeKind == VIMODE_NORMAL)
+                vi->modalKind = VIMODE_NORMAL;
+}
+
+static void go_to_normal_mode_modal_in_vi(struct ViState *vi, enum ViNormalModeModal modalKind)
+{
+        ENSURE(vi->vimodeKind == VIMODE_NORMAL);
+        vi->modalKind = modalKind;
+}
+
 static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
 {
         if (input->inputKind != INPUT_KEY)
@@ -104,9 +117,12 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
                 move_cursor_with_movement(edit, &movement, isSelecting);
 }
 
-static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
+static void process_input_in_TextEdit_with_ViMode_in_rangeoperation_mode(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
+        // either delete or "change" a.k.a replace
+        int isReplace = state->modalKind == VIMODAL_RANGEOPERATION_REPLACE;
+
         UNUSED(edit);
         if (input->inputKind == INPUT_KEY) {
                 //enum KeyKind keyKind = input->data.tKey.keyKind;
@@ -116,16 +132,21 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(
                         struct Movement movement;
                         if (input_to_movement_in_Vi(input, &movement)) {
                                 delete_with_movement(edit, &movement);
-                                state->modalKind = VIMODAL_NORMAL;
+                                if (isReplace) {
+                                        go_to_major_mode_in_vi(state, VIMODE_INPUT);
+                                }
+                                else {
+                                        go_to_normal_mode_modal_in_vi(state, VIMODAL_NORMAL);
+                                }
                         }
                         else if (hasCodepoint) {
                                 switch (input->data.tKey.codepoint) {
                                 case 'd':
                                         delete_current_line(edit);
-                                        state->modalKind = VIMODAL_NORMAL;
+                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                         break;
                                 default:
-                                        state->modalKind = VIMODAL_NORMAL;
+                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                         break;
                                 }
                         }
@@ -160,8 +181,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
-        if (state->modalKind == VIMODAL_D) {
-                process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_D(input, edit, state);
+        if (state->modalKind == VIMODAL_RANGEOPERATION_REPLACE
+            || state->modalKind == VIMODAL_RANGEOPERATION_DELETE) {
+                process_input_in_TextEdit_with_ViMode_in_rangeoperation_mode(input, edit, state);
                 return;
         }
         if (state->modalKind == VIMODAL_G) {
@@ -188,30 +210,34 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                         switch (input->data.tKey.codepoint) {
                         case ':':
                                 clear_ViCmdline(&state->cmdline);
-                                state->vimodeKind = VIMODE_COMMAND;
+                                go_to_major_mode_in_vi(state, VIMODE_COMMAND);
                                 break;
                         case 'A':
                                 move_cursor_to_end_of_line(edit, 0);
-                                state->vimodeKind = VIMODE_INPUT;
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
                                 break;
                         case 'I':
                                 move_cursor_to_beginning_of_line(edit, 0);
-                                state->vimodeKind = VIMODE_INPUT;
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
                                 break;
                         case 'D':
                                 delete_to_end_of_line(edit);
                                 break;
                         case 'a':
                                 move_cursor_right(edit, 0);
-                                state->vimodeKind = VIMODE_INPUT;
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
                                 break;
                         case 'i':
-                                state->vimodeKind = VIMODE_INPUT;
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
+                                break;
+                        case 'c':
+                                go_to_normal_mode_modal_in_vi(state, VIMODAL_RANGEOPERATION_REPLACE);
                                 break;
                         case 'd':
-                                state->modalKind = VIMODAL_D;
+                                go_to_normal_mode_modal_in_vi(state, VIMODAL_RANGEOPERATION_DELETE);
                                 break;
                         case 'g':
+                                go_to_normal_mode_modal_in_vi(state, VIMODAL_G);
                                 state->modalKind = VIMODAL_G;
                                 break;
                         case 'o':
@@ -220,12 +246,12 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                         insert_codepoint_into_textedit(edit, 0x0a);
                                 move_cursor_to_next_codepoint(edit, 0);
                                 insert_codepoint_into_textedit(edit, 0x0a);
-                                state->vimodeKind = VIMODE_INPUT;
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
                                 break;
                         case 'O':
                                 move_cursor_to_beginning_of_line(edit, 0);
                                 insert_codepoint_into_textedit(edit, 0x0a);
-                                state->vimodeKind = VIMODE_INPUT;
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
                                 break;
                         case 'u':
                                 undo_last_edit_operation(edit);
@@ -294,7 +320,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                         case 'd':
                         case 'D':
                                 erase_selected_in_TextEdit(edit);
-                                state->vimodeKind = VIMODE_NORMAL;
+                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         default:
                                 process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
@@ -307,17 +333,17 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                         case KEY_C:
                                 if (modifiers == MODIFIER_CONTROL) {
                                         edit->isSelectionMode = 0;
-                                        state->vimodeKind = VIMODE_NORMAL;
+                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 }
                                 break;
                         case KEY_ESCAPE:
                                 edit->isSelectionMode = 0;
-                                state->vimodeKind = VIMODE_NORMAL;
+                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         case KEY_BACKSPACE:
                         case KEY_DELETE:
                                 erase_selected_in_TextEdit(edit);
-                                state->vimodeKind = VIMODE_NORMAL;
+                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         default:
                                 process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
@@ -338,7 +364,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                         switch (input->data.tKey.keyKind) {
                         case KEY_C:
                                 if (modifiers == MODIFIER_CONTROL)
-                                        state->vimodeKind = VIMODE_NORMAL;
+                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         case KEY_ENTER:
                                 insert_codepoint_into_textedit(edit, 0x0a);
@@ -351,7 +377,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                                 }
                                 break;
                         case KEY_ESCAPE:
-                                state->vimodeKind = VIMODE_NORMAL;
+                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         case KEY_DELETE:
                                 erase_forwards_in_TextEdit(edit);
@@ -449,7 +475,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
         if (cmdline->isAborted) {
                 // TODO
                 clear_ViCmdline(cmdline);
-                state->vimodeKind = VIMODE_NORMAL;
+                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
         }
         if (cmdline->isConfirmed) {
                 // TODO
@@ -458,7 +484,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
                         add_to_cmdline_history(&cmdline->history, cmdline->buf, cmdline->fill);
                 }
                 clear_ViCmdline(cmdline);
-                state->vimodeKind = VIMODE_NORMAL;
+                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
         }
 }
 
