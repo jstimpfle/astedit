@@ -27,9 +27,9 @@ void log_write_cstring(const char *text)
 }
 
 
-void _log_begin(const char *filename, int line)
+void _log_begin(struct LogInfo logInfo)
 {
-        log_writef("In %s line %d: ", filename, line);
+        log_writef("In %s line %d: ", logInfo.filename, logInfo.line);
 }
 
 void log_end(void)
@@ -38,39 +38,39 @@ void log_end(void)
 }
 
 
-void _log_postfv(const char *filename, int line, const char *fmt, va_list ap)
+void _log_postfv(struct LogInfo logInfo, const char *fmt, va_list ap)
 {
-        _log_begin(filename, line);
+        _log_begin(logInfo);
         log_writefv(fmt, ap);
         log_end();
 }
 
-void _log_postf(const char *filename, int line, const char *fmt, ...)
+void _log_postf(struct LogInfo logInfo, const char *fmt, ...)
 {
         va_list ap;
         va_start(ap, fmt);
-        _log_postfv(filename, line, fmt, ap);
+        _log_postfv(logInfo, fmt, ap);
         va_end(ap);
 }
 
 
-NORETURN void _fatalfv(const char *filename, int line, const char *fmt, va_list ap)
+NORETURN void _fatalfv(struct LogInfo logInfo, const char *fmt, va_list ap)
 {
-        _log_begin(filename, line);
+        _log_begin(logInfo);
         log_writefv(fmt, ap);
         log_end();
         exit(1);
 }
 
-NORETURN void _fatalf(const char *filename, int line, const char *fmt, ...)
+NORETURN void _fatalf(struct LogInfo logInfo, const char *fmt, ...)
 {
         va_list ap;
         va_start(ap, fmt);
-        _fatalfv(filename, line, fmt, ap);
+        _fatalfv(logInfo, fmt, ap);
         //va_end(ap);
 }
 
-NORETURN void _fatal(const char *filename, int line, const char *text)
+NORETURN void _fatal(struct LogInfo logInfo, const char *text)
 {
-        _fatalf(filename, line, "%s", text);
+        _fatalf(logInfo, "%s", text);
 }

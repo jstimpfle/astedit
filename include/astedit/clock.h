@@ -2,6 +2,7 @@
 #define ASTEDIT_CLOCK_H_INCLUDED
 
 #include <astedit/astedit.h>
+#include <astedit/logging.h>
 
 /* Define struct Timer by including platform specific headers */
 #ifdef _MSC_VER  // TODO: better defined detection macros?
@@ -22,8 +23,10 @@ void setup_timers(void);
 
 void start_timer(struct Timer *timer);
 void stop_timer(struct Timer *timer);
-void report_timer(struct Timer *timer, const char *descriptionFmt, ...);
 uint64_t get_elapsed_microseconds(struct Timer *timer);
+
+void _report_timer(struct LogInfo logInfo, struct Timer *timer, const char *descriptionFmt, ...);
+#define report_timer(...) _report_timer(MAKE_LOGINFO(), ##__VA_ARGS__)
 
 
 #endif

@@ -63,11 +63,11 @@ void stop_timer(struct Timer *timer)
         get_time(&timer->stopTime);
 }
 
-void report_timer(struct Timer *timer, const char *descriptionFmt, ...)
+void _report_timer(struct LogInfo logInfo, struct Timer *timer, const char *descriptionFmt, ...)
 {
         va_list ap;
         va_start(ap, descriptionFmt);
-        log_begin();
+        _log_begin(logInfo);
         log_writefv(descriptionFmt, ap);
         log_writef(": %lld us", (long long)get_elapsed_microseconds(timer));
         log_end();
