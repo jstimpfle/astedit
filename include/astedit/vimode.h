@@ -20,7 +20,13 @@ enum ViNormalModeModal {
         VIMODAL_NORMAL,
         VIMODAL_RANGEOPERATION_REPLACE,
         VIMODAL_RANGEOPERATION_DELETE,
-        VIMODAL_G,
+};
+
+enum ViMoveModal {
+        VIMOVEMODAL_NONE,
+        VIMOVEMODAL_T,
+        VIMOVEMODAL_F,
+        VIMOVEMODAL_G,
 };
 
 struct ViCmdline {
@@ -36,6 +42,7 @@ struct ViCmdline {
 struct ViState {
         enum ViMode vimodeKind;
         enum ViNormalModeModal modalKind;  // applies in normal mode
+        enum ViMoveModal moveModalKind;
         struct ViCmdline cmdline;
 };
 

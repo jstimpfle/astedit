@@ -15,6 +15,7 @@ void setup_vistate(struct ViState *vistate)
 {
         vistate->vimodeKind = VIMODE_NORMAL;
         vistate->modalKind = VIMODAL_NORMAL;
+        vistate->moveModalKind = VIMOVEMODAL_NONE;
         ZERO_MEMORY(&vistate->cmdline);
 }
 

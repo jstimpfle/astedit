@@ -8,7 +8,6 @@
 #include <astedit/eventhandling.h>
 
 
-
 static int is_input_keypress(struct Input *input)
 {
         return input->inputKind == INPUT_KEY
@@ -43,14 +42,20 @@ static int is_input_unicode_of_codepoint(struct Input *input, uint32_t codepoint
 static void go_to_major_mode_in_vi(struct ViState *vi, enum ViMode vimodeKind)
 {
         vi->vimodeKind = vimodeKind;
-        if (vimodeKind == VIMODE_NORMAL)
-                vi->modalKind = VIMODE_NORMAL;
+        vi->modalKind = VIMODE_NORMAL;
+        vi->moveModalKind = VIMOVEMODAL_NONE;
 }
 
 static void go_to_normal_mode_modal_in_vi(struct ViState *vi, enum ViNormalModeModal modalKind)
 {
         ENSURE(vi->vimodeKind == VIMODE_NORMAL);
         vi->modalKind = modalKind;
+}
+
+static void go_to_move_modal_mode_in_vi(struct ViState *vi, enum ViMoveModal moveModalKind)
+{
+        log_postf("going to move modal mode #%d", (int) moveModalKind);
+        vi->moveModalKind = moveModalKind;
 }
 
 static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
@@ -117,9 +122,85 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
                 move_cursor_with_movement(edit, &movement, isSelecting);
 }
 
+static void do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state)
+{
+        /* TODO: how to report back a completed move-modal command? */
+        if (is_input_keypress(input)) {
+                // move to character
+                log_postf("HERE!");
+
+                switch (state->moveModalKind) {
+                case VIMOVEMODAL_G:
+                {
+                        int isSelecting = edit->isSelectionMode;
+                        //enum KeyKind keyKind = input->data.tKey.keyKind;
+                        enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
+                        int hasCodepoint = input->data.tKey.hasCodepoint;
+                        if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT) {
+                                if (hasCodepoint) {
+                                        switch (input->data.tKey.codepoint) {
+                                        case 'g':
+                                                /* XXX: This might be not a
+                                                 * move, but a copy, a delete,
+                                                 * or similar. We need to report the
+                                                 * move range here instead. */
+                                                move_cursor_to_first_line(edit, isSelecting);
+                                                state->moveModalKind = VIMOVEMODAL_NONE;
+                                                break;
+                                        default:
+                                                state->moveModalKind = VIMOVEMODAL_NONE;
+                                                break;
+                                        }
+                                }
+                        }
+                        break;
+                }
+                case VIMOVEMODAL_T:
+                        log_postf("VIMOVEMODAL_T not yet implemented.");
+                        state->moveModalKind = VIMOVEMODAL_NONE;
+                        break;
+                case VIMOVEMODAL_F:
+                        log_postf("VIMOVEMODAL_T not yet implemented.");
+                        state->moveModalKind = VIMOVEMODAL_NONE;
+                        break;
+                default:
+                        break;
+                }
+        }
+}
+
+static int maybe_start_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state)
+{
+        if (is_input_keypress(input)) {
+                if (input->data.tKey.hasCodepoint) {
+                        switch (input->data.tKey.codepoint) {
+                        case 't':
+                                go_to_move_modal_mode_in_vi(state, VIMOVEMODAL_T);
+                                break;
+                        case 'f':
+                                go_to_move_modal_mode_in_vi(state, VIMOVEMODAL_F);
+                                break;
+                        case 'g':
+                                go_to_move_modal_mode_in_vi(state, VIMOVEMODAL_G);
+                                break;
+                        default:
+                                return 0;
+                        }
+                        return 1;
+                }
+        }
+        return 0;
+}
+
 static void process_input_in_TextEdit_with_ViMode_in_rangeoperation_mode(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
+        if (state->moveModalKind != VIMOVEMODAL_NONE) {
+                do_movemodal_in_vi(input, edit, state);
+                // TODO: move modal finished? handle results.
+                return;
+        }
+
         // either delete or "change" a.k.a replace
         int isReplace = state->modalKind == VIMODAL_RANGEOPERATION_REPLACE;
 
@@ -146,31 +227,8 @@ static void process_input_in_TextEdit_with_ViMode_in_rangeoperation_mode(
                                         go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                         break;
                                 default:
-                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
-                                        break;
-                                }
-                        }
-                }
-        }
-}
-
-static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(
-        struct Input *input, struct TextEdit *edit, struct ViState *state)
-{
-        if (input->inputKind == INPUT_KEY) {
-                int isSelecting = edit->isSelectionMode;
-                //enum KeyKind keyKind = input->data.tKey.keyKind;
-                enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
-                int hasCodepoint = input->data.tKey.hasCodepoint;
-                if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT) {
-                        if (hasCodepoint) {
-                                switch (input->data.tKey.codepoint) {
-                                case 'g':
-                                        move_cursor_to_first_line(edit, isSelecting);
-                                        state->modalKind = VIMODAL_NORMAL;
-                                        break;
-                                default:
-                                        state->modalKind = VIMODAL_NORMAL;
+                                        if (!maybe_start_movemodal_in_vi(input, edit, state))
+                                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                         break;
                                 }
                         }
@@ -181,13 +239,16 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
+        /* XXX TODO RANGEOPERATION vs MOVEMODAL */
         if (state->modalKind == VIMODAL_RANGEOPERATION_REPLACE
             || state->modalKind == VIMODAL_RANGEOPERATION_DELETE) {
                 process_input_in_TextEdit_with_ViMode_in_rangeoperation_mode(input, edit, state);
                 return;
         }
-        if (state->modalKind == VIMODAL_G) {
-                process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(input, edit, state);
+
+        if (state->moveModalKind != VIMOVEMODAL_NONE) {
+                do_movemodal_in_vi(input, edit, state);
+                log_postf("after do_movemodal() we are now in %d", state->moveModalKind);
                 return;
         }
 
@@ -230,6 +291,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                         case 'i':
                                 go_to_major_mode_in_vi(state, VIMODE_INPUT);
                                 break;
+                        /* XXX TODO clean up here. We should use
+                         * move_modal stuff for c,d,f,t,g,... and handle things from
+                         * there. */
                         case 'c':
                                 go_to_normal_mode_modal_in_vi(state, VIMODAL_RANGEOPERATION_REPLACE);
                                 break;
@@ -237,8 +301,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 go_to_normal_mode_modal_in_vi(state, VIMODAL_RANGEOPERATION_DELETE);
                                 break;
                         case 'g':
-                                go_to_normal_mode_modal_in_vi(state, VIMODAL_G);
-                                state->modalKind = VIMODAL_G;
+                                go_to_move_modal_mode_in_vi(state, VIMOVEMODAL_G);
                                 break;
                         case 'o':
                                 move_cursor_to_end_of_line(edit, 0);
@@ -296,10 +359,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
-        if (state->modalKind == VIMODAL_G) {
-                process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL_MODAL_G(input, edit, state);
+        if (state->moveModalKind != VIMOVEMODAL_NONE) {
+                do_movemodal_in_vi(input, edit, state);
                 return;
         }
+
         if (input->inputKind == INPUT_KEY) {
                 enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
@@ -313,7 +377,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                 if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
                         switch (input->data.tKey.codepoint) {
                         case 'g':
-                                state->modalKind = VIMODAL_G;
+                                go_to_move_modal_mode_in_vi(state, VIMOVEMODAL_G);
                                 break;
                         case 'x':
                         case 'X':
