@@ -134,23 +134,20 @@ static void do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struc
                 {
                         int isSelecting = edit->isSelectionMode;
                         //enum KeyKind keyKind = input->data.tKey.keyKind;
-                        enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                         int hasCodepoint = input->data.tKey.hasCodepoint;
-                        if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT) {
-                                if (hasCodepoint) {
-                                        switch (input->data.tKey.codepoint) {
-                                        case 'g':
-                                                /* XXX: This might be not a
-                                                 * move, but a copy, a delete,
-                                                 * or similar. We need to report the
-                                                 * move range here instead. */
-                                                move_cursor_to_first_line(edit, isSelecting);
-                                                state->moveModalKind = VIMOVEMODAL_NONE;
-                                                break;
-                                        default:
-                                                state->moveModalKind = VIMOVEMODAL_NONE;
-                                                break;
-                                        }
+                        if (hasCodepoint) {
+                                switch (input->data.tKey.codepoint) {
+                                case 'g':
+                                        /* XXX: This might be not a
+                                         * move, but a copy, a delete,
+                                         * or similar. We need to report the
+                                         * move range here instead. */
+                                        move_cursor_to_first_line(edit, isSelecting);
+                                        state->moveModalKind = VIMOVEMODAL_NONE;
+                                        break;
+                                default:
+                                        state->moveModalKind = VIMOVEMODAL_NONE;
+                                        break;
                                 }
                         }
                         break;
@@ -205,32 +202,29 @@ static void process_input_in_TextEdit_with_ViMode_in_rangeoperation_mode(
         int isReplace = state->modalKind == VIMODAL_RANGEOPERATION_REPLACE;
 
         UNUSED(edit);
-        if (input->inputKind == INPUT_KEY) {
+        if (is_input_keypress(input)) {
                 //enum KeyKind keyKind = input->data.tKey.keyKind;
-                enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
-                if (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT) {
-                        struct Movement movement;
-                        if (input_to_movement_in_Vi(input, &movement)) {
-                                delete_with_movement(edit, &movement);
-                                if (isReplace) {
-                                        go_to_major_mode_in_vi(state, VIMODE_INPUT);
-                                }
-                                else {
-                                        go_to_normal_mode_modal_in_vi(state, VIMODAL_NORMAL);
-                                }
+                struct Movement movement;
+                if (input_to_movement_in_Vi(input, &movement)) {
+                        delete_with_movement(edit, &movement);
+                        if (isReplace) {
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
                         }
-                        else if (hasCodepoint) {
-                                switch (input->data.tKey.codepoint) {
-                                case 'd':
-                                        delete_current_line(edit);
+                        else {
+                                go_to_normal_mode_modal_in_vi(state, VIMODAL_NORMAL);
+                        }
+                }
+                else if (hasCodepoint) {
+                        switch (input->data.tKey.codepoint) {
+                        case 'd':
+                                delete_current_line(edit);
+                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
+                                break;
+                        default:
+                                if (!maybe_start_movemodal_in_vi(input, edit, state))
                                         go_to_major_mode_in_vi(state, VIMODE_NORMAL);
-                                        break;
-                                default:
-                                        if (!maybe_start_movemodal_in_vi(input, edit, state))
-                                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
-                                        break;
-                                }
+                                break;
                         }
                 }
         }
@@ -252,13 +246,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                 return;
         }
 
-        if (input->inputKind == INPUT_KEY) {
-                if (input->data.tKey.keyEventKind == KEYEVENT_PRESS)
-                        if (edit->haveNotification)
-                                // clear notification
-                                edit->haveNotification = 0;
+        if (is_input_keypress(input)) {
+                if (edit->haveNotification)
+                        // clear notification
+                        edit->haveNotification = 0;
 
-                enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 /* !hasCodepoint currently means that the event came from GLFW's low-level
                 key-Callback, and not the unicode Callback.
@@ -267,7 +259,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                 access (which doesn't provide modifiers). It's not clear at this point how
                 we should handle combinations like Ctrl+Z while respecting keyboard layout.
                 (There's a github issue for that). */
-                if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
+                if (hasCodepoint) {
                         switch (input->data.tKey.codepoint) {
                         case ':':
                                 clear_ViCmdline(&state->cmdline);
@@ -335,7 +327,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         }
                 }
-                else if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
+                else if (!hasCodepoint) {
                         int modifierBits = input->data.tKey.modifierMask;
                         switch (input->data.tKey.keyKind) {
                         case KEY_R:
@@ -364,8 +356,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                 return;
         }
 
-        if (input->inputKind == INPUT_KEY) {
-                enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
+        if (is_input_keypress(input)) {
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 /* !hasCodepoint currently means that the event came from GLFW's low-level
                 key-Callback, and not the unicode Callback.
@@ -374,7 +365,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                 access (which doesn't provide modifiers). It's not clear at this point how
                 we should handle combinations like Ctrl+Z while respecting keyboard layout.
                 (There's a github issue for that). */
-                if (hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
+                if (hasCodepoint) {
                         switch (input->data.tKey.codepoint) {
                         case 'g':
                                 go_to_move_modal_mode_in_vi(state, VIMOVEMODAL_G);
@@ -420,10 +411,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
-        if (input->inputKind == INPUT_KEY) {
-                enum KeyEventKind keyEventKind = input->data.tKey.keyEventKind;
+        if (is_input_keypress(input)) {
                 int hasCodepoint = input->data.tKey.hasCodepoint;
-                if (!hasCodepoint && (keyEventKind == KEYEVENT_PRESS || keyEventKind == KEYEVENT_REPEAT)) {
+                if (!hasCodepoint) {
                         int modifiers = input->data.tKey.modifierMask;
                         switch (input->data.tKey.keyKind) {
                         case KEY_C:
