@@ -24,6 +24,7 @@ static const struct RGB stringTokenColor = { 255, 255, 0 };
 static const struct RGB integerTokenColor = { 255, 255, 0 };
 static const struct RGB operatorTokenColor = { 255, 255, 0 };  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
 static const struct RGB junkTokenColor = { 255, 0, 0 };
+static const struct RGB commentTokenColor = { 0, 0, 255 };
 static const struct RGB borderColor = { 32, 32, 32 };
 static const struct RGB highlightColor = { 0, 0, 255 };
 static const struct RGB cursorBorderColor = { 32, 32, 32 };
@@ -36,6 +37,7 @@ static const struct RGB stringTokenColor = { 32, 160, 32 };
 static const struct RGB integerTokenColor = { 0, 0, 255 };
 static const struct RGB operatorTokenColor = {0, 0, 255};  // same as normalTextColor, but MSVC won't let me use that ("initializer is not a constant")
 static const struct RGB junkTokenColor = { 255, 0, 0 };
+static const struct RGB commentTokenColor = { 0, 255, 255 };
 static const struct RGB borderColor = { 128, 128, 128 };
 static const struct RGB highlightColor = { 192, 192, 255 };
 static const struct RGB cursorBorderColor = { 32, 32, 32 };
@@ -417,6 +419,8 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 else if (FIRST_BLUNT_TOKEN_OPERATOR <= token.tokenKind
                         && token.tokenKind <= LAST_BLUNT_TOKEN_OPERATOR)
                         rgb = operatorTokenColor;
+                else if (token.tokenKind == BLUNT_TOKEN_COMMENT)
+                        rgb = commentTokenColor;
                 else if (token.tokenKind == BLUNT_TOKEN_JUNK)
                         rgb = junkTokenColor;
                 else

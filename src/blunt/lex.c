@@ -81,6 +81,36 @@ void find_start_of_next_token(struct Blunt_ReadCtx *ctx)
         }
 }
 
+struct OpInfo1 {
+        int character;
+        int tokenKind;
+};
+
+struct OpInfo2 {
+        int character1;
+        int character2;
+        int tokenKind1;
+        int tokenKind2;
+};
+
+static const struct OpInfo1 opInfo1[] = {
+        { '*', BLUNT_TOKEN_STAR },
+        /* We need to do this using special code to support comments.
+         { '/', BLUNT_TOKEN_SLASH },
+         */
+        { '!', BLUNT_TOKEN_LOGICALAND },
+        { '^', BLUNT_TOKEN_BITWISEXOR },
+};
+
+static const struct OpInfo2 opInfo2[] = {
+        { '+', '+', BLUNT_TOKEN_PLUS, BLUNT_TOKEN_DOUBLEPLUS },
+        { '-', '-', BLUNT_TOKEN_MINUS, BLUNT_TOKEN_MINUS },
+        { '<', '<', BLUNT_TOKEN_LESSTHAN, BLUNT_TOKEN_SHIFTLEFT },
+        { '>', '>', BLUNT_TOKEN_GREATERTHAN, BLUNT_TOKEN_SHIFTRIGHT },
+        { '&', '&', BLUNT_TOKEN_BITWISEAND, BLUNT_TOKEN_LOGICALAND },
+        { '|', '|', BLUNT_TOKEN_BITWISEOR, BLUNT_TOKEN_LOGICALOR },
+};
+
 /* TODO: return more information than just a token kind. */
 void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
 {
@@ -90,7 +120,7 @@ void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
         find_start_of_next_token(ctx);
         leadingWhiteChars = filepos_sub(ctx->readPos, parseStart);
 
-        enum Blunt_TokenKind tokenKind;
+        enum Blunt_TokenKind tokenKind = -1;
         int c = look_byte(ctx);  // we already called find_start_of_next_token(). Calling look_byte() again is not very nice
         if (c == -1) {
                 tokenKind = BLUNT_TOKEN_EOF;
@@ -141,12 +171,74 @@ void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                         consume_byte(ctx);
                 }
         }
-#define OP(x, y) else if (c == x) { tokenKind = y; consume_byte(ctx); }
-        OP('+', BLUNT_TOKEN_PLUS)
-                OP('-', BLUNT_TOKEN_MINUS)
-                OP('*', BLUNT_TOKEN_STAR)
-                OP('/', BLUNT_TOKEN_SLASH)
-        else {
+
+        if (tokenKind == -1) {
+                for (int i = 0; i < LENGTH(opInfo1); i++) {
+                        if (c == opInfo1[i].character) {
+                                consume_byte(ctx);
+                                tokenKind = opInfo1[i].tokenKind;
+                                break;
+                        }
+                }
+        }
+
+        if (tokenKind == -1) {
+                for (int i = 0; i < LENGTH(opInfo2); i++) {
+                        if (c == opInfo2[i].character1) {
+                                consume_byte(ctx);
+                                c = look_byte(ctx);
+                                if (c == opInfo2[i].character2) {
+                                        consume_byte(ctx);
+                                        tokenKind = opInfo2[i].tokenKind2;
+                                }
+                                else {
+                                        tokenKind = opInfo2[i].tokenKind1;
+                                }
+                                break;
+                        }
+                }
+        }
+
+        if (tokenKind == -1) {
+                if (c == '/') {
+                        consume_byte(ctx);
+                        c = look_byte(ctx);
+                        if (c == '*') {
+                                consume_byte(ctx);
+                                for (;;) {
+                                        c = look_byte(ctx);
+                                        if (c == -1)
+                                                break; // how to handle EOF here?
+                                        consume_byte(ctx);
+                                        if (c == '*') {
+                                                c = look_byte(ctx);
+                                                if (c == '/') {
+                                                        consume_byte(ctx);
+                                                        break;
+                                                }
+                                        }
+                                }
+                                tokenKind = BLUNT_TOKEN_COMMENT;
+                        }
+                        else if (c == '/') {
+                                consume_byte(ctx);
+                                for (;;) {
+                                        c = look_byte(ctx);
+                                        if (c == -1)
+                                                break;
+                                        consume_byte(ctx);
+                                        if (c == '\n')
+                                                break;
+                                }
+                                tokenKind = BLUNT_TOKEN_COMMENT;
+                        }
+                        else {
+                                tokenKind = BLUNT_TOKEN_SLASH;
+                        }
+                }
+        }
+
+        if (tokenKind == -1) {
                 tokenKind = BLUNT_TOKEN_JUNK;
                 for (;;) {
                         consume_byte(ctx);
