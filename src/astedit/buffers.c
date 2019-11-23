@@ -3,19 +3,8 @@
 #include <astedit/memoryalloc.h>
 #include <astedit/window.h>
 #include <astedit/textedit.h>
+#include <astedit/buffers.h>
 #include <string.h> // strlen
-
-struct Buffer {
-        struct Buffer *next;
-        char *name;
-        /* need a better structure later. Is there really a meaningful
-         * difference between a textedit and a buffer? Do we want
-         * "views"? */
-        struct TextEdit textEdit;
-};
-
-static struct Buffer *buffers;
-static struct Buffer *currentBuffer;
 
 void switch_to_buffer(struct Buffer *buffer)
 {

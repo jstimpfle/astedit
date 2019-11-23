@@ -1,10 +1,12 @@
 #define ASTEDIT_IMPLEMENT_DATA
 
 #include <astedit/astedit.h>
+#include <astedit/editor.h>
 #include <astedit/clock.h>
 #include <astedit/font.h>
 #include <astedit/textedit.h>
 #include <astedit/window.h>
+#include <astedit/buffers.h>
 
 
 const char *const vimodeKindString[NUM_VIMODE_KINDS] = {

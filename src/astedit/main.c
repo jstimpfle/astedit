@@ -25,7 +25,7 @@ static void handle_events(void)
                 look_input(&input);
                 consume_input())
         {
-                handle_input(&input, activeTextEdit);
+                handle_input(&input);
         }
 
         //XXX: "TIMETICK" event
@@ -94,15 +94,17 @@ int main(int argc, const char **argv)
         stop_timer(&fontSetupTimer);
         report_timer(&fontSetupTimer, "Setting up fonts");
 
-        if (argc == 2) {
-                const char *filepath = argv[1];
-                int filepathLength = (int) strlen(filepath);
+        if (argc >= 2) {
+                for (int i = 1; i < argc; i++) {
+                        const char *filepath = argv[i];
+                        int filepathLength = (int) strlen(filepath);
 
-                //XXX currently have to switch to the buffer to set activeTextEdit
-                struct Buffer *buffer = create_new_buffer(filepath);
-                switch_to_buffer(buffer);
+                        //XXX currently have to switch to the buffer to set activeTextEdit
+                        struct Buffer *buffer = create_new_buffer(filepath);
+                        switch_to_buffer(buffer);
 
-                load_file_to_textedit(&activeTextEdit->loading, filepath, filepathLength, activeTextEdit);
+                        load_file_to_textedit(&activeTextEdit->loading, filepath, filepathLength, activeTextEdit);
+                }
         }
         else {
                 struct Buffer *buffer = create_new_buffer("(unnamed buffer)");

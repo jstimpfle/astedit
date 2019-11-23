@@ -1,5 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
+#include <astedit/editor.h>
 #include <astedit/logging.h>
 #include <astedit/window.h>
 #include <astedit/font.h>
@@ -632,6 +633,60 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
         }
 }
 
+
+#include <astedit/buffers.h>
+void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
+{
+        struct DrawCursor drawCursor;
+        struct GuiRect boundingBox;
+
+        struct DrawCursor *cursor = &drawCursor;
+        struct GuiRect *box = &boundingBox;
+
+        int bufferBoxX = 20;
+        int bufferBoxY = 20;
+        int bufferBoxW = canvasW - 20 - (bufferBoxX - canvasX);
+        int bufferBoxH = 40;
+
+        set_draw_cursor(cursor, bufferBoxX, bufferBoxY, 0, 0);
+        set_cursor_color(cursor, C(normalTextColor));
+        set_bounding_box(box, canvasX, canvasY, canvasW, canvasH);
+
+        // actually, override this stuff
+        cursor->lineHeight = bufferBoxH;
+        cursor->distanceYtoBaseline = bufferBoxH * 2 / 3;
+
+        draw_colored_rect(canvasX, canvasY, canvasW, canvasH, C(texteditBgColor));
+
+        for (struct Buffer *buffer = buffers;
+                buffer != NULL;
+                buffer = buffer->next)
+        {
+                int borderX = bufferBoxX;
+                int borderY = cursor->lineY;
+                int borderH = cursor->lineHeight;
+                int borderW = bufferBoxW;
+                int borderThickness = 1;
+
+                struct RGB rgb;
+                if (globalData.selectedBuffer == buffer)
+                        rgb = (struct RGB) { 255, 0, 0 };
+                else
+                        rgb = cursorBorderColor;
+
+                // TODO: make sure that the outline for the selected item is
+                // fully visible
+                draw_colored_border(borderX, borderY, borderW, borderH,
+                                    borderThickness, C(rgb));
+
+                const char *name = buffer->name;
+                int nameLength = (int) strlen(name);
+                draw_text_with_cursor(cursor, box, name, nameLength);
+
+                next_line(cursor);
+        }
+}
+
 void testdraw(struct TextEdit *edit)
 {
         int canvasX = 0;
@@ -647,7 +702,11 @@ void testdraw(struct TextEdit *edit)
         clear_screen_and_drawing_state();
         begin_frame(canvasX, canvasY, canvasW, canvasH);
 
-        draw_TextEdit(0, 0, canvasW, canvasH, edit);
+        if (globalData.isSelectingBuffer)
+                draw_buffer_list(0, 0, canvasW, canvasH);
+        else
+                draw_TextEdit(0, 0, canvasW, canvasH, edit);
+
 
         end_frame();
 }

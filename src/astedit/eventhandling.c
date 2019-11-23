@@ -1,4 +1,5 @@
 #include <astedit/astedit.h>
+#include <astedit/editor.h>
 #include <astedit/logging.h>
 #include <astedit/vimode.h>
 #include <astedit/gfx.h>  // gfx_toggle_srgb()
@@ -574,6 +575,8 @@ void process_input_in_TextEdit_with_ViMode(struct Input *input, struct TextEdit 
 
 void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
 {
+        if (edit->loading.isActive)
+                return;
         if (edit->isVimodeActive) {
                 process_input_in_TextEdit_with_ViMode(input, edit, &edit->vistate);
                 return;
@@ -583,6 +586,10 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                 int modifiers = input->data.tKey.modifierMask;
                 int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
                 switch (input->data.tKey.keyKind) {
+                case KEY_F3:
+                        //XXX only if a search is active
+                        continue_search(edit);
+                        break;
                 case KEY_ENTER:
                         insert_codepoint_into_textedit(edit, 0x0a);
                         move_cursor_to_next_codepoint(edit, isSelecting);
@@ -643,8 +650,36 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
         }
 }
 
-void handle_input(struct Input *input, struct TextEdit *edit)
+void process_input_in_buffer_list_dialog(struct Input *input)
 {
+        if (is_input_keypress_of_key(input, KEY_CURSORDOWN)) {
+                if (globalData.selectedBuffer && globalData.selectedBuffer->next != NULL)
+                        globalData.selectedBuffer = globalData.selectedBuffer->next;
+        }
+        /*
+        else if (is_input_keypress_of_key(input, KEY_CURSORUP)) {
+                if (globalData.selectedBuffer && globalData.selectedBuffer->prev != NULL)
+                        globalData.selectedBuffer = globalData.SelectedBuffer->prev;
+        }
+        */
+}
+
+void handle_input(struct Input *input)
+{
+        if (is_input_keypress_of_key_and_modifiers(input, KEY_B, MODIFIER_CONTROL)) {
+                globalData.isSelectingBuffer ^= 1;
+                if (globalData.isSelectingBuffer && globalData.selectedBuffer == NULL)
+                        globalData.selectedBuffer = currentBuffer;
+                return;
+        }
+
+        if (globalData.isSelectingBuffer)
+                process_input_in_buffer_list_dialog(input);
+        else
+                process_input_in_TextEdit(input, activeTextEdit);
+
+        // also, do this other stuff here
+
         if (input->inputKind == INPUT_WINDOWRESIZE) {
                 /*
                 log_postf("Window size is now %d %d",
@@ -653,11 +688,7 @@ void handle_input(struct Input *input, struct TextEdit *edit)
                         */
         }
         else if (input->inputKind == INPUT_KEY) {
-                if (is_input_keypress_of_key(input, KEY_F3)) {
-                        //XXX only if a search is active
-                        continue_search(edit);
-                }
-                else if (is_input_keypress_of_key(input, KEY_F4)) {
+                if (is_input_keypress_of_key(input, KEY_F4)) {
                         //if (input->data.tKey.modifiers & MODIFIER_MOD)
                           //      shouldWindowClose = 1;
                 }
@@ -667,17 +698,11 @@ void handle_input(struct Input *input, struct TextEdit *edit)
                 else if (is_input_keypress_of_key_and_modifiers(input, KEY_F11, MODIFIER_MOD)) {
                         toggle_fullscreen();
                 }
-                else if (!edit->loading.isActive) {
-                        //start_timer(keyinputTimer);
-                        process_input_in_TextEdit(input, edit);
-                        //stop_timer(keyinputTimer);
-                        /*report_timer(keyinputTimer, "Time spent in editing operation");*/
-                }
         }
         else if (input->inputKind == INPUT_MOUSEBUTTON) {
                 enum MousebuttonKind mousebuttonKind = input->data.tMousebutton.mousebuttonKind;
                 enum MousebuttonEventKind mousebuttonEventKind = input->data.tMousebutton.mousebuttonEventKind;
-                const char *event = mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS? "Press" : "Release";
+                const char *event = mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS ? "Press" : "Release";
                 static const char *const prefix[2] = { "with", "+" };
                 int flag = 0;
                 log_begin();
