@@ -122,13 +122,12 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
                 move_cursor_with_movement(edit, &movement, isSelecting);
 }
 
-static void do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state)
-{
-        /* TODO: how to report back a completed move-modal command? */
-        if (is_input_keypress(input)) {
-                // move to character
-                log_postf("HERE!");
 
+
+static int do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state,
+                               struct Movement *outMovement)
+{
+        if (is_input_keypress(input)) {
                 switch (state->moveModalKind) {
                 case VIMOVEMODAL_G:
                 {
@@ -138,32 +137,35 @@ static void do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struc
                         if (hasCodepoint) {
                                 switch (input->data.tKey.codepoint) {
                                 case 'g':
-                                        /* XXX: This might be not a
-                                         * move, but a copy, a delete,
-                                         * or similar. We need to report the
-                                         * move range here instead. */
-                                        move_cursor_to_first_line(edit, isSelecting);
+                                        // TODO: use "isSelecting"
                                         state->moveModalKind = VIMOVEMODAL_NONE;
-                                        break;
+                                        *outMovement = (struct Movement) { MOVEMENT_FIRSTLINE };
+                                        return 1;
                                 default:
                                         state->moveModalKind = VIMOVEMODAL_NONE;
-                                        break;
+                                        //XXX need "no movement"
+                                        *outMovement = (struct Movement) { MOVEMENT_RIGHT };
+                                        return 1;
                                 }
                         }
                         break;
                 }
                 case VIMOVEMODAL_T:
-                        log_postf("VIMOVEMODAL_T not yet implemented.");
                         state->moveModalKind = VIMOVEMODAL_NONE;
-                        break;
+                        log_postf("VIMOVEMODAL_T not yet implemented.");
+                        //XXX need "no movement"
+                        *outMovement = (struct Movement) { MOVEMENT_RIGHT };
+                        return 1;
                 case VIMOVEMODAL_F:
-                        log_postf("VIMOVEMODAL_T not yet implemented.");
-                        state->moveModalKind = VIMOVEMODAL_NONE;
-                        break;
+                        log_postf("VIMOVEMODAL_F not yet implemented.");
+                        //XXX need "no movement"
+                        *outMovement = (struct Movement) { MOVEMENT_RIGHT };
+                        return 1;
                 default:
                         break;
                 }
         }
+        return 0;
 }
 
 static int maybe_start_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state)
@@ -192,14 +194,22 @@ static int maybe_start_movemodal_in_vi(struct Input *input, struct TextEdit *edi
 static void process_input_in_TextEdit_with_ViMode_in_rangeoperation_mode(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
-        if (state->moveModalKind != VIMOVEMODAL_NONE) {
-                do_movemodal_in_vi(input, edit, state);
-                // TODO: move modal finished? handle results.
-                return;
-        }
-
         // either delete or "change" a.k.a replace
         int isReplace = state->modalKind == VIMODAL_RANGEOPERATION_REPLACE;
+
+        if (state->moveModalKind != VIMOVEMODAL_NONE) {
+                struct Movement modalMovement;
+                if (do_movemodal_in_vi(input, edit, state, &modalMovement)) {
+                        delete_with_movement(edit, &modalMovement);
+                        if (isReplace) {
+                                go_to_major_mode_in_vi(state, VIMODE_INPUT);
+                        }
+                        else {
+                                go_to_normal_mode_modal_in_vi(state, VIMODAL_NORMAL);
+                        }
+                }
+                return;
+        }
 
         UNUSED(edit);
         if (is_input_keypress(input)) {
@@ -241,8 +251,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
         }
 
         if (state->moveModalKind != VIMOVEMODAL_NONE) {
-                do_movemodal_in_vi(input, edit, state);
-                log_postf("after do_movemodal() we are now in %d", state->moveModalKind);
+                struct Movement modalMovement;
+                if (do_movemodal_in_vi(input, edit, state, &modalMovement)) {
+                        int isSelecting = 0;
+                        move_cursor_with_movement(edit, &modalMovement, isSelecting);
+                }
                 return;
         }
 
@@ -352,7 +365,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
         if (state->moveModalKind != VIMOVEMODAL_NONE) {
-                do_movemodal_in_vi(input, edit, state);
+                struct Movement modalMovement;
+                if (do_movemodal_in_vi(input, edit, state, &modalMovement)) {
+                        int isSelecting = 1;
+                        move_cursor_with_movement(edit, &modalMovement, isSelecting);
+                }
                 return;
         }
 
