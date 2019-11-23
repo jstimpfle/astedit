@@ -164,29 +164,29 @@ FILEPOS get_position_next_word(struct TextEdit *edit)
 
 FILEPOS get_position_previous_word(struct TextEdit *edit)
 {
-        FILEPOS previousLinePos;
-        {
-                /* we need to start in the line before the current line, in case the
-                previous word is on the previous line */
-                FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
-                FILEPOS previousLineNumber = lineNumber - 1;
-                if (previousLineNumber < 0)
-                        previousLineNumber = 0;
-                previousLinePos = compute_pos_of_line(edit->rope, previousLineNumber);
+        struct Blunt_ReadCtx readCtx;
+        FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+        for (;;) {
+                FILEPOS pos = compute_pos_of_line(edit->rope, lineNumber);
+                begin_lexing_blunt_tokens(&readCtx, edit->rope, pos);
+                find_start_of_next_token(&readCtx);
+                if (readCtx.readPos < edit->cursorBytePosition)
+                        break;
+                if (lineNumber == 0)
+                        return 0;
+                lineNumber --;
         }
         FILEPOS stopPos = edit->cursorBytePosition;
-        struct Blunt_ReadCtx readCtx;
-        begin_lexing_blunt_tokens(&readCtx, edit->rope, previousLinePos);
-        FILEPOS lastPos = 0;
+        FILEPOS lastPos;
         for (;;) {
-                if (readCtx.readPos >= stopPos)
-                        break;
                 lastPos = readCtx.readPos;
                 struct Blunt_Token token;
                 lex_blunt_token(&readCtx, &token);
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
                         break;
                 find_start_of_next_token(&readCtx);
+                if (readCtx.readPos >= stopPos)
+                        break;
         }
         return lastPos;
 }
