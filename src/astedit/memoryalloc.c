@@ -3,26 +3,26 @@
 #include <astedit/memoryalloc.h>
 #include <stdlib.h>
 
-void alloc_memory(void **outPtr, int numElems, int elemSize)
+void _alloc_memory(struct LogInfo logInfo, void **outPtr, int numElems, int elemSize)
 {
         int numBytes = numElems * elemSize; /*XXX overflow*/
         void *ptr = malloc(numBytes);
         if (!ptr)
-                fatal("OOM!\n");
+                _fatal(logInfo, "OOM!\n");
         *outPtr = ptr;
 }
 
 
-void realloc_memory(void **inoutPtr, int numElems, int elemSize)
+void _realloc_memory(struct LogInfo logInfo, void **inoutPtr, int numElems, int elemSize)
 {
         int numBytes = numElems * elemSize; /*XXX overflow*/
         void *ptr = realloc(*inoutPtr, numBytes);
         if (!ptr)
-                fatal("OOM!\n");
+                _fatal(logInfo, "OOM!\n");
         *inoutPtr = ptr;
 }
 
-void free_memory(void **inoutPtr)
+void _free_memory(struct LogInfo logInfo, void **inoutPtr)
 {
         free(*inoutPtr);
         *inoutPtr = NULL;
