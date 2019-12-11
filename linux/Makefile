@@ -1,4 +1,4 @@
-CFLAGS = -O2 -g -Wall
+CFLAGS = -O0 -g -Wall
 CFLAGS += -Wno-switch -Wno-enum-compare
 CFLAGS += -D_POSIX_C_SOURE=200809LL
 
@@ -34,6 +34,7 @@ src/astedit/main.c \
 src/astedit/memoryalloc.c \
 src/astedit/mutex-linux.c \
 src/astedit/osthread-linux.c \
+src/astedit/regex.c \
 src/astedit/search.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
