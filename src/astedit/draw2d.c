@@ -16,6 +16,7 @@
 
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
+#define C_ALPHA(x, a) x.r, x.g, x.b, a
 
 #if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
@@ -28,7 +29,8 @@ static const struct RGB junkTokenColor = { 255, 0, 0 };
 static const struct RGB commentTokenColor = { 0, 0, 255 };
 static const struct RGB borderColor = { 32, 32, 32 };
 static const struct RGB highlightColor = { 0, 0, 255 };
-static const struct RGB cursorBorderColor = { 32, 32, 32 };
+static const struct RGB cursorColor = { 0, 255, 255 };
+static const struct RGB currentLineBorderColor = { 32, 32, 32 };
 static const struct RGB statusbarTextColor = { 0, 0, 0 };
 #else
 static const struct RGB texteditBgColor = { 255, 255, 255 };
@@ -41,7 +43,8 @@ static const struct RGB junkTokenColor = { 255, 0, 0 };
 static const struct RGB commentTokenColor = { 0, 255, 255 };
 static const struct RGB borderColor = { 128, 128, 128 };
 static const struct RGB highlightColor = { 192, 192, 255 };
-static const struct RGB cursorBorderColor = { 32, 32, 32 };
+static const struct RGB cursorColor = { 16, 16, 32 };
+static const struct RGB currentLineBorderColor = { 32, 32, 32 };
 static const struct RGB statusbarTextColor = { 224, 224, 224 };
 #endif
 
@@ -226,7 +229,7 @@ void draw_colored_border(int x, int y, int w, int h, int thicknessPerSide,
 enum {
         DRAWSTRING_NORMAL,
         DRAWSTRING_HIGHLIGHT,
-        DRAWSTRING_CURSOR_BEFORE,
+        DRAWSTRING_HIGHLIGHT_BORDERS,
 };
 
 
@@ -255,6 +258,9 @@ static void draw_codepoint(
         if (drawstringKind == DRAWSTRING_HIGHLIGHT)
                 draw_colored_rect(cursor->x, cursor->lineY,
                         xEnd - cursor->x, cursor->lineHeight, C(highlightColor));
+        else if (drawstringKind == DRAWSTRING_HIGHLIGHT_BORDERS)
+                draw_colored_border(cursor->x, cursor->lineY,
+                        xEnd - cursor->x, cursor->lineHeight, 2, C(highlightColor));
         cursor->x = xEnd;
         if (codepoint == '\n') {
                 next_line(cursor);
@@ -350,6 +356,14 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
         }
 }
 
+static void draw_cursor(struct TextEdit *edit, int x, int y, int w, int h)
+{
+        if (edit->vistate.vimodeKind == VIMODE_INPUT)
+                draw_colored_border(x, y, w, h, 2, C(cursorColor));
+        else
+                draw_colored_border(x, y, w, h, 1, C(cursorColor));
+}
+
 static void draw_textedit_lines(struct TextEdit *edit,
         FILEPOS firstVisibleLine, int offsetPixelsY,
         int x, int y, int w, int h)
@@ -362,14 +376,14 @@ static void draw_textedit_lines(struct TextEdit *edit,
         h -= 2 * pad;
 
         FILEPOS textropeLength = textrope_length(edit->rope);
-        FILEPOS markStart;
-        FILEPOS markEnd;
+        FILEPOS markStart = 0;
+        FILEPOS markEnd = 0;
+
         if (edit->isSelectionMode)
                 get_selected_range_in_codepoints(edit, &markStart, &markEnd);
-        else {
-                markStart = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
-                markEnd = markStart + 1;
-        }
+
+        // AAARGH, we shouldn't call the drawing context "cursor"
+        FILEPOS cursorCodepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
 
         if (markStart < 0) markStart = 0;
         if (markEnd < 0) markEnd = 0;
@@ -382,6 +396,23 @@ static void draw_textedit_lines(struct TextEdit *edit,
 
         FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstVisibleLine);
         FILEPOS initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
+
+        {
+        struct DrawCursor drawCursor;
+        struct DrawCursor *cursor = &drawCursor;
+        // draw a rectangular border around the text line that has cursor
+        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
+        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
+        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
+        for (int i = 0; i < linesDiff; i++)
+                next_line(cursor);
+        int borderX = x;
+        int borderY = cursor->lineY;
+        int borderH = cursor->lineHeight;
+        int borderW = w;
+        int borderThickness = 1;
+        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C_ALPHA(currentLineBorderColor, 128));
+        }
 
         struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
@@ -428,10 +459,14 @@ static void draw_textedit_lines(struct TextEdit *edit,
                         rgb = normalTextColor;
                 set_cursor_color(cursor, C(rgb));
                 while (readpos_in_bytes_of_UTF8Decoder(&decoder) < tokenEndPos) {
-                        uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
-                        int drawstringKind = DRAWSTRING_NORMAL;
+                        if (cursor->codepointpos == cursorCodepointPosition)
+                                draw_cursor(edit, cursor->x, cursor->lineY, 10, cursor->lineHeight);
+                        int drawstringKind;
                         if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
                                 drawstringKind = DRAWSTRING_HIGHLIGHT;
+                        else
+                                drawstringKind = DRAWSTRING_NORMAL;
+                        uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         draw_codepoint(cursor, box, drawstringKind, codepoint);
                 }
 
@@ -439,25 +474,10 @@ static void draw_textedit_lines(struct TextEdit *edit,
                         break;
         }
         // markStart/markEnd are currently abused to draw the text cursor, and in this case here we know it has to be the text cursor
-        if (readpos_in_bytes_of_UTF8Decoder(&decoder) == markStart)
-                draw_codepoint(cursor, box, DRAWSTRING_HIGHLIGHT, ' ');
+        if (readpos_in_bytes_of_UTF8Decoder(&decoder) == edit->cursorBytePosition)
+                draw_cursor(edit, cursor->x, cursor->lineY, 10, cursor->lineHeight);
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
-
-        {
-        // draw a rectangular border around the text line that has cursor
-        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
-        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
-        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
-        for (int i = 0; i < linesDiff; i++)
-                next_line(cursor);
-        int borderX = x;
-        int borderY = cursor->lineY;
-        int borderH = cursor->lineHeight;
-        int borderW = w;
-        int borderThickness = 1;
-        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C(cursorBorderColor));
-        }
 }
 
 static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, int h)
@@ -515,8 +535,10 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
                 draw_text_with_cursor(cursor, box, edit->notificationBuffer, edit->notificationLength);
         }
         else {
-                if (edit->isVimodeActive)
-                        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
+                if (edit->isVimodeActive) {
+                        if (edit->vistate.vimodeKind != VIMODE_NORMAL)
+                                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
+                }
                 set_draw_cursor(cursor, x + 500, y, 0, 0);
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
@@ -672,7 +694,7 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
                 if (globalData.selectedBuffer == buffer)
                         rgb = (struct RGB) { 255, 0, 0 };
                 else
-                        rgb = cursorBorderColor;
+                        rgb = currentLineBorderColor;
 
                 // TODO: make sure that the outline for the selected item is
                 // fully visible
