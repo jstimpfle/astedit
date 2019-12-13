@@ -15,8 +15,8 @@ enum {
 };
 
 struct MatchNode {
-        char matchKind;
-        char characterToMatch;
+        int matchKind;
+        int characterToMatch;
         int firstSuccessorIndex;
         int alternativeNodeIndex;
 };

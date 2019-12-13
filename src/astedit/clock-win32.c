@@ -52,9 +52,9 @@ void stop_timer(struct Timer *timer)
         timer->stopTime = query_counter();
 }
 
-void report_timer(struct Timer *timer, const char *descriptionFmt, ...)
+void _report_timer(struct LogInfo logInfo, struct Timer *timer, const char *descriptionFmt, ...)
 {
-        log_begin();
+        _log_begin(logInfo);
         va_list ap;
         va_start(ap, descriptionFmt);
         log_writefv(descriptionFmt, ap);

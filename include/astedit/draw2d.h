@@ -52,7 +52,7 @@ void draw_colored_rect(int x, int y, int w, int h,
 
 void draw_rgba_texture_rect(Texture texture,
         int x, int y, int w, int h,
-        float texX, float texY, float texW, float texH);
+        int texX, int texY, int texW, int texH);
 void draw_subpixelRenderedFont_texture_rect(Texture texture,
         int r, int g, int b, int a,
         int x, int y, int w, int h,

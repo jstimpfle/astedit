@@ -184,6 +184,8 @@ static int pop_group(struct RegexReadCtx *ctx)
 
 static int add_quantifier(struct RegexReadCtx *ctx, int quantifierKind)
 {
+        UNUSED(ctx);
+        UNUSED(quantifierKind);
         // TODO: get "current" element and quantify it.
         return 0;  // no "current element"
 }
@@ -193,7 +195,7 @@ static void setup_readctx(struct RegexReadCtx *ctx, const char *pattern)
         ctx->bad = 0;
 
         ctx->pattern = pattern;
-        ctx->patternLength = strlen(pattern);
+        ctx->patternLength = (int) strlen(pattern);
         ctx->currentCharIndex = 0;
 
         ctx->groupStack = NULL;
@@ -407,6 +409,7 @@ static int match_regex(struct RegexReadCtx *readCtx, const char *string, int len
         return 1;//XXX
 }
 
+/*
 int main(int argc, const char **argv)
 {
         for (int i = 1; i < argc; i++) {
@@ -425,3 +428,4 @@ int main(int argc, const char **argv)
         }
         return 0;
 }
+*/

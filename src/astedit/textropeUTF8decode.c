@@ -61,7 +61,7 @@ uint32_t read_codepoint_from_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
                 &decoder->bufferStart, &codepoint);
         if (r == 0) {
                 ENSURE(decoder->bufferStart == decoder->bufferEnd);  // is that true?
-                return -1;
+                return (uint32_t) -1;
         }
         if (r == -1) {
                 /* Just eat one (invalid) byte to allow progress.

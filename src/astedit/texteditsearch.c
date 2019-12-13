@@ -84,5 +84,6 @@ void continue_search(struct TextEdit *edit)
 
 void end_search(struct TextEdit *edit)
 {
+        UNUSED(edit);
         free_pattern(&compiledPattern);
 }

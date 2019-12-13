@@ -74,8 +74,8 @@ static int fontpathLength;
 
 static void make_fontpath_from_pathspec(const char *pathspec)
 {
-        int fontdirLength = strlen(configuredFontdir);
-        int specLength = strlen(pathspec);
+        int fontdirLength = (int) strlen(configuredFontdir);
+        int specLength = (int) strlen(pathspec);
         fontpathLength = fontdirLength + 1 + specLength + 1;
         REALLOC_MEMORY(&fontpath, fontpathLength);
         copy_memory(fontpath, configuredFontdir, fontdirLength);

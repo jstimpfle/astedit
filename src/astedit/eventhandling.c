@@ -128,11 +128,12 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
 static int do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state,
                                struct Movement *outMovement)
 {
+        UNUSED(edit);
         if (is_input_keypress(input)) {
                 switch (state->moveModalKind) {
                 case VIMOVEMODAL_G:
                 {
-                        int isSelecting = edit->isSelectionMode;
+                        //int isSelecting = edit->isSelectionMode;
                         //enum KeyKind keyKind = input->data.tKey.keyKind;
                         int hasCodepoint = input->data.tKey.hasCodepoint;
                         if (hasCodepoint) {
@@ -171,6 +172,7 @@ static int do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct
 
 static int maybe_start_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
+        UNUSED(edit);
         if (is_input_keypress(input)) {
                 if (input->data.tKey.hasCodepoint) {
                         switch (input->data.tKey.codepoint) {

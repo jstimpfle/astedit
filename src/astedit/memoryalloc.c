@@ -24,6 +24,7 @@ void _realloc_memory(struct LogInfo logInfo, void **inoutPtr, int numElems, int 
 
 void _free_memory(struct LogInfo logInfo, void **inoutPtr)
 {
+        UNUSED(logInfo);
         free(*inoutPtr);
         *inoutPtr = NULL;
 }
