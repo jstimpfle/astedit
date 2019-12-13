@@ -70,8 +70,8 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
         int badKey = 0;
         int modifierBits = input->data.tKey.modifierMask;
         switch (input->data.tKey.keyKind) {
-                case KEY_CURSORLEFT:  movement = (struct Movement) { MOVEMENT_LEFT }; break;
-                case KEY_CURSORRIGHT: movement = (struct Movement) { MOVEMENT_RIGHT }; break;
+                case KEY_CURSORLEFT:  movement = (struct Movement) { modifierBits == MODIFIER_CONTROL ? MOVEMENT_PREVIOUS_WORD : MOVEMENT_LEFT }; break;
+                case KEY_CURSORRIGHT: movement = (struct Movement) { modifierBits == MODIFIER_CONTROL ? MOVEMENT_NEXT_WORD : MOVEMENT_RIGHT }; break;
                 case KEY_CURSORUP:    movement = (struct Movement) { MOVEMENT_UP }; break;
                 case KEY_CURSORDOWN:  movement = (struct Movement) { MOVEMENT_DOWN }; break;
                 case KEY_PAGEUP:      movement = (struct Movement) { MOVEMENT_PAGEUP }; break;
@@ -455,7 +455,10 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                                 erase_forwards_in_TextEdit(edit);
                                 break;
                         case KEY_BACKSPACE:
-                                erase_backwards_in_TextEdit(edit);
+                                if (modifiers == MODIFIER_CONTROL)
+                                        delete_with_movement(edit, MOVEMENT(MOVEMENT_PREVIOUS_WORD));
+                                else
+                                        erase_backwards_in_TextEdit(edit);
                                 break;
                         }
                 }
@@ -595,10 +598,16 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                         move_cursor_to_next_codepoint(edit, isSelecting);
                         break;
                 case KEY_CURSORLEFT:
-                        move_cursor_left(edit, isSelecting);
+                        if (modifiers == MODIFIER_CONTROL)
+                                move_cursor_to_previous_word(edit, isSelecting);
+                        else
+                                move_cursor_left(edit, isSelecting);
                         break;
                 case KEY_CURSORRIGHT:
-                        move_cursor_right(edit, isSelecting);
+                        if (modifiers == MODIFIER_CONTROL)
+                                move_cursor_to_next_word(edit, isSelecting);
+                        else
+                                move_cursor_right(edit, isSelecting);
                         break;
                 case KEY_CURSORUP:
                         move_cursor_up(edit, isSelecting);
