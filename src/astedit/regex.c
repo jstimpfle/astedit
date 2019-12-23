@@ -2,63 +2,8 @@
 #include <astedit/bytes.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/logging.h>
+#include <astedit/regex.h>
 #include <string.h>
-
-enum {
-        REGEXNODE_ANY_CHARACTER,
-        REGEXNODE_SPECIFIC_CHARACTER,
-        REGEXNODE_EMPTY,  // "empty transition"
-        REGEXNODE_SPLIT,
-};
-
-enum {
-        QUANTIFIER_OPTIONAL,
-        QUANTIFIER_ONE_OR_MORE,
-        QUANTIFIER_NONE_OR_MORE,
-};
-
-struct SpecificCharacterNode {
-        int character;
-};
-
-struct SplitRegexNode {
-        int otherIndex;
-};
-
-struct RegexNode {
-        int nextIndex;
-        int nodeKind;
-        union {
-                struct SpecificCharacterNode tSpecificCharacter;
-                struct SplitRegexNode tSplit;
-        } data;
-};
-
-struct RegexReadGroupCtx {
-        /* a REGEXNODE_EMPTY node that allows us to add new alternatives */
-        int entryNodeIndex;
-        /* a pre-allocated exit node. This will be used later for the first
-         * element following the group, so it's not yet decided what kind
-         * of node this is. */
-        int exitNodeIndex;
-};
-
-struct RegexReadCtx {
-        int bad;  // bad flag
-
-        const char *pattern;
-        int patternLength;
-        int currentCharIndex;
-
-        struct RegexReadGroupCtx *groupStack;
-        int groupStackSize;
-
-        struct RegexNode *nodes;
-        int numNodes;
-
-        int initialNodeIndex;
-        int lastNodeIndex;  // current last node, where new nodes get appended
-};
 
 static void _fatal_regex_parse_error_fv(struct LogInfo logInfo,
                                         struct RegexReadCtx *ctx,
@@ -190,7 +135,7 @@ static int add_quantifier(struct RegexReadCtx *ctx, int quantifierKind)
         return 0;  // no "current element"
 }
 
-static void setup_readctx(struct RegexReadCtx *ctx, const char *pattern)
+void setup_readctx(struct RegexReadCtx *ctx, const char *pattern)
 {
         ctx->bad = 0;
 
@@ -214,7 +159,7 @@ static void setup_readctx(struct RegexReadCtx *ctx, const char *pattern)
         push_group(ctx);
 }
 
-static void teardown_readctx(struct RegexReadCtx *ctx)
+void teardown_readctx(struct RegexReadCtx *ctx)
 {
         log_postf("TODO: find all the RegexNodes and free them");
         ZERO_MEMORY(ctx);
@@ -234,7 +179,7 @@ static void add_character_node(struct RegexReadCtx *ctx, int character)
         append_node(ctx, nodeIndex);
 }
 
-static void read_pattern(struct RegexReadCtx *ctx)
+void read_pattern(struct RegexReadCtx *ctx)
 {
 readmore:;
         int c = next_pattern_char(ctx);
@@ -312,16 +257,14 @@ readmore:;
 }
 
 
-struct MatchCtx {
-        struct RegexNode *nodes;
-        int numNodes;
-
-        int *isActive;
-        int *nextIsActive;
-};
-
 static void set_active(struct MatchCtx *ctx, int nodeIndex)
 {
+        if (nodeIndex == -1) {
+                ctx->haveMatch = 1;  // TODO: better way to report match
+                return;
+        }
+        //log_postf("nodeIndex, numNodes: %d, %d", nodeIndex, ctx->numNodes);
+        ENSURE(0 <= nodeIndex && nodeIndex < ctx->numNodes);
         if (ctx->nodes[nodeIndex].nodeKind == REGEXNODE_SPLIT) {
                 set_active(ctx, ctx->nodes[nodeIndex].nextIndex);
                 set_active(ctx, ctx->nodes[nodeIndex].data.tSplit.otherIndex);
@@ -347,85 +290,78 @@ static void set_successors_active(struct MatchCtx *ctx, int nodeIndex)
 static void prepare_matching_for_next_char(struct MatchCtx *ctx)
 {
         int *tmp = ctx->isActive;
+        ctx->haveMatch = 0;
         ctx->isActive = ctx->nextIsActive;
         ctx->nextIsActive = tmp;
         for (int i = 0; i < ctx->numNodes; i++)
                 ctx->nextIsActive[i] = 0;
 }
 
-static void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
+void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
                                         struct RegexReadCtx *readCtx)
 {
         matchCtx->nodes = readCtx->nodes;
         matchCtx->numNodes = readCtx->numNodes;
+        matchCtx->initialNodeIndex = readCtx->initialNodeIndex;
+        matchCtx->haveMatch = 0;
         ALLOC_MEMORY(&matchCtx->isActive, matchCtx->numNodes);
         ALLOC_MEMORY(&matchCtx->nextIsActive, matchCtx->numNodes);
         for (int i = 0; i < matchCtx->numNodes; i++)
                 matchCtx->nextIsActive[i] = 0;
-        ENSURE(matchCtx->nodes[readCtx->initialNodeIndex].nodeKind == REGEXNODE_EMPTY);
+        ENSURE(matchCtx->nodes[matchCtx->initialNodeIndex].nodeKind == REGEXNODE_EMPTY);
         set_active(matchCtx, matchCtx->nodes[readCtx->initialNodeIndex].nextIndex);
         prepare_matching_for_next_char(matchCtx);
 }
 
-static void release_matchctx_after_setup_from_readctx(struct MatchCtx *matchCtx)
+void setup_matchctx_from_pattern(struct MatchCtx *matchCtx, const char *pattern)
+{
+        struct RegexReadCtx readCtx;
+        setup_readctx(&readCtx, pattern);
+        read_pattern(&readCtx);
+        setup_matchctx_from_readctx(matchCtx, &readCtx);
+        teardown_readctx(&readCtx);
+}
+
+void teardown_matchctx(struct MatchCtx *matchCtx)
 {
         FREE_MEMORY(&matchCtx->isActive);
         FREE_MEMORY(&matchCtx->nextIsActive);
 }
 
-static int match_regex(struct RegexReadCtx *readCtx, const char *string, int length)
+void feed_character_into_regex_search(struct MatchCtx *ctx, int c)
 {
-        struct MatchCtx matchCtx;
-        struct MatchCtx *const ctx = &matchCtx;
-        setup_matchctx_from_readctx(&matchCtx, readCtx);
-
-        for (int i = 0;
-             i < length;
-             i++, prepare_matching_for_next_char(ctx))
-        {
-                int c = string[i];
-                log_postf("now at character '%c'", c);
-                for (int nodeIndex = 0; nodeIndex < ctx->numNodes; nodeIndex++) {
-                        if (!ctx->isActive[nodeIndex])
-                                continue;
-                        struct RegexNode *node = &ctx->nodes[nodeIndex];
-                        switch (node->nodeKind) {
-                        case REGEXNODE_SPECIFIC_CHARACTER:
-                                if (c == node->data.tSpecificCharacter.character) {
-                                        log_postf("match specific character.");
-                                        set_successors_active(ctx, nodeIndex);
-                                }
-                                break;
-                        case REGEXNODE_ANY_CHARACTER:
-                                log_postf("match any character.");
+        for (int nodeIndex = 0; nodeIndex < ctx->numNodes; nodeIndex++) {
+                if (!ctx->isActive[nodeIndex])
+                        continue;
+                struct RegexNode *node = &ctx->nodes[nodeIndex];
+                switch (node->nodeKind) {
+                case REGEXNODE_SPECIFIC_CHARACTER:
+                        if (c == node->data.tSpecificCharacter.character) {
+                                //log_postf("match specific character.");
                                 set_successors_active(ctx, nodeIndex);
-                                break;
                         }
+                        break;
+                case REGEXNODE_ANY_CHARACTER:
+                        //log_postf("match any character.");
+                        set_successors_active(ctx, nodeIndex);
+                        break;
                 }
         }
 
-        release_matchctx_after_setup_from_readctx(ctx);//XXX
+        // is this the right place?
+        set_active(ctx, ctx->initialNodeIndex);
+}
+
+int match_regex(struct MatchCtx *ctx, const char *string, int length)
+{
+        for (int i = 0; i < length; i++) {
+                int c = string[i];
+                log_postf("now at character #%d '%c'", i, c);
+                feed_character_into_regex_search(ctx, c);
+                if (ctx->haveMatch)
+                        log_postf("Have match!");
+                prepare_matching_for_next_char(ctx);
+        }
 
         return 1;//XXX
 }
-
-/*
-int main(int argc, const char **argv)
-{
-        for (int i = 1; i < argc; i++) {
-                const char *pattern = argv[i];
-                log_postf("read pattern: /%s/'", pattern);
-                //test_match(test_nodes, LENGTH(test_nodes), argv[i], strlen(argv[i]));
-                struct RegexReadCtx readCtx;
-                struct RegexReadCtx *ctx = &readCtx;
-                setup_readctx(ctx, pattern);
-                read_pattern(ctx);
-                if (ctx->bad)
-                        log_postf("abort due to pattern read error.");
-                else
-                        match_regex(ctx, "foobar", sizeof "foobar" - 1);
-                teardown_readctx(ctx);
-        }
-        return 0;
-}
-*/

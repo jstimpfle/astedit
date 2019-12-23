@@ -1,6 +1,8 @@
 #ifndef ASTEDIT_LOGGING_H_INCLUDED
 #define ASTEDIT_LOGGING_H_INCLUDED
 
+#include <astedit/astedit.h>
+
 /* The meta information for log messages is likely to always be filename +
  * line number. But since any other module should be able to hook into the
  * logging system we want to avoid too tight of a coupling. These modules
