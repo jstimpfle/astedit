@@ -225,7 +225,10 @@ readmore:;
         }
         else if (c == '.') {
                 consume_pattern_char(ctx);
-                // TODO
+                int nodeIndex = alloc_new_node(ctx);
+                ctx->nodes[nodeIndex].nodeKind = REGEXNODE_ANY_CHARACTER;
+                ctx->nodes[nodeIndex].data.tSpecificCharacter.character = c;
+                append_node(ctx, nodeIndex);
         }
         else if (c == '?' || c == '*' || c == '+') {
                 consume_pattern_char(ctx);
