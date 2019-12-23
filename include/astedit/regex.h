@@ -1,6 +1,8 @@
 #ifndef ASTEDIT_REGEX_H_INCLUDED
 #define ASTEDIT_REGEX_H_INCLUDED
 
+#include <astedit/filepositions.h>
+
 enum {
         REGEXNODE_ANY_CHARACTER,
         REGEXNODE_SPECIFIC_CHARACTER,
@@ -64,6 +66,10 @@ struct MatchCtx {
 
         int initialNodeIndex;
         int haveMatch;
+
+        FILEPOS matchStartPos;
+        FILEPOS matchEndPos;
+
         int *isActive;
         int *nextIsActive;
 };
@@ -76,6 +82,10 @@ void setup_matchctx_from_readctx(struct MatchCtx *matchCtx, struct RegexReadCtx 
 void setup_matchctx_from_pattern(struct MatchCtx *matchCtx, const char *pattern);
 void teardown_matchctx(struct MatchCtx *matchCtx);
 void feed_character_into_regex_search(struct MatchCtx *ctx, int c);
+
+/* reports whether there is a match */
+int extract_current_match(struct MatchCtx *matchCtx, FILEPOS *matchStartPos, FILEPOS *matchEndPos);
+
 int match_regex(struct MatchCtx *matchCtx, const char *string, int length);
 
 #endif

@@ -35,7 +35,6 @@ src/astedit/memoryalloc.c \
 src/astedit/mutex-linux.c \
 src/astedit/osthread-linux.c \
 src/astedit/regex.c \
-src/astedit/search.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
 src/astedit/texteditloadsave.c \

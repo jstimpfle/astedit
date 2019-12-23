@@ -1,5 +1,5 @@
 #include <astedit/textedit.h>
-#include <astedit/search.h>
+#include <astedit/regex.h>
 #include <astedit/filepositions.h>
 #include <astedit/logging.h>
 #include <astedit/texteditsearch.h>
@@ -20,6 +20,13 @@ static void reset_TextropeReadBuffer(struct TextropeReadBuffer *buffer, struct T
         buffer->rope = rope;
 }
 
+static FILEPOS get_textropereadbuffer_filepos(struct TextropeReadBuffer *buffer)
+{
+        return buffer->readpos
+                - buffer->numBufferedBytes
+                + buffer->numConsumedBytes;
+}
+
 static int read_next_character_from_rope(struct TextropeReadBuffer *buffer)
 {
         if (buffer->numConsumedBytes == buffer->numBufferedBytes) {
@@ -36,54 +43,74 @@ static int read_next_character_from_rope(struct TextropeReadBuffer *buffer)
         return buffer->buffer[buffer->numConsumedBytes++];
 }
 
-static void search_next_with_pattern(struct TextEdit *edit, struct CompiledPattern *pattern)
+static void search_next_with_pattern(struct TextEdit *edit, struct MatchCtx *matchCtx)
 {
-        struct TextropeReadBuffer buffer;
-        struct MatchState matchState;
+        struct TextropeReadBuffer readBuffer;
+
         {
-                //XXX TODO: what if there is no next codepoint?
-                FILEPOS readpos = edit->cursorBytePosition;
-                reset_TextropeReadBuffer(&buffer, edit->rope, readpos);
-                init_pattern_match(pattern, &matchState, readpos);
+        FILEPOS startPos;
+        if (matchCtx->haveMatch)
+                startPos = matchCtx->matchEndPos;
+        else
+                startPos = edit->cursorBytePosition;
+        reset_TextropeReadBuffer(&readBuffer, edit->rope, startPos);
         }
 
         for (;;) {
-                int character = read_next_character_from_rope(&buffer);
-                if (character == -1)
+                log_postf("read from pos %d", (int) get_textropereadbuffer_filepos(&readBuffer));
+                int c = read_next_character_from_rope(&readBuffer);
+                if (c == -1)
                         break;
-                feed_character_into_search(&matchState, character);
-                if (matchState.earliestMatch != -1)
+                feed_character_into_regex_search(matchCtx, c);
+                if (matchCtx->haveMatch)
                         break;
         }
-#define SEND(x, y, z) send_notification_to_textedit(x, y, z, sizeof z - 1)
-        if (matchState.earliestMatch != -1) {
-                        SEND(edit, NOTIFICATION_INFO, "MATCH!\n");
-                        /*XXX need clean way to swithc on selection */
-                        move_cursor_to_byte_position(edit, matchState.earliestMatch, 0);
-                        move_cursor_to_byte_position(edit, matchState.bytePosition, 1);
+        if (matchCtx->haveMatch) {
+                        FILEPOS matchEndPos = get_textropereadbuffer_filepos(&readBuffer);
+                        FILEPOS matchStartPos = matchEndPos - 1; // TODO need way to figure out match length
+                        matchCtx->matchStartPos = matchStartPos;
+                        matchCtx->matchEndPos = matchEndPos;
+                        send_notification_to_textedit_f(edit, NOTIFICATION_INFO, "MATCH at pos %d!\n", matchStartPos);
         }
         else {
-                        SEND(edit, NOTIFICATION_ERROR, "NOT FOUND!\n");
+                        send_notification_to_textedit_f(edit, NOTIFICATION_ERROR, "NOT FOUND!\n");
         }
-#undef SEND
 }
 
-static struct CompiledPattern compiledPattern;
+static struct RegexReadCtx readCtx;
+static struct MatchCtx matchCtx;
+static int isMatchingInitialized;
 
-void start_search(struct TextEdit *edit, const char *pattern, int length)
+void setup_search(struct TextEdit *edit, const char *pattern, int length)
 {
-        log_postf("Search started for %s", pattern);
-        compile_pattern_from_fixed_string(&compiledPattern, pattern, length);
-        search_next_with_pattern(edit, &compiledPattern);
+        log_postf("Search started for pattern '%s'", pattern);
+        setup_readctx(&readCtx, pattern);
+        read_pattern(&readCtx);
+        if (readCtx.bad) {
+                send_notification_to_textedit_f(edit, NOTIFICATION_ERROR, "Bad pattern.");
+                teardown_readctx(&readCtx);
+        }
+        else {
+                setup_matchctx_from_readctx(&matchCtx, &readCtx);
+                isMatchingInitialized = 1;
+        }
 }
 
-void continue_search(struct TextEdit *edit)
+int search_next_match(struct TextEdit *edit, FILEPOS *matchStart, FILEPOS *matchEnd)
 {
-        search_next_with_pattern(edit, &compiledPattern);
+        if (!isMatchingInitialized)
+                return 0;
+        log_postf("Continue search");
+        search_next_with_pattern(edit, &matchCtx);
+        return extract_current_match(&matchCtx, matchStart, matchEnd);  // XXX just forwarding? really bad code!
 }
 
-void end_search(struct TextEdit *edit)
+void teardown_search(struct TextEdit *edit)
 {
         UNUSED(edit);
-        free_pattern(&compiledPattern);
+        if (isMatchingInitialized) {
+                teardown_matchctx(&matchCtx);
+                teardown_readctx(&readCtx);
+                isMatchingInitialized = 0;
+        }
 }

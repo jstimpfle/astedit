@@ -290,14 +290,11 @@ static void set_successors_active(struct MatchCtx *ctx, int nodeIndex)
         set_active(ctx, nextNodeIndex);
 }
 
-static void prepare_matching_for_next_char(struct MatchCtx *ctx)
+int extract_current_match(struct MatchCtx *matchCtx, FILEPOS *matchStartPos, FILEPOS *matchEndPos)
 {
-        int *tmp = ctx->isActive;
-        ctx->haveMatch = 0;
-        ctx->isActive = ctx->nextIsActive;
-        ctx->nextIsActive = tmp;
-        for (int i = 0; i < ctx->numNodes; i++)
-                ctx->nextIsActive[i] = 0;
+        *matchStartPos = matchCtx->matchStartPos;
+        *matchEndPos = matchCtx->matchEndPos;
+        return matchCtx->haveMatch;
 }
 
 void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
@@ -312,8 +309,6 @@ void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
         for (int i = 0; i < matchCtx->numNodes; i++)
                 matchCtx->nextIsActive[i] = 0;
         ENSURE(matchCtx->nodes[matchCtx->initialNodeIndex].nodeKind == REGEXNODE_EMPTY);
-        set_active(matchCtx, matchCtx->nodes[readCtx->initialNodeIndex].nextIndex);
-        prepare_matching_for_next_char(matchCtx);
 }
 
 void setup_matchctx_from_pattern(struct MatchCtx *matchCtx, const char *pattern)
@@ -333,6 +328,20 @@ void teardown_matchctx(struct MatchCtx *matchCtx)
 
 void feed_character_into_regex_search(struct MatchCtx *ctx, int c)
 {
+        // is this the right place?
+        set_active(ctx, ctx->initialNodeIndex);
+
+        /* switch to next char */
+        int *tmp = ctx->isActive;
+        ctx->haveMatch = 0;
+        ctx->isActive = ctx->nextIsActive;
+        ctx->nextIsActive = tmp;
+        for (int i = 0; i < ctx->numNodes; i++)
+                ctx->nextIsActive[i] = 0;
+        /**/
+
+        log_postf("feed character '%c'", c);
+
         for (int nodeIndex = 0; nodeIndex < ctx->numNodes; nodeIndex++) {
                 if (!ctx->isActive[nodeIndex])
                         continue;
@@ -350,20 +359,15 @@ void feed_character_into_regex_search(struct MatchCtx *ctx, int c)
                         break;
                 }
         }
-
-        // is this the right place?
-        set_active(ctx, ctx->initialNodeIndex);
 }
 
 int match_regex(struct MatchCtx *ctx, const char *string, int length)
 {
         for (int i = 0; i < length; i++) {
                 int c = string[i];
-                log_postf("now at character #%d '%c'", i, c);
                 feed_character_into_regex_search(ctx, c);
                 if (ctx->haveMatch)
                         log_postf("Have match!");
-                prepare_matching_for_next_char(ctx);
         }
 
         return 1;//XXX

@@ -88,6 +88,9 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
                         else
                                 movement = (struct Movement) { MOVEMENT_LINEEND };
                         break;
+                case KEY_F3:
+                        movement = (struct Movement) { MOVEMENT_NEXT_MATCH };
+                        break;
                 default:
                         badKey = 1;
         }
@@ -103,6 +106,7 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
                 case 'G': movement = (struct Movement) { MOVEMENT_LASTLINE }; break;
                 case 'w': movement = (struct Movement) { MOVEMENT_NEXT_WORD }; break;
                 case 'b': movement = (struct Movement) { MOVEMENT_PREVIOUS_WORD }; break;
+                case 'n': movement = (struct Movement) { MOVEMENT_NEXT_MATCH }; break;
                 default:
                         badKey = 1;
                 }
@@ -592,8 +596,7 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                 int isSelecting = modifiers & MODIFIER_SHIFT;  // only relevant for some inputs
                 switch (input->data.tKey.keyKind) {
                 case KEY_F3:
-                        //XXX only if a search is active
-                        continue_search(edit);
+                        move_cursor_to_next_match(edit, isSelecting);
                         break;
                 case KEY_ENTER:
                         insert_codepoint_into_textedit(edit, 0x0a);

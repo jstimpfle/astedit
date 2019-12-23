@@ -29,8 +29,9 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
 {
         /*
         log_begin();
-        log_writef("Got cmdline: ");
+        log_writef("Got cmdline: '");
         log_write(cmdline->buf, cmdline->fill);
+        log_writef("'");
         log_end();
         */
 
@@ -68,11 +69,10 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
                 const char *buf = cmdline->buf;
                 int length = cmdline->fill;
                 int start = 1;
-                int i = 2;
-                while (i < length && buf[i] != '/')
-                        i++;
-                int end = i;
-                start_search(edit, cmdline->buf + start, end - start);
+                int end = 1;
+                while (end < length && buf[end] != '/')
+                        end++;
+                setup_search(edit, cmdline->buf + start, end - start);
         }
         else if (cmdline->buf[0] == 'q' && cmdline->fill == 1) {
                 shouldWindowClose = 1;
@@ -82,6 +82,7 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
 void clear_ViCmdline(struct ViCmdline *cmdline)
 {
         cmdline->fill = 0;
+        cmdline->buf[cmdline->fill] = 0;
         cmdline->cursorBytePosition = 0;
         cmdline->isAborted = 0;
         cmdline->isConfirmed = 0;
@@ -90,10 +91,11 @@ void clear_ViCmdline(struct ViCmdline *cmdline)
 
 void set_ViCmdline_contents_from_string(struct ViCmdline *cmdline, const char *string, int length)
 {
-        if (length > LENGTH(cmdline->buf) - 1) //XXX
-                length = LENGTH(cmdline->buf) - 1;
-        copy_string_and_zeroterminate(cmdline->buf, string, length);
+        if (length + 1 > sizeof cmdline->buf) //XXX
+                return;  // XXX: buffer too small!
+        copy_memory(cmdline->buf, string, length);
         cmdline->fill = length;
+        cmdline->buf[cmdline->fill] = 0;
         cmdline->cursorBytePosition = length;
 }
 
@@ -102,14 +104,14 @@ void insert_codepoint_in_ViCmdline(uint32_t codepoint, struct ViCmdline *cmdline
         char tmp[4];
         int r = encode_codepoint_as_utf8(codepoint, tmp, 0, 4);
         ENSURE(r > 0); // TODO: handle encode error
-        if (cmdline->fill + r > sizeof cmdline->buf)
+        if (cmdline->fill + r + 1 > sizeof cmdline->buf)
                 return;  // XXX: buffer too small!
         move_memory(cmdline->buf + cmdline->cursorBytePosition,
                 r, cmdline->fill - cmdline->cursorBytePosition);
-
         copy_memory(cmdline->buf + cmdline->cursorBytePosition, tmp, r);
         cmdline->cursorBytePosition += r;
         cmdline->fill += r;
+        cmdline->buf[cmdline->fill] = 0;
 }
 
 void erase_backwards_in_ViCmdline(struct ViCmdline *cmdline)
@@ -124,6 +126,7 @@ void erase_backwards_in_ViCmdline(struct ViCmdline *cmdline)
         move_memory(cmdline->buf + cmdline->cursorBytePosition,
                 -deletedBytes, cmdline->fill - cmdline->cursorBytePosition);
         cmdline->fill -= deletedBytes;
+        cmdline->buf[cmdline->fill] = 0;
         cmdline->cursorBytePosition = i;
 }
 
@@ -138,6 +141,7 @@ void erase_forwards_in_ViCmdline(struct ViCmdline *cmdline)
         int deletedBytes = i - cmdline->cursorBytePosition;
         move_memory(cmdline->buf + i, -deletedBytes, cmdline->fill - i);
         cmdline->fill -= deletedBytes;
+        cmdline->buf[cmdline->fill] = 0;
 }
 
 void move_cursor_to_beginning_in_cmdline(struct ViCmdline *cmdline)

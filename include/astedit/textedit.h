@@ -69,6 +69,7 @@ FILEPOS get_position_pagedown(struct TextEdit *edit);
 FILEPOS get_position_first_line(struct TextEdit *edit);
 FILEPOS get_position_last_line(struct TextEdit *edit);
 FILEPOS get_position_of_line(struct TextEdit *edit, FILEPOS lineNumber);
+FILEPOS get_position_next_match(struct TextEdit *edit);
 
 /* insert codepoints. They will be stored UTF-8 encoded in the rope. This
  * function might be removed later since it is not very inefficient. */
@@ -107,6 +108,7 @@ enum MovementKind {
         MOVEMENT_LASTLINE,
         MOVEMENT_SPECIFICLINE,
         MOVEMENT_SPECIFICLINEANDCOLUMN,
+        MOVEMENT_NEXT_MATCH,
 };
 
 struct Movement {
@@ -136,6 +138,7 @@ static inline void move_cursor_to_line_and_column(struct TextEdit *edit, FILEPOS
 static inline void move_cursor_to_line(struct TextEdit *edit, FILEPOS lineNumber, int isSelecting) { MOVE(MOVEMENT_SPECIFICLINE, lineNumber); }
 static inline void move_cursor_to_first_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_FIRSTLINE); }
 static inline void move_cursor_to_last_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LASTLINE); }
+static inline void move_cursor_to_next_match(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_NEXT_MATCH); }
 
 static inline void delete_left(struct TextEdit *edit) { DELETE(MOVEMENT_LEFT); }
 static inline void delete_right(struct TextEdit *edit) { DELETE(MOVEMENT_RIGHT); }
@@ -149,6 +152,7 @@ static inline void delete_to_line_and_column(struct TextEdit *edit, FILEPOS line
 static inline void delete_to_line(struct TextEdit *edit, FILEPOS lineNumber) { DELETE(MOVEMENT_SPECIFICLINE, lineNumber); }
 static inline void delete_to_first_line(struct TextEdit *edit) { DELETE(MOVEMENT_FIRSTLINE); }
 static inline void delete_to_last_line(struct TextEdit *edit) { DELETE(MOVEMENT_LASTLINE); }
+static inline void delete_to_next_match(struct TextEdit *edit) { DELETE(MOVEMENT_NEXT_MATCH); }
 
 void move_cursor_lines_relative(struct TextEdit *edit, FILEPOS linesDiff, int isSelecting);
 
@@ -166,6 +170,7 @@ void erase_forwards_in_TextEdit(struct TextEdit *edit);
 void erase_backwards_in_TextEdit(struct TextEdit *edit);
 
 void send_notification_to_textedit(struct TextEdit *edit, int notificationKind, const char *message, int messageLength);
+void send_notification_to_textedit_f(struct TextEdit *edit, int notificationKind, const char *fmt, ...);
 
 
 void insert_codepoint_into_textedit(struct TextEdit *edit, uint32_t codepoint);

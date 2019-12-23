@@ -7,6 +7,7 @@
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
+#include <astedit/texteditsearch.h>
 #include <astedit/edithistory.h>
 #include <blunt/lex.h> /* test */
 #include <string.h> // strlen()
@@ -311,6 +312,15 @@ FILEPOS get_position_of_line(struct TextEdit *edit, FILEPOS lineNumber)
         return get_position_of_line_and_column(edit, lineNumber, 0);
 }
 
+FILEPOS get_position_next_match(struct TextEdit *edit)
+{
+        FILEPOS matchStart;
+        FILEPOS matchEnd;
+        if (search_next_match(edit, &matchStart, &matchEnd))
+                return matchStart;
+        return edit->cursorBytePosition;  //??
+}
+
 FILEPOS get_movement_position(struct TextEdit *edit, struct Movement *movement)
 {
         switch (movement->movementKind) {
@@ -330,6 +340,7 @@ FILEPOS get_movement_position(struct TextEdit *edit, struct Movement *movement)
         case MOVEMENT_LASTLINE:  return get_position_last_line(edit);
         case MOVEMENT_SPECIFICLINE: return get_position_of_line(edit, movement->pos1);
         case MOVEMENT_SPECIFICLINEANDCOLUMN: return get_position_of_line_and_column(edit, movement->pos1, movement->pos2);
+        case MOVEMENT_NEXT_MATCH: return get_position_next_match(edit);
         default: fatal("Not implemented or invalid value!\n");
         }
 }
@@ -439,6 +450,20 @@ void send_notification_to_textedit(struct TextEdit *edit, int notificationKind, 
         edit->notificationKind = notificationKind;
         edit->notificationLength = notificationLength;
         copy_string_and_zeroterminate(edit->notificationBuffer, notification, notificationLength);
+}
+
+#include <stdio.h>
+void send_notification_to_textedit_f(struct TextEdit *edit, int notificationKind, const char *fmt, ...)
+{
+        char buf[512]; //XXX
+        va_list ap;
+        va_start(ap, fmt);
+        int r = vsnprintf(buf, sizeof buf, fmt, ap);
+        va_end(ap);
+
+        if (r < 0 || r > sizeof buf - 1)
+                return;
+        send_notification_to_textedit(edit, notificationKind, buf, r);
 }
 
 void init_TextEdit(struct TextEdit *edit)
