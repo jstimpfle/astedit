@@ -83,6 +83,8 @@ static int isMatchingInitialized;
 
 void setup_search(struct TextEdit *edit, const char *pattern, int length)
 {
+        if (isMatchingInitialized)
+                teardown_search(edit); //XXX: should we rather die?
         log_postf("Search started for pattern '%s'", pattern);
         setup_readctx(&readCtx, pattern);
         read_pattern(&readCtx);

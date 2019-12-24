@@ -51,7 +51,7 @@ static int next_pattern_char(struct RegexReadCtx *ctx)
 {
         if (ctx->currentCharIndex == ctx->patternLength)
                 return -1;  // EOF
-        return ctx->pattern[ctx->currentCharIndex];
+        return (int) (unsigned char) ctx->pattern[ctx->currentCharIndex];
 }
 
 static void consume_pattern_char(struct RegexReadCtx *ctx)
@@ -165,12 +165,6 @@ void teardown_readctx(struct RegexReadCtx *ctx)
         ZERO_MEMORY(ctx);
 }
 
-#include <ctype.h>//XXX don't use that, it's locale sensitive and just arcane
-static int is_normal_character(int c)
-{
-        return isprint(c); //XXX
-}
-
 static void add_character_node(struct RegexReadCtx *ctx, int character)
 {
         int nodeIndex = alloc_new_node(ctx);
@@ -247,13 +241,13 @@ readmore:;
                         return;
                 }
         }
-        else if (is_normal_character(c)) {
+        else if (c >= 32) {
                 consume_pattern_char(ctx);
                 add_character_node(ctx, c);
         }
         else {
                 fatal_regex_parse_error(ctx,
-                                "Invalid character: '%c'", c);
+                                "Invalid character: '%c' (%d)", c, c);
                 return;
         }
         goto readmore;
