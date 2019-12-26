@@ -9,6 +9,7 @@
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
 #include <astedit/eventhandling.h>
+#include <astedit/sound.h>
 #include <string.h>
 
 static struct Timer windowSetupTimer;
@@ -61,6 +62,9 @@ void mainloop(void)
         */
 
         swap_buffers();
+
+        continue_any_currently_playing_sounds();
+
         sleep_milliseconds(13);
 }
 
@@ -94,6 +98,8 @@ int main(int argc, const char **argv)
         stop_timer(&fontSetupTimer);
         report_timer(&fontSetupTimer, "Setting up fonts");
 
+        setup_sound();
+
         if (argc >= 2) {
                 for (int i = 1; i < argc; i++) {
                         const char *filepath = argv[i];
@@ -118,8 +124,9 @@ int main(int argc, const char **argv)
 
         exit_TextEdit(activeTextEdit);
 
-        teardown_gfx();
+        teardown_sound();
         teardown_fonts();
+        teardown_gfx();
         teardown_window();
         return 0;
 }

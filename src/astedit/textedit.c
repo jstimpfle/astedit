@@ -9,6 +9,7 @@
 #include <astedit/texteditloadsave.h>
 #include <astedit/texteditsearch.h>
 #include <astedit/edithistory.h>
+#include <astedit/sound.h>
 #include <blunt/lex.h> /* test */
 #include <string.h> // strlen()
 
@@ -229,10 +230,14 @@ FILEPOS get_position_lines_relative(struct TextEdit *edit, FILEPOS linesDiff)
         compute_line_number_and_codepoint_position(edit->rope, edit->cursorBytePosition,
                 &oldLineNumber, &oldCodepointPosition);
         FILEPOS newLineNumber = oldLineNumber + linesDiff;
-        if (newLineNumber < 0)
+        if (newLineNumber < 0) {
+                play_navigation_impossible_sound();
                 newLineNumber = 0;
-        else if (newLineNumber >= textrope_number_of_lines(edit->rope))
+        }
+        else if (newLineNumber >= textrope_number_of_lines(edit->rope)) {
+                play_navigation_impossible_sound();
                 newLineNumber = textrope_number_of_lines(edit->rope);
+        }
         FILEPOS oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
         FILEPOS oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
         FILEPOS codepointColumn = oldCodepointPosition - oldLineCodepointPosition;

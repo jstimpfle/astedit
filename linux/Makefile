@@ -1,19 +1,22 @@
-CFLAGS = -O0 -g -Wall
+CFLAGS = -O2 -g -Wall
 CFLAGS += -Wno-switch -Wno-enum-compare
 CFLAGS += -D_POSIX_C_SOURE=200809LL
 
 CFLAGS += -Iinclude
 CFLAGS += $(shell pkg-config --cflags glfw3)
 CFLAGS += $(shell pkg-config --cflags freetype2)
+CFLAGS += $(shell pkg-config --cflags alsa)
 #CFLAGS += $(shell pkg-config --cflags gl)
 #CFLAGS += $(shell pkg-config --cflags glu)
 
 LDFLAGS += $(shell pkg-config --libs glfw3)
 LDFLAGS += $(shell pkg-config --libs freetype2)
+LDFLAGS += $(shell pkg-config --libs alsa)
 LDFLAGS += $(shell pkg-config --libs gl)
 LDFLAGS += $(shell pkg-config --libs glu)
 LDFLAGS += -l pthread
 LDFLAGS += -l rt  # clock_gettime() and friends
+LDFLAGS += -l m
 
 CFILES =  \
 src/astedit/bytes.c \
@@ -35,6 +38,8 @@ src/astedit/memoryalloc.c \
 src/astedit/mutex-linux.c \
 src/astedit/osthread-linux.c \
 src/astedit/regex.c \
+src/astedit/sound.c \
+src/astedit/sound-alsa.c \
 src/astedit/stringpool.c \
 src/astedit/textedit.c \
 src/astedit/texteditloadsave.c \
