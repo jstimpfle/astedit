@@ -18,7 +18,7 @@ static int is_input_keypress(struct Input *input)
 
 static int is_input_keypress_of_key(struct Input *input, enum KeyKind keyKind)
 {
-        return is_input_keypress(input) && input->data.tKey.keyKind == keyKind;
+        return is_input_keypress(input) && ! input->data.tKey.hasCodepoint && input->data.tKey.keyKind == keyKind;
 }
 
 static int is_input_keypress_of_key_and_modifiers(struct Input *input, enum KeyKind keyKind, int modifierBits)
@@ -55,7 +55,7 @@ static void go_to_normal_mode_modal_in_vi(struct ViState *vi, enum ViNormalModeM
 
 static void go_to_move_modal_mode_in_vi(struct ViState *vi, enum ViMoveModal moveModalKind)
 {
-        log_postf("going to move modal mode #%d", (int) moveModalKind);
+        //log_postf("going to move modal mode #%d", (int) moveModalKind);
         vi->moveModalKind = moveModalKind;
 }
 
@@ -126,8 +126,6 @@ static void process_movements_in_ViMode_NORMAL_or_SELECTING(
         if (input_to_movement_in_Vi(input, &movement))
                 move_cursor_with_movement(edit, &movement, isSelecting);
 }
-
-
 
 static int do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state,
                                struct Movement *outMovement)
@@ -665,16 +663,24 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
 
 void process_input_in_buffer_list_dialog(struct Input *input)
 {
-        if (is_input_keypress_of_key(input, KEY_CURSORDOWN)) {
-                if (globalData.selectedBuffer && globalData.selectedBuffer->next != NULL)
-                        globalData.selectedBuffer = globalData.selectedBuffer->next;
+        static struct {
+                int keyKind;
+                int actionKind;  // BUFFERLIST_???
+        } map[] = {
+                { KEY_CURSORDOWN, BUFFERLIST_MOVE_TO_NEXT },
+                { KEY_CURSORUP, BUFFERLIST_MOVE_TO_PREV },
+                { KEY_J, BUFFERLIST_MOVE_TO_NEXT },
+                { KEY_K, BUFFERLIST_MOVE_TO_PREV },
+                { KEY_ENTER, BUFFERLIST_CONFIRM_SELECTION },
+                { KEY_ESCAPE, BUFFERLIST_CANCEL_DIALOG },
+        };
+
+        for (int i = 0; i < LENGTH(map); i++) {
+                if (is_input_keypress_of_key(input, map[i].keyKind)) {
+                        bufferlist_do(map[i].actionKind);
+                        break;
+                }
         }
-        /*
-        else if (is_input_keypress_of_key(input, KEY_CURSORUP)) {
-                if (globalData.selectedBuffer && globalData.selectedBuffer->prev != NULL)
-                        globalData.selectedBuffer = globalData.SelectedBuffer->prev;
-        }
-        */
 }
 
 void handle_input(struct Input *input)

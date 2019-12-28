@@ -109,6 +109,7 @@ int main(int argc, const char **argv)
                         struct Buffer *buffer = create_new_buffer(filepath);
                         switch_to_buffer(buffer);
 
+                        activeTextEdit->isVimodeActive = 1;
                         load_file_to_textedit(&activeTextEdit->loading, filepath, filepathLength, activeTextEdit);
                 }
         }
@@ -116,8 +117,6 @@ int main(int argc, const char **argv)
                 struct Buffer *buffer = create_new_buffer("(unnamed buffer)");
                 switch_to_buffer(buffer);
         }
-
-        activeTextEdit->isVimodeActive = 1;
 
         while (!shouldWindowClose)
                 mainloop();
