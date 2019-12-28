@@ -216,9 +216,12 @@ void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, F
 void get_position_of_line_and_column(struct TextEdit *edit, struct FileCursor *fc, FILEPOS lineNumber, FILEPOS codepointColumn)
 {
         ENSURE(codepointColumn >= 0);
+        struct FileCursor fc2 = { fc->bytePosition, 0 };
+        get_position_of_line(edit, &fc2, lineNumber + 1);
         get_position_of_line(edit, fc, lineNumber);  // we use that because it might set didHitBoundary
-        // is this right?
         get_position_codepoints_relative(edit, fc, codepointColumn);
+        if (fc->bytePosition >= fc2.bytePosition)
+                fc->bytePosition = fc2.bytePosition - 1;
 }
 
 void get_position_line_begin(struct TextEdit *edit, struct FileCursor *fc)
