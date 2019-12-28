@@ -166,8 +166,7 @@ FILEPOS textrope_number_of_lines_quirky(struct Textrope *rope)
         FILEPOS numLines = textrope_number_of_lines(rope);
         FILEPOS textLength = textrope_length(rope);
         if (textLength > 0) {
-                char c;
-                copy_text_from_textrope(rope, textLength - 1, &c, 1);
+                int c = textrope_read_char_at(rope, textLength - 1);
                 if (c != '\n')
                         return numLines + 1;
         }
@@ -392,26 +391,6 @@ FILEPOS compute_line_number(struct Textrope *rope, FILEPOS pos)
 
 
 
-FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber)
-{
-        //XXX special case
-        if (lineNumber >= textrope_number_of_lines_quirky(rope))
-                return textrope_length(rope);
-
-        struct Textiter textiter = find_first_node_that_contains_the_given_line(rope, lineNumber);
-        struct Textiter *iter = &textiter;
-        struct Textnode *node = textnode_from_head(iter->current);
-        FILEPOS internalPos = 0;
-        FILEPOS currentLine = iter->line;
-        while (currentLine < lineNumber) {
-                ENSURE(internalPos < node->ownLength); // I believe this can break with "quirky" lines
-                if (node->text[internalPos] == '\n')
-                        currentLine++;
-                internalPos++;
-        }
-        return iter->pos + internalPos;
-}
-
 FILEPOS compute_pos_of_codepoint(struct Textrope *rope, FILEPOS codepointPos)
 {
         struct Textiter textiter = find_first_node_that_contains_the_given_codepointPos(rope, codepointPos);
@@ -432,7 +411,50 @@ FILEPOS compute_pos_of_codepoint(struct Textrope *rope, FILEPOS codepointPos)
         return iter->pos + internalPos;
 }
 
+FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber)
+{
+        //XXX special case
+        if (lineNumber >= textrope_number_of_lines_quirky(rope))
+                return textrope_length(rope);
 
+        struct Textiter textiter = find_first_node_that_contains_the_given_line(rope, lineNumber);
+        struct Textiter *iter = &textiter;
+        struct Textnode *node = textnode_from_head(iter->current);
+        FILEPOS internalPos = 0;
+        FILEPOS currentLine = iter->line;
+        while (currentLine < lineNumber) {
+                ENSURE(internalPos < node->ownLength); // I believe this can break with "quirky" lines
+                if (node->text[internalPos] == '\n')
+                        currentLine++;
+                internalPos++;
+        }
+        return iter->pos + internalPos;
+}
+
+FILEPOS compute_pos_of_line_end(struct Textrope *rope, FILEPOS lineNumber)
+{
+        ENSURE(lineNumber >= 0);
+        ENSURE(lineNumber < textrope_number_of_lines_quirky(rope));
+        FILEPOS numberOfLines = textrope_number_of_lines(rope);
+        if (lineNumber == numberOfLines) {
+                // due to the assertion above we know that the last character is
+                // not a newline character.
+                FILEPOS length = textrope_length(rope);
+                if (length == 0)
+                        return 0;
+                else
+                        return length - 1;
+        }
+        else {
+                FILEPOS linePos = compute_pos_of_line(rope, lineNumber);
+                // we can expect a newline at the end of the line.
+                FILEPOS pos = compute_pos_of_line(rope, lineNumber + 1) - 1;
+                ENSURE(textrope_read_char_at(rope, pos) == '\n');
+                if (pos > linePos)
+                        return pos - 1;
+                return pos;
+        }
+}
 
 
 
@@ -810,10 +832,12 @@ FILEPOS copy_text_from_textrope(struct Textrope *rope, FILEPOS offset, char *dst
 }
 
 
-
-
-
-
+int textrope_read_char_at(struct Textrope *rope, FILEPOS bytePosition)
+{
+        char c;
+        copy_text_from_textrope(rope, bytePosition, &c, 1);
+        return (int) (unsigned char) c;
+}
 
 
 

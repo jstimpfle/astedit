@@ -53,23 +53,28 @@ struct TextEdit {
 void init_TextEdit(struct TextEdit *edit);
 void exit_TextEdit(struct TextEdit *edit);
 
-FILEPOS get_position_next_codepoint(struct TextEdit *edit);
-FILEPOS get_position_prev_codepoint(struct TextEdit *edit);
-FILEPOS get_position_codepoints_relative(struct TextEdit *edit, FILEPOS codepointsDiff);
-FILEPOS get_position_of_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS codepointColumn);
-FILEPOS get_position_lines_relative(struct TextEdit *edit, FILEPOS linesDiff);
-FILEPOS get_position_line_begin(struct TextEdit *edit);
-FILEPOS get_position_line_end(struct TextEdit *edit);
-FILEPOS get_position_left(struct TextEdit *edit);
-FILEPOS get_position_right(struct TextEdit *edit);
-FILEPOS get_position_up(struct TextEdit *edit);
-FILEPOS get_position_down(struct TextEdit *edit);
-FILEPOS get_position_pageup(struct TextEdit *edit);
-FILEPOS get_position_pagedown(struct TextEdit *edit);
-FILEPOS get_position_first_line(struct TextEdit *edit);
-FILEPOS get_position_last_line(struct TextEdit *edit);
-FILEPOS get_position_of_line(struct TextEdit *edit, FILEPOS lineNumber);
-FILEPOS get_position_next_match(struct TextEdit *edit);
+struct FileCursor {
+        FILEPOS bytePosition;
+        int didHitBoundary;
+};
+
+void get_position_next_codepoint(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_prev_codepoint(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_codepoints_relative(struct TextEdit *edit, struct FileCursor *fc, FILEPOS codepointsDiff);
+void get_position_of_line_and_column(struct TextEdit *edit, struct FileCursor *fc, FILEPOS lineNumber, FILEPOS codepointColumn);
+void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, FILEPOS linesDiff);
+void get_position_line_begin(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_line_end(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_left(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_right(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_up(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_down(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_pageup(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_pagedown(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_first_line(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_last_line(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_of_line(struct TextEdit *edit, struct FileCursor *fc, FILEPOS lineNumber);
+void get_position_next_match(struct TextEdit *edit, struct FileCursor *fc);
 
 /* insert codepoints. They will be stored UTF-8 encoded in the rope. This
  * function might be removed later since it is not very inefficient. */
@@ -83,13 +88,6 @@ void insert_text_into_textedit(struct TextEdit *edit, FILEPOS insertPos, const c
 
 void get_selected_range_in_bytes(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
 void get_selected_range_in_codepoints(struct TextEdit *edit, FILEPOS *outStart, FILEPOS *outOnePastEnd);
-
-void move_view_minimally_to_display_line(struct TextEdit *edit, FILEPOS lineNumber);
-void move_view_minimally_to_display_cursor(struct TextEdit *edit);
-
-void move_cursor_to_byte_position(struct TextEdit *edit, FILEPOS pos, int isSelecting);
-void move_cursor_to_codepoint(struct TextEdit *edit, FILEPOS codepointPos, int isSelecting);
-
 
 enum MovementKind {
         MOVEMENT_LEFT,
@@ -132,6 +130,8 @@ static inline void move_cursor_to_next_codepoint(struct TextEdit *edit, int isSe
 static inline void move_cursor_to_previous_codepoint(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_PREVIOUS_CODEPOINT); }
 static inline void move_cursor_to_next_word(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_NEXT_WORD); }
 static inline void move_cursor_to_previous_word(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_PREVIOUS_WORD); }
+static inline void move_cursor_up_one_page(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_PAGEUP); }
+static inline void move_cursor_down_one_page(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_PAGEDOWN); }
 static inline void move_cursor_to_beginning_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEBEGIN); }
 static inline void move_cursor_to_end_of_line(struct TextEdit *edit, int isSelecting) { MOVE(MOVEMENT_LINEEND); }
 static inline void move_cursor_to_line_and_column(struct TextEdit *edit, FILEPOS lineNumber, FILEPOS columnCodepoint, int isSelecting) { MOVE(MOVEMENT_SPECIFICLINEANDCOLUMN, lineNumber, columnCodepoint); }
@@ -163,11 +163,7 @@ void scroll_up_one_page(struct TextEdit *edit, int isSelecting);
 void scroll_down_one_page(struct TextEdit *edit, int isSelecting);
 
 
-
-
 void erase_selected_in_TextEdit(struct TextEdit *edit);
-void erase_forwards_in_TextEdit(struct TextEdit *edit);
-void erase_backwards_in_TextEdit(struct TextEdit *edit);
 
 void send_notification_to_textedit(struct TextEdit *edit, int notificationKind, const char *message, int messageLength);
 void send_notification_to_textedit_f(struct TextEdit *edit, int notificationKind, const char *fmt, ...);

@@ -19,7 +19,7 @@
 #endif
 
 #define LENGTH(a) (sizeof (a) / sizeof (a)[0])
-#define ENSURE(a) assert(a)
+#define ENSURE assert
 #define UNUSED(arg) (void)(arg)
 
 static inline NORETURN void UNREACHABLE(void)

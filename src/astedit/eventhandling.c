@@ -333,14 +333,13 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 break;
                         case 'v':
                                 /*XXX need clean way to enable selection mode */
-                                move_cursor_to_byte_position(edit, edit->cursorBytePosition, 0);
-                                move_cursor_to_byte_position(edit, edit->cursorBytePosition + 1, 1);
+                                move_cursor_to_next_codepoint(edit, 1);
                                 break;
                         case 'x':
-                                erase_forwards_in_TextEdit(edit);
+                                delete_to_next_codepoint(edit);
                                 break;
                         case 'X':
-                                erase_backwards_in_TextEdit(edit);
+                                delete_to_previous_codepoint(edit);
                                 break;
                         default:
                                 process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
@@ -355,7 +354,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                         redo_next_edit_operation(edit);
                                 break;
                         case KEY_DELETE:
-                                erase_forwards_in_TextEdit(edit);
+                                delete_to_next_codepoint(edit);
                                 break;
                         case KEY_BACKSPACE:
                                 move_cursor_left(edit, 0);  // compare with KEY_DELETE, doesn't delete. It's strange but VIM doesn it this way.
@@ -458,13 +457,13 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                                 go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         case KEY_DELETE:
-                                erase_forwards_in_TextEdit(edit);
+                                delete_to_next_codepoint(edit);
                                 break;
                         case KEY_BACKSPACE:
                                 if (modifiers == MODIFIER_CONTROL)
                                         delete_with_movement(edit, MOVEMENT(MOVEMENT_PREVIOUS_WORD));
                                 else
-                                        erase_backwards_in_TextEdit(edit);
+                                        delete_to_previous_codepoint(edit);
                                 break;
                         }
                 }
@@ -633,22 +632,22 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
                                 move_cursor_to_end_of_line(edit, isSelecting);
                         break;
                 case KEY_PAGEUP:
-                        scroll_up_one_page(edit, isSelecting);
+                        move_cursor_up_one_page(edit, isSelecting);
                         break;
                 case KEY_PAGEDOWN:
-                        scroll_down_one_page(edit, isSelecting);
+                        move_cursor_down_one_page(edit, isSelecting);
                         break;
                 case KEY_DELETE:
                         if (edit->isSelectionMode)
                                 erase_selected_in_TextEdit(edit);
                         else
-                                erase_forwards_in_TextEdit(edit);
+                                delete_to_next_codepoint(edit);
                         break;
                 case KEY_BACKSPACE:
                         if (edit->isSelectionMode)
                                 erase_selected_in_TextEdit(edit);
                         else
-                                erase_backwards_in_TextEdit(edit);
+                                delete_to_previous_codepoint(edit);
                         break;
                 default:
                         if (input->data.tKey.hasCodepoint) {
