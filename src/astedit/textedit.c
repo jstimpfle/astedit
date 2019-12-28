@@ -310,8 +310,9 @@ void get_position_next_match(struct TextEdit *edit, struct FileCursor *fc)
 {
         FILEPOS matchStart;
         FILEPOS matchEnd;
-        if (search_next_match(edit, &matchStart, &matchEnd))
+        if (search_next_match(edit, &matchStart, &matchEnd)) {
                 fc->bytePosition = matchStart;
+        }
         else
                 fc->didHitBoundary = 1; //XXX ???
 }

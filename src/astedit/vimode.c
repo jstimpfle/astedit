@@ -73,6 +73,8 @@ void interpret_cmdline(struct ViCmdline *cmdline, struct TextEdit *edit)
                 while (end < length && buf[end] != '/')
                         end++;
                 setup_search(edit, cmdline->buf + start, end - start);
+                // search for the first match right away.
+                move_cursor_to_next_match(edit, edit->isSelectionMode);
         }
         else if (cmdline->buf[0] == 'q' && cmdline->fill == 1) {
                 shouldWindowClose = 1;

@@ -254,23 +254,27 @@ readmore:;
 }
 
 
-static void set_active(struct MatchCtx *ctx, int nodeIndex)
+static void set_active(struct MatchCtx *ctx, int nodeIndex, FILEPOS earliestMatchPos)
 {
         if (nodeIndex == -1) {
                 ctx->haveMatch = 1;  // TODO: better way to report match
+                ctx->matchStartPos = earliestMatchPos;
                 return;
         }
-        //log_postf("nodeIndex, numNodes: %d, %d", nodeIndex, ctx->numNodes);
+        struct NodeMatchState *state = &ctx->nextMatchState[nodeIndex];
+        if (state->isActive && state->earliestMatchPos < earliestMatchPos)
+                return;
         ENSURE(0 <= nodeIndex && nodeIndex < ctx->numNodes);
         if (ctx->nodes[nodeIndex].nodeKind == REGEXNODE_SPLIT) {
-                set_active(ctx, ctx->nodes[nodeIndex].nextIndex);
-                set_active(ctx, ctx->nodes[nodeIndex].data.tSplit.otherIndex);
+                set_active(ctx, ctx->nodes[nodeIndex].nextIndex, earliestMatchPos);
+                set_active(ctx, ctx->nodes[nodeIndex].data.tSplit.otherIndex, earliestMatchPos);
         }
         else if (ctx->nodes[nodeIndex].nodeKind == REGEXNODE_EMPTY) {
-                set_active(ctx, ctx->nodes[nodeIndex].nextIndex);
+                set_active(ctx, ctx->nodes[nodeIndex].nextIndex, earliestMatchPos);
         }
         else {
-                ctx->nextIsActive[nodeIndex] = 1;
+                state->isActive = 1;
+                state->earliestMatchPos = earliestMatchPos;
         }
 }
 
@@ -280,15 +284,30 @@ static void set_successors_active(struct MatchCtx *ctx, int nodeIndex)
         ENSURE(ctx->nodes[nodeIndex].nodeKind != REGEXNODE_SPLIT);
         ENSURE(ctx->nodes[nodeIndex].nodeKind != REGEXNODE_EMPTY);
 
+        ENSURE(ctx->matchState[nodeIndex].isActive);
+        FILEPOS earliestMatchPos = ctx->matchState[nodeIndex].earliestMatchPos;
+
         int nextNodeIndex = ctx->nodes[nodeIndex].nextIndex;
-        set_active(ctx, nextNodeIndex);
+        set_active(ctx, nextNodeIndex, earliestMatchPos);
 }
 
 int extract_current_match(struct MatchCtx *matchCtx, FILEPOS *matchStartPos, FILEPOS *matchEndPos)
 {
-        *matchStartPos = matchCtx->matchStartPos;
-        *matchEndPos = matchCtx->matchEndPos;
-        return matchCtx->haveMatch;
+        if (!matchCtx->haveMatch)
+                return 0;
+        else {
+                *matchStartPos = matchCtx->matchStartPos;
+                *matchEndPos = matchCtx->matchEndPos;
+                return 1;
+        }
+}
+
+static void clear_next_matchstates(struct MatchCtx *matchCtx)
+{
+        for (int i = 0; i < matchCtx->numNodes; i++) {
+                matchCtx->nextMatchState[i].isActive = 0;
+                matchCtx->nextMatchState[i].earliestMatchPos = 666666666; // undefined
+        }
 }
 
 void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
@@ -298,10 +317,9 @@ void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
         matchCtx->numNodes = readCtx->numNodes;
         matchCtx->initialNodeIndex = readCtx->initialNodeIndex;
         matchCtx->haveMatch = 0;
-        ALLOC_MEMORY(&matchCtx->isActive, matchCtx->numNodes);
-        ALLOC_MEMORY(&matchCtx->nextIsActive, matchCtx->numNodes);
-        for (int i = 0; i < matchCtx->numNodes; i++)
-                matchCtx->nextIsActive[i] = 0;
+        ALLOC_MEMORY(&matchCtx->matchState, matchCtx->numNodes);
+        ALLOC_MEMORY(&matchCtx->nextMatchState, matchCtx->numNodes);
+        clear_next_matchstates(matchCtx);
         ENSURE(matchCtx->nodes[matchCtx->initialNodeIndex].nodeKind == REGEXNODE_EMPTY);
 }
 
@@ -316,28 +334,29 @@ void setup_matchctx_from_pattern(struct MatchCtx *matchCtx, const char *pattern)
 
 void teardown_matchctx(struct MatchCtx *matchCtx)
 {
-        FREE_MEMORY(&matchCtx->isActive);
-        FREE_MEMORY(&matchCtx->nextIsActive);
+        FREE_MEMORY(&matchCtx->matchState);
+        FREE_MEMORY(&matchCtx->nextMatchState);
 }
 
-void feed_character_into_regex_search(struct MatchCtx *ctx, int c)
+void feed_character_into_regex_search(struct MatchCtx *ctx, int c, FILEPOS currentFilepos)
 {
+        ctx->matchEndPos = currentFilepos;  //XXX
+
         // is this the right place?
-        set_active(ctx, ctx->initialNodeIndex);
+        set_active(ctx, ctx->initialNodeIndex, currentFilepos);
 
         /* switch to next char */
-        int *tmp = ctx->isActive;
+        struct NodeMatchState *tmp = ctx->matchState;
         ctx->haveMatch = 0;
-        ctx->isActive = ctx->nextIsActive;
-        ctx->nextIsActive = tmp;
-        for (int i = 0; i < ctx->numNodes; i++)
-                ctx->nextIsActive[i] = 0;
+        ctx->matchState = ctx->nextMatchState;
+        ctx->nextMatchState = tmp;
+        clear_next_matchstates(ctx);
         /**/
 
-        log_postf("feed character '%c'", c);
+        //log_postf("feed character '%c'", c);
 
         for (int nodeIndex = 0; nodeIndex < ctx->numNodes; nodeIndex++) {
-                if (!ctx->isActive[nodeIndex])
+                if (!ctx->matchState[nodeIndex].isActive)
                         continue;
                 struct RegexNode *node = &ctx->nodes[nodeIndex];
                 switch (node->nodeKind) {
@@ -359,7 +378,7 @@ int match_regex(struct MatchCtx *ctx, const char *string, int length)
 {
         for (int i = 0; i < length; i++) {
                 int c = string[i];
-                feed_character_into_regex_search(ctx, c);
+                feed_character_into_regex_search(ctx, c, i);
                 if (ctx->haveMatch)
                         log_postf("Have match!");
         }

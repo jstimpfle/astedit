@@ -59,6 +59,14 @@ struct RegexReadCtx {
         int lastNodeIndex;  // current last node, where new nodes get appended
 };
 
+/* For each node in a compiled pattern, a corresponding state that is needed in
+ * a match. */
+struct NodeMatchState {
+        int isActive;
+        /* The earliest fileposition (since starting the search) that lead to
+         * this node being active. */
+        FILEPOS earliestMatchPos;
+};
 
 struct MatchCtx {
         struct RegexNode *nodes;
@@ -70,8 +78,8 @@ struct MatchCtx {
         FILEPOS matchStartPos;
         FILEPOS matchEndPos;
 
-        int *isActive;
-        int *nextIsActive;
+        struct NodeMatchState *matchState;
+        struct NodeMatchState *nextMatchState;
 };
 
 void setup_readctx(struct RegexReadCtx *ctx, const char *pattern);
@@ -81,7 +89,7 @@ void read_pattern(struct RegexReadCtx *ctx);
 void setup_matchctx_from_readctx(struct MatchCtx *matchCtx, struct RegexReadCtx *readCtx);
 void setup_matchctx_from_pattern(struct MatchCtx *matchCtx, const char *pattern);
 void teardown_matchctx(struct MatchCtx *matchCtx);
-void feed_character_into_regex_search(struct MatchCtx *ctx, int c);
+void feed_character_into_regex_search(struct MatchCtx *ctx, int c, FILEPOS currentFilepos);
 
 /* reports whether there is a match */
 int extract_current_match(struct MatchCtx *matchCtx, FILEPOS *matchStartPos, FILEPOS *matchEndPos);
