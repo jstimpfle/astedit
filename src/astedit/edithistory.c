@@ -27,17 +27,17 @@ struct EditItem {
          */
         FILEPOS editPosition;
         FILEPOS editLength;
-        char *text;
+        char *editText;
 };
 
 static struct EditItem startItem = { .editKind = EDIT_START };
 static struct EditItem *editHistory = &startItem;
 
-static void delete_item(struct EditItem *item)
+static void delete_EditItem(struct EditItem *item)
 {
-        if (item->text != NULL) {
-                FREE_MEMORY(&item->text);
-                ENSURE(item->text == NULL);
+        if (item->editText != NULL) {
+                FREE_MEMORY(&item->editText);
+                ENSURE(item->editText == NULL);
         }
         FREE_MEMORY(&item);
 }
@@ -51,7 +51,7 @@ static void delete_unreachable_items(void)
         while (editHistory->next) {
                 struct EditItem *itemToDelete = editHistory->next;
                 editHistory->next = editHistory->next->next;
-                delete_item(itemToDelete);
+                delete_EditItem(itemToDelete);
         }
 }
 
@@ -72,21 +72,21 @@ static void set_item_text(struct EditItem *item, struct TextEdit *edit)
 {
         FILEPOS editPosition = item->editPosition;
         FILEPOS editLength = item->editLength;
-        ENSURE(item->text == NULL);
-        ALLOC_MEMORY(&item->text, /*XXX*/(int)editLength + 1);
-        char *text = item->text;
-        copy_text_from_textrope(edit->rope, editPosition, text, editLength);
-        item->text[editLength] = 0;
+        ENSURE(item->editText == NULL);
+        ALLOC_MEMORY(&item->editText, /*XXX*/(int)editLength + 1);
+        char *editText = item->editText;
+        copy_text_from_textrope(edit->rope, editPosition, editText, editLength);
+        item->editText[editLength] = 0;
 }
 
 static void unload_item_text(struct EditItem *item, struct TextEdit *edit)
 {
         FILEPOS editPosition = item->editPosition;
         FILEPOS editLength = item->editLength;
-        char *text = item->text;
-        insert_text_into_textrope(edit->rope, editPosition, text, editLength);
-        FREE_MEMORY(&item->text);
-        ENSURE(item->text == NULL);
+        char *editText = item->editText;
+        insert_text_into_textrope(edit->rope, editPosition, editText, editLength);
+        FREE_MEMORY(&item->editText);
+        ENSURE(item->editText == NULL);
 }
 
 void record_insert_operation(struct TextEdit *edit, FILEPOS insertionPoint, FILEPOS length,
@@ -100,7 +100,7 @@ void record_insert_operation(struct TextEdit *edit, FILEPOS insertionPoint, FILE
         item->nextCursorPosition = nextCursorPosition;
         item->editPosition = insertionPoint;
         item->editLength = length;
-        item->text = NULL;
+        item->editText = NULL;
         add_item(item);
 }
 
@@ -114,7 +114,7 @@ void record_delete_operation(struct TextEdit *edit, FILEPOS deletionPoint, FILEP
         item->nextCursorPosition = nextCursorPosition;
         item->editPosition = deletionPoint;
         item->editLength = length;
-        item->text = NULL;
+        item->editText = NULL;
         set_item_text(item, edit);
         add_item(item);
 }
