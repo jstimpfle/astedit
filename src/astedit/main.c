@@ -116,6 +116,7 @@ int main(int argc, const char **argv)
         else {
                 struct Buffer *buffer = create_new_buffer("(unnamed buffer)");
                 switch_to_buffer(buffer);
+                activeTextEdit->isVimodeActive = 1;
         }
 
         while (!shouldWindowClose)
