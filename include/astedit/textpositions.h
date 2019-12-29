@@ -11,6 +11,8 @@ struct FileCursor {
 void get_position_next_codepoint(struct TextEdit *edit, struct FileCursor *fc);
 void get_position_prev_codepoint(struct TextEdit *edit, struct FileCursor *fc);
 void get_position_codepoints_relative(struct TextEdit *edit, struct FileCursor *fc, FILEPOS codepointsDiff);
+void get_position_next_word(struct TextEdit *edit, struct FileCursor *fc);
+void get_position_previous_word(struct TextEdit *edit, struct FileCursor *fc);
 void get_position_of_line_and_column(struct TextEdit *edit, struct FileCursor *fc, FILEPOS lineNumber, FILEPOS codepointColumn);
 void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, FILEPOS linesDiff);
 void get_position_line_begin(struct TextEdit *edit, struct FileCursor *fc);

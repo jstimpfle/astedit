@@ -140,16 +140,8 @@ void write_samples(const uint16_t *samples, int nsamples)
 {
         ENSURE(nsamples <= numAvailableSamples);
 
-        snd_pcm_state_t state;
-        int err;
-
-        /*
-        if (state != SND_PCM_STATE_RUNNING)
-                log_postf("ALSA state is %s", alsa_state_to_string(state));
-                */
-
         for (;;) {
-                err = snd_pcm_writei(pcm_handle, samples, nsamples);
+                int err = snd_pcm_writei(pcm_handle, samples, nsamples);
                 if (err < 0) {
                         log_postf("Trying to handle error after writei");
                         ENSURE(err != -EBADFD);
