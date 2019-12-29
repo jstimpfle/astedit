@@ -413,7 +413,8 @@ FILEPOS compute_pos_of_codepoint(struct Textrope *rope, FILEPOS codepointPos)
 
 FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber)
 {
-        //XXX special case
+        //XXX special case. TODO: should we restrict this to at most
+        //one-line-past-end?
         if (lineNumber >= textrope_number_of_lines_quirky(rope))
                 return textrope_length(rope);
 

@@ -133,15 +133,29 @@ void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, F
         get_position_of_line_and_column(edit, fc, newLineNumber, codepointColumn);
 }
 
+static FILEPOS compute_number_of_codepoints_in_line(struct Textrope *rope, FILEPOS lineNumber)
+{
+        // XXX compute_pos_of_line() currently clamps line numbers to the valid
+        // range. We might want to change that later.
+        FILEPOS p0 = compute_pos_of_line(rope, lineNumber);
+        FILEPOS p1 = compute_pos_of_line(rope, lineNumber + 1);
+        return compute_codepoint_position(rope, p1)
+                - compute_codepoint_position(rope, p0);
+}
+
 void get_position_of_line_and_column(struct TextEdit *edit, struct FileCursor *fc, FILEPOS lineNumber, FILEPOS codepointColumn)
 {
         ENSURE(codepointColumn >= 0);
-        struct FileCursor fc2 = { fc->bytePosition, 0 };
-        get_position_of_line(edit, &fc2, lineNumber + 1);
-        get_position_of_line(edit, fc, lineNumber);  // we use that because it might set didHitBoundary
+        get_position_of_line(edit, fc, lineNumber);
+        FILEPOS numCodepoints = compute_number_of_codepoints_in_line(edit->rope, lineNumber);
+        if (numCodepoints == 0) {
+                ENSURE(fc->bytePosition == textrope_length(edit->rope));
+                return;
+        }
+        ENSURE(numCodepoints > 0);
+        if (codepointColumn >= numCodepoints)
+                codepointColumn = numCodepoints - 1;
         get_position_codepoints_relative(edit, fc, codepointColumn);
-        if (fc->bytePosition >= fc2.bytePosition)
-                fc->bytePosition = fc2.bytePosition - 1;
 }
 
 void get_position_line_begin(struct TextEdit *edit, struct FileCursor *fc)
