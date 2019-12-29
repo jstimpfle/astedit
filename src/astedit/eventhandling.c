@@ -6,6 +6,7 @@
 #include <astedit/edithistory.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditsearch.h>
+#include <astedit/textpositions.h>
 #include <astedit/eventhandling.h>
 
 

@@ -2,12 +2,11 @@
 #include <astedit/bytes.h>
 #include <astedit/utf8.h>
 #include <astedit/logging.h>
-#include <astedit/osthread.h>
-#include <astedit/filereadwritethread.h>
-#include <astedit/vimode.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
 #include <astedit/texteditsearch.h>
+#include <astedit/textpositions.h>
+#include <astedit/vimode.h>
 #include <string.h>
 #include <stdlib.h> // strtol()
 

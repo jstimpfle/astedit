@@ -22,12 +22,12 @@ struct Buffer *create_new_buffer(const char *name)
         copy_string_and_zeroterminate(buf->name, name, nameLength);
         init_TextEdit(&buf->textEdit);
 
-        buf->prev = lastBuffer;
-        buf->next = NULL;
         if (buffers == NULL)
                 buffers = buf;
         if (lastBuffer != NULL)
                 lastBuffer->next = buf;
+        buf->next = NULL;
+        buf->prev = lastBuffer;
         lastBuffer = buf;
 
         return buf;

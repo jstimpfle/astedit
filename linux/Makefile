@@ -1,6 +1,7 @@
-CFLAGS = -O2 -g -Wall
+CFLAGS = -g -Wall
 CFLAGS += -Wno-switch -Wno-enum-compare
 CFLAGS += -D_POSIX_C_SOURE=200809LL
+CFLAGS += -pthread  # needed additionally to -lpthread.
 
 CFLAGS += -Iinclude
 CFLAGS += $(shell pkg-config --cflags glfw3)
@@ -44,6 +45,7 @@ src/astedit/stringpool.c \
 src/astedit/textedit.c \
 src/astedit/texteditloadsave.c \
 src/astedit/texteditsearch.c \
+src/astedit/textpositions.c \
 src/astedit/textrope.c \
 src/astedit/textureatlas.c \
 src/astedit/textropeUTF8decode.c \
