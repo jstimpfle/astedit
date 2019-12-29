@@ -44,7 +44,7 @@ static int is_input_unicode_of_codepoint(struct Input *input, uint32_t codepoint
 static void go_to_major_mode_in_vi(struct ViState *vi, enum ViMode vimodeKind)
 {
         vi->vimodeKind = vimodeKind;
-        vi->modalKind = VIMODE_NORMAL;
+        vi->modalKind = VIMODAL_NORMAL;
         vi->moveModalKind = VIMOVEMODAL_NONE;
 }
 
