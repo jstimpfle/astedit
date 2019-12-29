@@ -116,7 +116,7 @@ void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, F
 {
         FILEPOS oldLineNumber;
         FILEPOS oldCodepointPosition;
-        compute_line_number_and_codepoint_position(edit->rope, edit->cursorBytePosition,
+        compute_line_number_and_codepoint_position(edit->rope, fc->bytePosition,
                 &oldLineNumber, &oldCodepointPosition);
         FILEPOS newLineNumber = oldLineNumber + linesDiff;
         if (newLineNumber < 0) {
@@ -160,13 +160,13 @@ void get_position_of_line_and_column(struct TextEdit *edit, struct FileCursor *f
 
 void get_position_line_begin(struct TextEdit *edit, struct FileCursor *fc)
 {
-        FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+        FILEPOS lineNumber = compute_line_number(edit->rope, fc->bytePosition);
         get_position_of_line_and_column(edit, fc, lineNumber, 0);
 }
 
 void get_position_line_end(struct TextEdit *edit, struct FileCursor *fc)
 {
-        FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+        FILEPOS lineNumber = compute_line_number(edit->rope, fc->bytePosition);
         if (lineNumber == textrope_number_of_lines_quirky(edit->rope) - 1) {
                 if (lineNumber != textrope_number_of_lines(edit->rope) - 1) {
                         fc->bytePosition = textrope_length(edit->rope);
@@ -183,7 +183,7 @@ void get_position_left(struct TextEdit *edit, struct FileCursor *fc)
 {
         FILEPOS lineNumber = compute_line_number(edit->rope, fc->bytePosition);
         FILEPOS linebeginPos = compute_pos_of_line(edit->rope, lineNumber);
-        if (edit->cursorBytePosition == linebeginPos)
+        if (fc->bytePosition == linebeginPos)
                 fc->didHitBoundary = 1;
         else
                 get_position_prev_codepoint(edit, fc);
@@ -194,7 +194,7 @@ void get_position_right(struct TextEdit *edit, struct FileCursor *fc)
         //XXX
         struct FileCursor lineEnd = { fc->bytePosition, 0 };
         get_position_line_end(edit, &lineEnd);
-        if (edit->cursorBytePosition == lineEnd.bytePosition)  // TODO: lineendPos is where the newline char is, right?
+        if (fc->bytePosition == lineEnd.bytePosition)  // TODO: lineendPos is where the newline char is, right?
                 fc->didHitBoundary = 1;
         else
                 get_position_next_codepoint(edit, fc);
