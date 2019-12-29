@@ -60,6 +60,47 @@ static void go_to_move_modal_mode_in_vi(struct ViState *vi, enum ViMoveModal mov
         vi->moveModalKind = moveModalKind;
 }
 
+static struct {
+        int keyKind;
+        int modifierBits;
+        int movementKind;
+} viMovementSimpleTable[] = {
+        { KEY_CURSORLEFT, 0, MOVEMENT_LEFT },
+        { KEY_CURSORRIGHT, 0, MOVEMENT_RIGHT },
+        { KEY_CURSORLEFT, MODIFIER_CONTROL, MOVEMENT_PREVIOUS_WORD },
+        { KEY_CURSORRIGHT, MODIFIER_CONTROL, MOVEMENT_NEXT_WORD },
+        { KEY_CURSORUP, 0, MOVEMENT_UP },
+        { KEY_CURSORDOWN, 0, MOVEMENT_DOWN },
+        { KEY_D, MODIFIER_CONTROL, MOVEMENT_PAGEDOWN },
+        { KEY_U, MODIFIER_CONTROL, MOVEMENT_PAGEUP },
+        { KEY_HOME, 0, MOVEMENT_LINEBEGIN },
+        { KEY_HOME, MODIFIER_CONTROL, MOVEMENT_FIRSTLINE },
+        { KEY_END, 0, MOVEMENT_LINEEND },
+        { KEY_END, 0, MOVEMENT_LASTLINE },
+        { KEY_F3, 0, MOVEMENT_NEXT_MATCH },
+};
+
+/* NOTE! due to technical problems we are currently not able to receive any
+ * codepoints with modifier bits. The shift character is received implicitly
+ * for "keys" that have an uppercase version. Though that might be layout
+ * specific! */
+static struct {
+        int codepoint;
+        int modifierBits;
+        int movementKind;
+} viMovementCodepointTable[] = {
+        { '0', 0, MOVEMENT_LINEBEGIN },
+        { '$', 0, MOVEMENT_LINEEND },
+        { 'h', 0, MOVEMENT_LEFT },
+        { 'j', 0, MOVEMENT_DOWN },
+        { 'k', 0, MOVEMENT_UP },
+        { 'l', 0, MOVEMENT_RIGHT },
+        { 'G', 0, MOVEMENT_LASTLINE },
+        { 'w', 0, MOVEMENT_NEXT_WORD },
+        { 'b', 0, MOVEMENT_PREVIOUS_WORD },
+        { 'n', 0, MOVEMENT_NEXT_MATCH },
+};
+
 static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
 {
         if (input->inputKind != INPUT_KEY)
@@ -68,52 +109,28 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
                 && input->data.tKey.keyEventKind != KEYEVENT_REPEAT)
                 return 0;
         struct Movement movement = {0}; // initialize to avoid compiler warning
-        int badKey = 0;
+        int keyKind = input->data.tKey.keyKind;
         int modifierBits = input->data.tKey.modifierMask;
-        switch (input->data.tKey.keyKind) {
-                case KEY_CURSORLEFT:  movement = (struct Movement) { modifierBits == MODIFIER_CONTROL ? MOVEMENT_PREVIOUS_WORD : MOVEMENT_LEFT }; break;
-                case KEY_CURSORRIGHT: movement = (struct Movement) { modifierBits == MODIFIER_CONTROL ? MOVEMENT_NEXT_WORD : MOVEMENT_RIGHT }; break;
-                case KEY_CURSORUP:    movement = (struct Movement) { MOVEMENT_UP }; break;
-                case KEY_CURSORDOWN:  movement = (struct Movement) { MOVEMENT_DOWN }; break;
-                case KEY_PAGEUP:      movement = (struct Movement) { MOVEMENT_PAGEUP }; break;
-                case KEY_PAGEDOWN:    movement = (struct Movement) { MOVEMENT_PAGEDOWN }; break;
-                case KEY_HOME:
-                        if (modifierBits & MODIFIER_CONTROL)
-                                movement = (struct Movement) { MOVEMENT_FIRSTLINE };
-                        else
-                                movement = (struct Movement) { MOVEMENT_LINEBEGIN };
-                        break;
-                case KEY_END:
-                        if (modifierBits & MODIFIER_CONTROL)
-                                movement = (struct Movement) { MOVEMENT_LASTLINE };
-                        else
-                                movement = (struct Movement) { MOVEMENT_LINEEND };
-                        break;
-                case KEY_F3:
-                        movement = (struct Movement) { MOVEMENT_NEXT_MATCH };
-                        break;
-                default:
-                        badKey = 1;
-        }
-        if (badKey && input->data.tKey.hasCodepoint) {
-                badKey = 0;
-                switch (input->data.tKey.codepoint) {
-                case '0': movement = (struct Movement) { MOVEMENT_LINEBEGIN }; break;
-                case '$': movement = (struct Movement) { MOVEMENT_LINEEND }; break;
-                case 'h': movement = (struct Movement) { MOVEMENT_LEFT }; break;
-                case 'j': movement = (struct Movement) { MOVEMENT_DOWN }; break;
-                case 'k': movement = (struct Movement) { MOVEMENT_UP }; break;
-                case 'l': movement = (struct Movement) { MOVEMENT_RIGHT }; break;
-                case 'G': movement = (struct Movement) { MOVEMENT_LASTLINE }; break;
-                case 'w': movement = (struct Movement) { MOVEMENT_NEXT_WORD }; break;
-                case 'b': movement = (struct Movement) { MOVEMENT_PREVIOUS_WORD }; break;
-                case 'n': movement = (struct Movement) { MOVEMENT_NEXT_MATCH }; break;
-                default:
-                        badKey = 1;
+        int hasCodepoint = input->data.tKey.hasCodepoint;
+        int codepoint = (int) input->data.tKey.codepoint;
+        for (int i = 0; i < LENGTH(viMovementSimpleTable); i++) {
+                if (viMovementSimpleTable[i].keyKind == keyKind
+                    && viMovementSimpleTable[i].modifierBits == modifierBits) {
+                        movement = (struct Movement) { viMovementSimpleTable[i].movementKind };
+                        goto good;
                 }
         }
-        if (badKey)
-                return 0;
+        if (hasCodepoint) {
+                for (int i = 0; i < LENGTH(viMovementCodepointTable); i++) {
+                        if (viMovementCodepointTable[i].codepoint == codepoint
+                            && viMovementCodepointTable[i].modifierBits == modifierBits) {
+                                movement = (struct Movement) { viMovementCodepointTable[i].movementKind };
+                                goto good;
+                        }
+                }
+        }
+        return 0;
+good:
         *outMovement = movement;
         return 1;
 }
