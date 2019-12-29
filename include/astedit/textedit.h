@@ -23,6 +23,33 @@ struct LinescrollAnimation {
         struct Timer timer;
 };
 
+enum {
+        EDIT_START, /* only the very first item in our history has this kind */
+        EDIT_INSERT,
+        EDIT_DELETE,
+};
+
+struct EditItem {
+        struct EditItem *prev;
+        struct EditItem *next;
+        /* insert or delete. Probably there will never be more. */
+        int editKind;
+        /* The difference in cursorPosition before and after an editing
+         * operation is independent of the actual operation. For example,
+         * loading contents from a file into the text editor won't move the
+         * cursor position, but keying in some characters will. So for now,
+         * we simply store the previous cursor position */
+        FILEPOS previousCursorPosition;
+        FILEPOS nextCursorPosition;
+        /* We need to remember what text was inserted or deleted.
+         *  - For insertion edits that we can redo
+         *  - For deletion items that we can undo
+         */
+        FILEPOS editPosition;
+        FILEPOS editLength;
+        char *editText;
+};
+
 struct TextEdit {
         struct Textrope *rope;
 
@@ -32,6 +59,9 @@ struct TextEdit {
         FILEPOS cursorBytePosition;
         FILEPOS firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
         FILEPOS numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
+
+        struct EditItem startItem; // sentinel
+        struct EditItem *editHistory;
 
         int isVimodeActive;
         struct ViState vistate;

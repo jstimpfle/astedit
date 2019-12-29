@@ -3,35 +3,6 @@
 #include <astedit/memoryalloc.h>
 #include <astedit/edithistory.h>
 
-enum {
-        EDIT_START, /* only the very first item in our history has this kind */
-        EDIT_INSERT,
-        EDIT_DELETE,
-};
-
-struct EditItem {
-        struct EditItem *prev;
-        struct EditItem *next;
-        /* insert or delete. Probably there will never be more. */
-        int editKind;
-        /* The difference in cursorPosition before and after an editing
-         * operation is independent of the actual operation. For example,
-         * loading contents from a file into the text editor won't move the
-         * cursor position, but keying in some characters will. So for now,
-         * we simply store the previous cursor position */
-        FILEPOS previousCursorPosition;
-        FILEPOS nextCursorPosition;
-        /* We need to remember what text was inserted or deleted.
-         *  - For insertion edits that we can redo
-         *  - For deletion items that we can undo
-         */
-        FILEPOS editPosition;
-        FILEPOS editLength;
-        char *editText;
-};
-
-static struct EditItem startItem = { .editKind = EDIT_START };
-static struct EditItem *editHistory = &startItem;
 
 static void delete_EditItem(struct EditItem *item)
 {
@@ -46,29 +17,29 @@ static void delete_EditItem(struct EditItem *item)
  * we undo a few items, and then do another operation, we will delete the
  * undone items because they are not reachable anymore (until we improve the
  * data structures) */
-static void delete_unreachable_items(void)
+static void delete_unreachable_items(struct TextEdit *edit)
 {
-        while (editHistory->next) {
-                struct EditItem *itemToDelete = editHistory->next;
-                editHistory->next = editHistory->next->next;
+        while (edit->editHistory->next) {
+                struct EditItem *itemToDelete = edit->editHistory->next;
+                edit->editHistory->next = edit->editHistory->next->next;
                 delete_EditItem(itemToDelete);
         }
 }
 
-static void add_item(struct EditItem *item)
+static void add_item(struct TextEdit *edit, struct EditItem *item)
 {
-        delete_unreachable_items();
-        item->prev = editHistory;
+        delete_unreachable_items(edit);
+        item->prev = edit->editHistory;
         item->next = NULL;
         if (item->prev)
                 item->prev->next = item;
-        editHistory = item;
+        edit->editHistory = item;
 }
 
 /* XXX: For symmetry, this should probably also erase the copied text from the
  * text rope. But currently the caller code in textedit.c is still doing this.
  */
-static void set_item_text(struct EditItem *item, struct TextEdit *edit)
+static void set_item_text(struct TextEdit *edit, struct EditItem *item)
 {
         FILEPOS editPosition = item->editPosition;
         FILEPOS editLength = item->editLength;
@@ -79,7 +50,7 @@ static void set_item_text(struct EditItem *item, struct TextEdit *edit)
         item->editText[editLength] = 0;
 }
 
-static void unload_item_text(struct EditItem *item, struct TextEdit *edit)
+static void unload_item_text(struct TextEdit *edit, struct EditItem *item)
 {
         FILEPOS editPosition = item->editPosition;
         FILEPOS editLength = item->editLength;
@@ -101,7 +72,7 @@ void record_insert_operation(struct TextEdit *edit, FILEPOS insertionPoint, FILE
         item->editPosition = insertionPoint;
         item->editLength = length;
         item->editText = NULL;
-        add_item(item);
+        add_item(edit, item);
 }
 
 void record_delete_operation(struct TextEdit *edit, FILEPOS deletionPoint, FILEPOS length,
@@ -115,25 +86,25 @@ void record_delete_operation(struct TextEdit *edit, FILEPOS deletionPoint, FILEP
         item->editPosition = deletionPoint;
         item->editLength = length;
         item->editText = NULL;
-        set_item_text(item, edit);
-        add_item(item);
+        set_item_text(edit, item);
+        add_item(edit, item);
 }
 
 int undo_last_edit_operation(struct TextEdit *edit)
 {
-        if (editHistory == &startItem)
+        if (edit->editHistory == &edit->startItem)
                 return 0;
-        struct EditItem *item = editHistory;
-        editHistory = item->prev;
+        struct EditItem *item = edit->editHistory;
+        edit->editHistory = item->prev;
         if (item->editKind == EDIT_INSERT) {
-                set_item_text(item, edit);
+                set_item_text(edit, item);
                 /* See NOTE at set_item_text() */
                 FILEPOS insertionPoint = item->editPosition;
                 FILEPOS length = item->editLength;
                 erase_text_from_textrope(edit->rope, insertionPoint, length);
         }
         else if (item->editKind == EDIT_DELETE) {
-                unload_item_text(item, edit);
+                unload_item_text(edit, item);
         }
         else {
                 UNREACHABLE();
@@ -144,15 +115,15 @@ int undo_last_edit_operation(struct TextEdit *edit)
 
 int redo_next_edit_operation(struct TextEdit *edit)
 {
-        if (editHistory->next == NULL)
+        if (edit->editHistory->next == NULL)
                 return 0;
-        editHistory = editHistory->next;
-        struct EditItem *item = editHistory;
+        edit->editHistory = edit->editHistory->next;
+        struct EditItem *item = edit->editHistory;
         if (item->editKind == EDIT_INSERT) {
-                unload_item_text(item, edit);
+                unload_item_text(edit, item);
         }
         else if (item->editKind == EDIT_DELETE) {
-                set_item_text(item, edit);
+                set_item_text(edit, item);
                 /* See NOTE at set_item_text() */
                 FILEPOS editPosition = item->editPosition;
                 FILEPOS editLength = item->editLength;

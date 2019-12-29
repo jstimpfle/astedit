@@ -231,6 +231,9 @@ void init_TextEdit(struct TextEdit *edit)
         setup_vistate(&edit->vistate);
         setup_LinescrollAnimation(&edit->scrollAnimation);
 
+        ZERO_MEMORY(&edit->startItem);
+        edit->editHistory = &edit->startItem;
+
         edit->cursorBytePosition = 0;
         edit->firstLineDisplayed = 0;
         edit->numberOfLinesDisplayed = 15;  // XXX need some mechanism to set and update this
