@@ -529,7 +529,7 @@ void set_2d_coordinate_system(int x, int y, int w, int h)
 {
         UNUSED(x);
         UNUSED(y);
-        struct Mat4 mat = {};
+        struct Mat4 mat = {0};
         mat.m[0][0] = 2.0f / w;
         mat.m[1][1] = -2.0f / h;
         mat.m[2][2] = 1.0f;

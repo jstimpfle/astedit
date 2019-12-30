@@ -153,11 +153,13 @@
     <ClCompile Include="..\src\astedit\mutex-win32.c" />
     <ClCompile Include="..\src\astedit\osthread-win32.c" />
     <ClCompile Include="..\src\astedit\regex.c" />
-    <ClCompile Include="..\src\astedit\search.c" />
+    <ClCompile Include="..\src\astedit\sound-win32.c" />
+    <ClCompile Include="..\src\astedit\sound.c" />
     <ClCompile Include="..\src\astedit\stringpool.c" />
     <ClCompile Include="..\src\astedit\textedit.c" />
     <ClCompile Include="..\src\astedit\texteditloadsave.c" />
     <ClCompile Include="..\src\astedit\texteditsearch.c" />
+    <ClCompile Include="..\src\astedit\textpositions.c" />
     <ClCompile Include="..\src\astedit\textrope.c" />
     <ClCompile Include="..\src\astedit\textropeUTF8decode.c" />
     <ClCompile Include="..\src\astedit\textureatlas.c" />
@@ -173,6 +175,7 @@
     <ClInclude Include="..\include\astedit\astedit.h" />
     <ClInclude Include="..\include\astedit\buffers.h" />
     <ClInclude Include="..\include\astedit\bytes.h" />
+    <ClInclude Include="..\include\astedit\clock-linux.h" />
     <ClInclude Include="..\include\astedit\clock-win32.h" />
     <ClInclude Include="..\include\astedit\clock.h" />
     <ClInclude Include="..\include\astedit\cmdlinehistory.h" />
@@ -189,10 +192,13 @@
     <ClInclude Include="..\include\astedit\memoryalloc.h" />
     <ClInclude Include="..\include\astedit\mutex.h" />
     <ClInclude Include="..\include\astedit\osthread.h" />
+    <ClInclude Include="..\include\astedit\regex.h" />
     <ClInclude Include="..\include\astedit\search.h" />
+    <ClInclude Include="..\include\astedit\sound.h" />
     <ClInclude Include="..\include\astedit\stringpool.h" />
     <ClInclude Include="..\include\astedit\texteditloadsave.h" />
     <ClInclude Include="..\include\astedit\texteditsearch.h" />
+    <ClInclude Include="..\include\astedit\textpositions.h" />
     <ClInclude Include="..\include\astedit\textrope.h" />
     <ClInclude Include="..\include\astedit\textedit.h" />
     <ClInclude Include="..\include\astedit\textropeUTF8decode.h" />

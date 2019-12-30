@@ -105,9 +105,6 @@
     <ClCompile Include="..\src\astedit\edithistory.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\astedit\search.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\astedit\buffers.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -115,6 +112,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\astedit\texteditsearch.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\astedit\sound.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\astedit\textpositions.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\astedit\sound-win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -216,6 +222,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\astedit\texteditsearch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\astedit\clock-linux.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\astedit\regex.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\astedit\sound.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\astedit\textpositions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
