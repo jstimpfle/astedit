@@ -29,7 +29,7 @@ ROPE DATASTRUCTURE
 ==================
 
 This project contains a rope implementation based on a Red-black tree, where
-each node of the tree holds up to 1024 bytes. Thanks to that implementation,
+each node of the tree holds up to 8192 bytes. Thanks to that implementation,
 most text editing operations, like navigating or inserting/deleting small
 chunks of text, take only a few microseconds. Even in a test that I did with a
 huge buffer (loaded from a 1.8G text file) most operations took < 20us on my

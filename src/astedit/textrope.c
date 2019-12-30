@@ -15,7 +15,7 @@ static inline int is_utf8_leader_byte(int c) { return (c & 0xc0) != 0x80; }
 We do this by combining adjacent nodes whose combined size does not exceed
 this. This means that each node will always be at least half that size. */
 enum {
-        TARGET_LENGTH = 1024,
+        TARGET_LENGTH = 8192,
 };
 
 struct Textnode {
