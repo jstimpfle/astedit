@@ -73,10 +73,12 @@ static struct {
         { KEY_CURSORDOWN, 0, MOVEMENT_DOWN },
         { KEY_D, MODIFIER_CONTROL, MOVEMENT_PAGEDOWN },
         { KEY_U, MODIFIER_CONTROL, MOVEMENT_PAGEUP },
+        { KEY_PAGEUP, 0, MOVEMENT_PAGEUP },
+        { KEY_PAGEDOWN, 0, MOVEMENT_PAGEDOWN },
         { KEY_HOME, 0, MOVEMENT_LINEBEGIN },
         { KEY_HOME, MODIFIER_CONTROL, MOVEMENT_FIRSTLINE },
         { KEY_END, 0, MOVEMENT_LINEEND },
-        { KEY_END, 0, MOVEMENT_LASTLINE },
+        { KEY_END, MODIFIER_CONTROL, MOVEMENT_LASTLINE },
         { KEY_F3, 0, MOVEMENT_NEXT_MATCH },
 };
 
@@ -86,19 +88,18 @@ static struct {
  * specific! */
 static struct {
         int codepoint;
-        int modifierBits;
         int movementKind;
 } viMovementCodepointTable[] = {
-        { '0', 0, MOVEMENT_LINEBEGIN },
-        { '$', 0, MOVEMENT_LINEEND },
-        { 'h', 0, MOVEMENT_LEFT },
-        { 'j', 0, MOVEMENT_DOWN },
-        { 'k', 0, MOVEMENT_UP },
-        { 'l', 0, MOVEMENT_RIGHT },
-        { 'G', 0, MOVEMENT_LASTLINE },
-        { 'w', 0, MOVEMENT_NEXT_WORD },
-        { 'b', 0, MOVEMENT_PREVIOUS_WORD },
-        { 'n', 0, MOVEMENT_NEXT_MATCH },
+        { '0', MOVEMENT_LINEBEGIN },
+        { '$', MOVEMENT_LINEEND },
+        { 'h', MOVEMENT_LEFT },
+        { 'j', MOVEMENT_DOWN },
+        { 'k', MOVEMENT_UP },
+        { 'l', MOVEMENT_RIGHT },
+        { 'G', MOVEMENT_LASTLINE },
+        { 'w', MOVEMENT_NEXT_WORD },
+        { 'b', MOVEMENT_PREVIOUS_WORD },
+        { 'n', MOVEMENT_NEXT_MATCH },
 };
 
 static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMovement)
@@ -122,8 +123,7 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
         }
         if (hasCodepoint) {
                 for (int i = 0; i < LENGTH(viMovementCodepointTable); i++) {
-                        if (viMovementCodepointTable[i].codepoint == codepoint
-                            && viMovementCodepointTable[i].modifierBits == modifierBits) {
+                        if (viMovementCodepointTable[i].codepoint == codepoint) {
                                 movement = (struct Movement) { viMovementCodepointTable[i].movementKind };
                                 goto good;
                         }
