@@ -374,76 +374,52 @@ static void draw_textedit_lines(struct TextEdit *edit,
         FILEPOS firstVisibleLine, int offsetPixelsY,
         int x, int y, int w, int h)
 {
-        // we want to add a tiny little bit of pad
-        int pad = 5;
-        x += pad;
-        y += pad;
-        w -= 2 * pad;
-        h -= 2 * pad;
-
-        FILEPOS textropeLength = textrope_length(edit->rope);
-        FILEPOS markStart = 0;
-        FILEPOS markEnd = 0;
-
-        if (edit->isSelectionMode)
-                get_selected_range_in_codepoints(edit, &markStart, &markEnd);
-
-        // AAARGH, we shouldn't call the drawing context "cursor"
-        FILEPOS cursorCodepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
-
-        if (markStart < 0) markStart = 0;
-        if (markEnd < 0) markEnd = 0;
-        if (markStart >= textropeLength) markStart = textropeLength;
-        if (markEnd >= textropeLength) markEnd = textropeLength;
-
-        ENSURE(markStart <= markEnd);
-
-        flush_all_vertex_buffers();
-
-        FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstVisibleLine);
-        FILEPOS initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
-
-        {
-        struct DrawCursor drawCursor;
-        struct DrawCursor *cursor = &drawCursor;
-        // draw a rectangular border around the text line that has cursor
-        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
-        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
-        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
-        for (int i = 0; i < linesDiff; i++)
-                next_line(cursor);
-        int borderX = x;
-        int borderY = cursor->lineY;
-        int borderH = cursor->lineHeight;
-        int borderW = w;
-        int borderThickness = 1;
-        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C_ALPHA(currentLineBorderColor, 128));
+        { // we want to add a tiny little bit of pad
+                int pad = 5;
+                x += pad;
+                y += pad;
+                w -= 2 * pad;
+                h -= 2 * pad;
         }
 
         struct GuiRect boundingBox;
-        struct DrawCursor drawCursor;
         struct GuiRect *box = &boundingBox;
-        struct DrawCursor *cursor = &drawCursor;
-
         set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y - offsetPixelsY, initialCodepointPos, firstVisibleLine);
 
         struct TextropeUTF8Decoder decoder;
-        init_UTF8Decoder(&decoder, edit->rope, initialReadPos);
-
         struct Blunt_ReadCtx readCtx;
-        struct Blunt_Token token;
-        begin_lexing_blunt_tokens(&readCtx, edit->rope, initialReadPos);
+        struct DrawCursor drawCursor;
+        struct DrawCursor *cursor = &drawCursor;
 
-        /*
-        We can start lexing at the first character of the line
-        only because the lexical syntax is made such that newline
-        is always a token separator. Otherwise, we'd need to find
-        the start a little before that line and with more complicated
-        code.
-        */
+        {
+                /* We can start lexing at the first character of the line
+                only because the lexical syntax is made such that newline is
+                always a token separator. Otherwise, we'd need to find the start
+                a little before that line and with more complicated code. */
+                FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstVisibleLine);
+                FILEPOS initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
+                init_UTF8Decoder(&decoder, edit->rope, initialReadPos);
+                begin_lexing_blunt_tokens(&readCtx, edit->rope, initialReadPos);
+                set_draw_cursor(cursor, x, y - offsetPixelsY, initialCodepointPos, firstVisibleLine);
+        }
+
+        // AAARGH, we shouldn't call the drawing context "cursor"
+        FILEPOS cursorCodepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
+        FILEPOS markStart = 0;
+        FILEPOS markEnd = 0;
+        {
+                FILEPOS textropeLength = textrope_length(edit->rope);
+                if (edit->isSelectionMode)
+                        get_selected_range_in_codepoints(edit, &markStart, &markEnd);
+                if (markStart < 0) markStart = 0;
+                if (markEnd < 0) markEnd = 0;
+                if (markStart >= textropeLength) markStart = textropeLength;
+                if (markEnd >= textropeLength) markEnd = textropeLength;
+        }
+        ENSURE(markStart <= markEnd);
 
         while (cursor->lineY < box->y + box->h) {
+                struct Blunt_Token token;
                 lex_blunt_token(&readCtx, &token);
 
                 FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
@@ -501,11 +477,29 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
                         break;
         }
-        // markStart/markEnd are currently abused to draw the text cursor, and in this case here we know it has to be the text cursor
+        // markStart/markEnd are currently abused to draw the text cursor, and
+        // in this case here we know it has to be the text cursor
         if (readpos_in_bytes_of_UTF8Decoder(&decoder) == edit->cursorBytePosition)
                 draw_cursor(edit, cursor->x, cursor->lineY, 10, cursor->lineHeight);
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
+
+        { // draw box of line width where the cursor is.
+        struct DrawCursor drawCursor;
+        struct DrawCursor *cursor = &drawCursor;
+        // draw a rectangular border around the text line that has cursor
+        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
+        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
+        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
+        for (int i = 0; i < linesDiff; i++)
+                next_line(cursor);
+        int borderX = x;
+        int borderY = cursor->lineY;
+        int borderH = cursor->lineHeight;
+        int borderW = w;
+        int borderThickness = 1;
+        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C_ALPHA(currentLineBorderColor, 128));
+        }
 }
 
 static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, int h)
