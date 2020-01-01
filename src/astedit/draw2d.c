@@ -48,9 +48,13 @@ static const struct RGB currentLineBorderColor = { 32, 32, 32 };
 static const struct RGB statusbarTextColor = { 224, 224, 224 };
 #endif
 
-static const int LINE_HEIGHT_PIXELS = 26;
+// TODO: These values should be dynamically computed. We want to support various
+// a wide range of monitor resolutions.
+static const int LINE_THICKNESS_PIXELS = 2;
+
+static const int TEXT_HEIGHT_PIXELS = 26;
 static const int CELL_WIDTH_PIXELS = -1;//22;
-static const int FONT_HEIGHT_PIXELS = 14;
+static const int FONT_SIZE_PIXELS = 14;
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d subpixelRenderedFontVertexBuffer[3 * 1024];
@@ -216,6 +220,22 @@ void draw_subpixelRenderedFont_texture_rect(Texture texture,
         push_subpixelRenderedFont_texture_vertices(rp, LENGTH(rp));
 }
 
+static void draw_horizontal_line(int x, int y, int w)
+{
+        if (w < 0) w = 0;
+        y -= LINE_THICKNESS_PIXELS / 2;
+        int h = LINE_THICKNESS_PIXELS - (LINE_THICKNESS_PIXELS / 2);
+        draw_colored_rect(x, y, w, h, C(borderColor));
+}
+
+static void draw_vertical_line(int x, int y, int h)
+{
+        if (h < 0) h = 0;
+        x -= LINE_THICKNESS_PIXELS / 2;
+        int w = LINE_THICKNESS_PIXELS - (LINE_THICKNESS_PIXELS / 2);
+        draw_colored_rect(x, y, w, h, C(borderColor));
+}
+
 void draw_colored_border(int x, int y, int w, int h, int thicknessPerSide,
         int r, int g, int b, int a)
 {
@@ -240,7 +260,6 @@ void next_line(struct DrawCursor *cursor)
         cursor->lineY += cursor->lineHeight;
 }
 
-
 static void draw_codepoint(
         struct DrawCursor *cursor,
         const struct GuiRect *boundingBox,
@@ -248,11 +267,8 @@ static void draw_codepoint(
         uint32_t codepoint)
 {
         cursor->codepointpos++;
-        if (codepoint == '\r')
-                return;
-        uint32_t codepointToDraw = codepoint == '\n' ? ' ' : codepoint;
         int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
-                cursor->fontSize, cursor->cellWidth, &codepointToDraw, 1,
+                cursor->fontSize, cursor->cellWidth, &codepoint, 1,
                 cursor->x, cursor->lineY + cursor->distanceYtoBaseline,
                 cursor->r, cursor->g, cursor->b, cursor->a);
         if (drawstringKind == DRAWSTRING_HIGHLIGHT)
@@ -262,11 +278,6 @@ static void draw_codepoint(
                 draw_colored_border(cursor->x, cursor->lineY,
                         xEnd - cursor->x, cursor->lineHeight, 2, C(highlightColor));
         cursor->x = xEnd;
-        if (codepoint == '\n') {
-                next_line(cursor);
-                cursor->lineNumber++;
-                return;
-        }
 }
 
 static void draw_text_with_cursor(
@@ -316,9 +327,9 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS codepointPos, FILEPOS lineNumber)
 {
         cursor->xLeft = x;
-        cursor->fontSize = FONT_HEIGHT_PIXELS;
-        cursor->distanceYtoBaseline = LINE_HEIGHT_PIXELS * 2 / 3;
-        cursor->lineHeight = LINE_HEIGHT_PIXELS;
+        cursor->fontSize = FONT_SIZE_PIXELS;
+        cursor->distanceYtoBaseline = TEXT_HEIGHT_PIXELS * 2 / 3;
+        cursor->lineHeight = TEXT_HEIGHT_PIXELS;
         cursor->cellWidth = CELL_WIDTH_PIXELS;
         cursor->x = x;
         cursor->lineY = y;
@@ -348,7 +359,10 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
         set_draw_cursor(cursor, x, y - offsetPixelsY, 0, 0);
 
         set_cursor_color(cursor, C(normalTextColor));
-        for (FILEPOS i = firstVisibleLine; i < lastLine && cursor->lineY < box->y + box->h; i++) {
+
+        for (FILEPOS i = firstVisibleLine;
+             i < lastLine && cursor->lineY < box->y + box->h;
+             i++) {
                 char buf[32];
                 snprintf(buf, sizeof buf, "%4"FILEPOS_PRI, i + 1);
                 draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
@@ -467,7 +481,29 @@ static void draw_textedit_lines(struct TextEdit *edit,
                         else
                                 drawstringKind = DRAWSTRING_NORMAL;
                         uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
-                        draw_codepoint(cursor, box, drawstringKind, codepoint);
+
+                        /* The text editor should be able to edit any kind of file (even
+                         * binary). It should always operate on the literal file contents, not
+                         * just some representation of the contents. Convenience should be
+                         * provided by views, i.e. standard editing view would be a UTF-8
+                         * presentation where \r are either always displayed (Unix line endings
+                         * mode) or only displayed when not followed by a \n character (DOS
+                         * mode). Another view would be "binary" where all characters are always
+                         * visible (displayed as hex, for example).
+                         */
+                        /* For now, we just implement a standard text editor view */
+                        if (codepoint == '\n') {
+                                cursor->codepointpos++;
+                                cursor->lineNumber++;
+                                next_line(cursor);
+                        }
+                        else if (codepoint == '\r') {
+                                // TODO: display as \r (literally)
+                                draw_codepoint(cursor, box, drawstringKind, 0x23CE);  /* Unicode 'RETURN SYMBOL' */
+                        }
+                        else {
+                                draw_codepoint(cursor, box, drawstringKind, codepoint);
+                        }
                 }
 
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
@@ -590,69 +626,74 @@ static void draw_textedit_saving(struct TextEdit *edit, int x, int y, int w, int
 
 static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, struct TextEdit *edit)
 {
-        int statusLineH = 40;
-
-        int linesX = canvasX;
-        int linesY = canvasY;
-        int linesW = 200;
-        int linesH = canvasH < statusLineH ? 0 : canvasH - statusLineH;
-
-        int textAreaX = linesX + linesW;
-        int textAreaY = linesY;
-        int textAreaW = canvasW < linesW ? 0 : canvasW - linesW;
-        int textAreaH = linesH;
-
-        int statusLineX = linesX;
-        int statusLineY = linesY + linesH;
-        int statusLineW = canvasW;
-
+        // clear
         draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, C(texteditBgColor));
+
+        int statusLineH = 40;
+        int statusLineX = canvasX;
+        int statusLineY = canvasH - statusLineH; if (statusLineY < 0) statusLineY = 0;
+        int statusLineW = canvasW;
 
         if (edit->loading.isActive) {
                 draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                return;
         }
-        else if (edit->saving.isActive) {
+        if (edit->saving.isActive) {
                 draw_textedit_saving(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                return;
+        }
+
+        int restH = canvasH - statusLineH;
+        if (restH < 0)
+                restH = 0;
+
+        // XXX is here the right place to do this?
+        edit->numberOfLinesDisplayed = restH / TEXT_HEIGHT_PIXELS;
+
+        /* Compute first line and y-offset for drawing */
+        FILEPOS firstVisibleLine;
+        int offsetPixelsY;
+        if (edit->scrollAnimation.isActive) {
+                //XXX overflow?
+                float linesProgress = edit->scrollAnimation.progress * (edit->scrollAnimation.targetLine - edit->scrollAnimation.startLine);
+                firstVisibleLine = edit->scrollAnimation.startLine + (FILEPOS) linesProgress;
+                offsetPixelsY = (int) (((linesProgress) - (FILEPOS) linesProgress) * TEXT_HEIGHT_PIXELS);
         }
         else {
-                /* Compute first line and y-offset for drawing */
-                FILEPOS firstVisibleLine;
-                int offsetPixelsY;
-                if (edit->scrollAnimation.isActive) {
-                        //XXX overflow?
-                        float linesProgress = edit->scrollAnimation.progress * (edit->scrollAnimation.targetLine - edit->scrollAnimation.startLine);
-                        firstVisibleLine = edit->scrollAnimation.startLine + (FILEPOS) linesProgress;
-                        offsetPixelsY = (int) (((linesProgress) - (FILEPOS) linesProgress) * LINE_HEIGHT_PIXELS);
-                }
-                else {
-                        firstVisibleLine = edit->firstLineDisplayed;
-                        offsetPixelsY = 0;
-                }
-
-                // XXX is here the right place to do this?
-                edit->numberOfLinesDisplayed = textAreaH / LINE_HEIGHT_PIXELS;
-
-                draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
-                draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH);
-                if (edit->vistate.vimodeKind == VIMODE_COMMAND)
-                        draw_textedit_ViCmdline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
-                else
-                        draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
-
-                // draw a line that separates the numbers from the text area
-
-                {
-                        int pad = 10;
-                        int thick = 2;
-                        int bx = textAreaX - thick/2;
-                        int by = textAreaY + pad;
-                        int bw = thick;
-                        int bh = textAreaY + textAreaH - 2 * pad;
-                        if (bh < by)
-                                bh = by;
-                        draw_colored_rect(bx, by, bw, bh, C(borderColor));
-                }
+                firstVisibleLine = edit->firstLineDisplayed;
+                offsetPixelsY = 0;
         }
+
+        int linesX = canvasX;
+        int linesY = canvasY;
+        int linesW;
+        int linesH = restH;
+        {
+                //FILEPOS x = firstVisibleLine + edit->numberOfLinesDisplayed;
+                FILEPOS x = textrope_number_of_lines_quirky(edit->rope);
+                int numDigitsNeeded = 1;
+                while (x >= 10) {
+                        x /= 10;
+                        numDigitsNeeded ++;
+                }
+                linesW = 30 + numDigitsNeeded * 20; //XXX
+        }
+
+        int textAreaX = linesX + linesW;
+        int textAreaY = canvasY;
+        int textAreaW = canvasW - linesW; if (textAreaW < 0) textAreaW = 0;
+        int textAreaH = linesH;
+
+        draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
+
+        draw_vertical_line(textAreaX, textAreaY + 3, textAreaH - 2 * 3);
+
+        draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH);
+
+        if (edit->vistate.vimodeKind == VIMODE_COMMAND)
+                draw_textedit_ViCmdline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+        else
+                draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
 }
 
 
