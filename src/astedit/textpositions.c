@@ -58,7 +58,8 @@ void get_position_prev_codepoint(struct TextEdit *edit, struct FileCursor *fc)
 void get_position_next_word(struct TextEdit *edit, struct FileCursor *fc)
 {
         FILEPOS stopPos = fc->bytePosition;
-        FILEPOS linePos = compute_line_number(edit->rope, fc->bytePosition);
+        FILEPOS lineNumber = compute_line_number(edit->rope, fc->bytePosition);
+        FILEPOS linePos = compute_pos_of_line(edit->rope, lineNumber);
         struct Blunt_ReadCtx readCtx;
         begin_lexing_blunt_tokens(&readCtx, edit->rope, linePos);
         for (;;) {
