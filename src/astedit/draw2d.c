@@ -63,16 +63,15 @@ static int colorVertexCount;
 static int subpixelRenderedFontVertexCount;
 
 
-void flush_color_vertices(void)
+/* The drawing routines here will never paint solid color above font.
+ * We exploit that here by flushing them in the following order,
+ * to allow the painting to paint in interleaved order. */
+void flush_all_vertex_buffers(void)
 {
         if (colorVertexCount > 0) {
                 draw_rgba_vertices(colorVertexBuffer, colorVertexCount);
                 colorVertexCount = 0;
         }
-}
-
-void flush_subpixelRenderedFont_texture_vertices(void)
-{
         if (subpixelRenderedFontVertexCount > 0) {
                 draw_subpixelRenderedFont_vertices(subpixelRenderedFontVertexBuffer, subpixelRenderedFontVertexCount);
                 subpixelRenderedFontVertexCount = 0;
@@ -91,14 +90,12 @@ void push_color_vertices(struct ColorVertex2d *verts, int length)
                 i += n;
 
                 if (colorVertexCount == LENGTH(colorVertexBuffer))
-                        flush_color_vertices();
+                        flush_all_vertex_buffers();
         }
 }
 
 void push_subpixelRenderedFont_texture_vertices(struct TextureVertex2d *verts, int length)
 {
-        flush_color_vertices();
-
         int i = 0;
         while (i < length) {
                 int remainingBytes = LENGTH(subpixelRenderedFontVertexBuffer) - subpixelRenderedFontVertexCount;
@@ -111,24 +108,17 @@ void push_subpixelRenderedFont_texture_vertices(struct TextureVertex2d *verts, i
                 i += n;
 
                 if (subpixelRenderedFontVertexCount == LENGTH(subpixelRenderedFontVertexBuffer))
-                        flush_subpixelRenderedFont_texture_vertices();
+                        flush_all_vertex_buffers();
         }
 }
 
+/*
 void push_rgba_texture_vertices(struct TextureVertex2d *verts, int length)
 {
-        flush_color_vertices();
-        flush_subpixelRenderedFont_texture_vertices();
+        flush_color_vertex_buffers();
         draw_rgba_texture_vertices(verts, length);
 }
-
-// TODO find better and useful concepts, e.g. begin_region() / end_region()?
-static void flush_all_vertex_buffers(void)
-{
-        flush_color_vertices();
-        flush_subpixelRenderedFont_texture_vertices();
-        //flush_rgba_texture_vertices();
-}
+*/
 
 void begin_frame(int x, int y, int w, int h)
 {
@@ -191,6 +181,7 @@ void draw_colored_rect(int x, int y, int w, int h,
         push_color_vertices(rectpoints, LENGTH(rectpoints));
 }
 
+#if 0
 void draw_rgba_texture_rect(Texture texture,
         int x, int y, int w, int h,
         int texX, int texY, int texW, int texH)
@@ -204,6 +195,7 @@ void draw_rgba_texture_rect(Texture texture,
 
         push_rgba_texture_vertices(rp, LENGTH(rp));
 }
+#endif
 
 void draw_subpixelRenderedFont_texture_rect(Texture texture,
         int r, int g, int b, int a,
@@ -266,7 +258,6 @@ static void draw_codepoint(
         int drawstringKind,
         uint32_t codepoint)
 {
-        cursor->codepointpos++;
         int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
                 cursor->fontSize, cursor->cellWidth, &codepoint, 1,
                 cursor->x, cursor->lineY + cursor->distanceYtoBaseline,
@@ -277,6 +268,7 @@ static void draw_codepoint(
         else if (drawstringKind == DRAWSTRING_HIGHLIGHT_BORDERS)
                 draw_colored_border(cursor->x, cursor->lineY,
                         xEnd - cursor->x, cursor->lineHeight, 2, C(highlightColor));
+        cursor->codepointpos++;
         cursor->x = xEnd;
 }
 
