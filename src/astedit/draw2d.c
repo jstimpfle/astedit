@@ -268,7 +268,6 @@ static void draw_codepoint(
         else if (drawstringKind == DRAWSTRING_HIGHLIGHT_BORDERS)
                 draw_colored_border(cursor->x, cursor->lineY,
                         xEnd - cursor->x, cursor->lineHeight, 2, C(highlightColor));
-        cursor->codepointpos++;
         cursor->x = xEnd;
 }
 
@@ -325,7 +324,6 @@ static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS cod
         cursor->cellWidth = CELL_WIDTH_PIXELS;
         cursor->x = x;
         cursor->lineY = y;
-        cursor->codepointpos = codepointPos;
         cursor->lineNumber = lineNumber;
 }
 
@@ -390,7 +388,6 @@ static void draw_textedit_lines(struct TextEdit *edit,
         struct Blunt_ReadCtx readCtx;
         struct DrawCursor drawCursor;
         struct DrawCursor *cursor = &drawCursor;
-
         {
                 /* We can start lexing at the first character of the line
                 only because the lexical syntax is made such that newline is
@@ -404,7 +401,6 @@ static void draw_textedit_lines(struct TextEdit *edit,
         }
 
         // AAARGH, we shouldn't call the drawing context "cursor"
-        FILEPOS cursorCodepointPosition = compute_codepoint_position(edit->rope, edit->cursorBytePosition);
         FILEPOS markStart = 0;
         FILEPOS markEnd = 0;
         {
@@ -440,8 +436,11 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 else
                         rgb = normalTextColor;
                 set_cursor_color(cursor, C(rgb));
-                while (readpos_in_bytes_of_UTF8Decoder(&decoder) < tokenEndPos) {
-                        if (cursor->codepointpos == cursorCodepointPosition)
+                for (;;) {
+                        FILEPOS readpos = readpos_in_bytes_of_UTF8Decoder(&decoder);
+                        if (readpos >= tokenEndPos)
+                                break;
+                        if (readpos == edit->cursorBytePosition)
                                 draw_cursor(edit, cursor->x, cursor->lineY, 10, cursor->lineHeight);
                         int drawstringKind;
                         if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
