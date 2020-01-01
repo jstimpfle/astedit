@@ -29,7 +29,7 @@ void log_write_cstring(const char *text)
 
 void _log_begin(struct LogInfo logInfo)
 {
-        log_writef("In %s line %d: ", logInfo.filename, logInfo.line);
+        log_writef("In %s:%d: ", logInfo.filename, logInfo.line);
 }
 
 void log_end(void)
