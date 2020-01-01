@@ -676,6 +676,10 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
                         x /= 10;
                         numDigitsNeeded ++;
                 }
+                /* allocate space for at least 4 digits to avoid popping in the
+                 * normal case. */
+                if (numDigitsNeeded < 4)
+                        numDigitsNeeded = 4;
                 linesW = 30 + numDigitsNeeded * 20; //XXX
         }
 
