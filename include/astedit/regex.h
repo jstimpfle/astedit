@@ -57,6 +57,10 @@ struct RegexReadCtx {
 
         int initialNodeIndex;
         int lastNodeIndex;  // current last node, where new nodes get appended
+        /* first "implementation node" corresponding to last syntactical element
+        (so we can apply quantifiers to it), or -1 if no last element (at the start
+        of a group or alternative) */
+        int startIndexOfLastElement;
 };
 
 /* For each node in a compiled pattern, a corresponding state that is needed in

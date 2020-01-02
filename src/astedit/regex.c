@@ -91,10 +91,12 @@ static void start_new_alternative(struct RegexReadCtx *ctx)
         int entryNodeIndex = ctx->groupStack[ctx->groupStackSize-1].entryNodeIndex;
         ENSURE(entryNodeIndex == ctx->lastNodeIndex);
         int splitNodeIndex = alloc_new_node(ctx);
-        ctx->nodes[splitNodeIndex].nodeKind = REGEXNODE_SPLIT;
-        ctx->nodes[splitNodeIndex].data.tSplit.otherIndex = ctx->nodes[entryNodeIndex].nextIndex;
+        int otherIndex = ctx->nodes[entryNodeIndex].nextIndex;
         ctx->nodes[entryNodeIndex].nextIndex = splitNodeIndex;
+        ctx->nodes[splitNodeIndex].nodeKind = REGEXNODE_SPLIT;
+        ctx->nodes[splitNodeIndex].data.tSplit.otherIndex = otherIndex;
         ctx->lastNodeIndex = splitNodeIndex;
+        ctx->startIndexOfLastElement = -1;
 }
 
 static void push_group(struct RegexReadCtx *ctx)
@@ -106,6 +108,7 @@ static void push_group(struct RegexReadCtx *ctx)
         int exitNodeIndex = alloc_new_node(ctx);
         ctx->nodes[entryNodeIndex].nodeKind = REGEXNODE_EMPTY;
         ctx->nodes[exitNodeIndex].nodeKind = REGEXNODE_EMPTY;
+        ctx->startIndexOfLastElement = -1;
 
         append_node(ctx, entryNodeIndex);
 
@@ -122,6 +125,9 @@ static int pop_group(struct RegexReadCtx *ctx)
                 return 0;
         finish_current_alternative(ctx);
         ENSURE(ctx->groupStackSize > 0);
+        /* if the following character is a '*' we will need to know the index of
+         * the first node. */
+        ctx->startIndexOfLastElement = ctx->groupStack[ctx->groupStackSize - 1].entryNodeIndex;
         ctx->lastNodeIndex = ctx->groupStack[ctx->groupStackSize - 1].exitNodeIndex;
         ctx->groupStackSize --;
         return 1;
@@ -131,8 +137,43 @@ static int add_quantifier(struct RegexReadCtx *ctx, int quantifierKind)
 {
         UNUSED(ctx);
         UNUSED(quantifierKind);
-        // TODO: get "current" element and quantify it.
-        return 0;  // no "current element"
+        if (ctx->startIndexOfLastElement == -1)
+                return 0;
+        if (quantifierKind == QUANTIFIER_NONE_OR_MORE
+            || quantifierKind == QUANTIFIER_ONE_OR_MORE) {
+                /* insert an optional jump back to the start of the last
+                 * element. */
+                int splitNodeIndex = alloc_new_node(ctx);
+                ctx->nodes[splitNodeIndex].nextIndex = -1;
+                ctx->nodes[splitNodeIndex].nodeKind = REGEXNODE_SPLIT;
+                ctx->nodes[splitNodeIndex].data.tSplit.otherIndex = ctx->startIndexOfLastElement;
+                append_node(ctx, splitNodeIndex);
+        }
+
+        if (quantifierKind == QUANTIFIER_OPTIONAL
+            || quantifierKind == QUANTIFIER_NONE_OR_MORE) {
+                /* an empty node that is (with the current approach) needed
+                 * to skip over the last element. */
+                int afterIndex = alloc_new_node(ctx);
+                ctx->nodes[afterIndex].nextIndex = -1;
+                ctx->nodes[afterIndex].nodeKind = REGEXNODE_EMPTY;
+                append_node(ctx, afterIndex);
+                /* Since we don't know all the places that lead to the start
+                 * node of the last element, we can't update them to add a split
+                 * there. Unless we improve the architecture here and introdue a
+                 * real AST for the parsed regex and so on, - the only thing we
+                 * can do is make a copy of that node, and change the old node
+                 * into a split node. */
+                int oldIndex = ctx->startIndexOfLastElement;
+                int copyIndex = alloc_new_node(ctx);
+                ctx->nodes[copyIndex] = ctx->nodes[oldIndex];
+                ctx->nodes[oldIndex].nextIndex = afterIndex;
+                ctx->nodes[oldIndex].nodeKind = REGEXNODE_SPLIT;
+                ctx->nodes[oldIndex].data.tSplit.otherIndex = copyIndex;
+                /* It's all pretty shaky. Hope the code is correct! */
+        }
+        ctx->startIndexOfLastElement = -1; // makes sense?
+        return 1;
 }
 
 void setup_readctx(struct RegexReadCtx *ctx, const char *pattern)
@@ -154,6 +195,7 @@ void setup_readctx(struct RegexReadCtx *ctx, const char *pattern)
         ctx->nodes[initialNodeIndex].nodeKind = REGEXNODE_EMPTY;
         ctx->initialNodeIndex = initialNodeIndex;
         ctx->lastNodeIndex = initialNodeIndex;
+        ctx->startIndexOfLastElement = -1;  // no last element. technically not required since we push_group() below
 
         // add a base group that is always there
         push_group(ctx);
@@ -171,6 +213,7 @@ static void add_character_node(struct RegexReadCtx *ctx, int character)
         ctx->nodes[nodeIndex].nodeKind = REGEXNODE_SPECIFIC_CHARACTER;
         ctx->nodes[nodeIndex].data.tSpecificCharacter.character = character;
         append_node(ctx, nodeIndex);
+        ctx->startIndexOfLastElement = nodeIndex;
 }
 
 void read_pattern(struct RegexReadCtx *ctx)
@@ -223,6 +266,7 @@ readmore:;
                 ctx->nodes[nodeIndex].nodeKind = REGEXNODE_ANY_CHARACTER;
                 ctx->nodes[nodeIndex].data.tSpecificCharacter.character = c;
                 append_node(ctx, nodeIndex);
+                ctx->startIndexOfLastElement = nodeIndex;
         }
         else if (c == '?' || c == '*' || c == '+') {
                 consume_pattern_char(ctx);
@@ -262,19 +306,17 @@ static void set_active(struct MatchCtx *ctx, int nodeIndex, FILEPOS earliestMatc
                 return;
         }
         struct NodeMatchState *state = &ctx->nextMatchState[nodeIndex];
-        if (state->isActive && state->earliestMatchPos < earliestMatchPos)
+        if (state->isActive && state->earliestMatchPos <= earliestMatchPos)
                 return;
         ENSURE(0 <= nodeIndex && nodeIndex < ctx->numNodes);
+        state->isActive = 1;
+        state->earliestMatchPos = earliestMatchPos;
         if (ctx->nodes[nodeIndex].nodeKind == REGEXNODE_SPLIT) {
                 set_active(ctx, ctx->nodes[nodeIndex].nextIndex, earliestMatchPos);
                 set_active(ctx, ctx->nodes[nodeIndex].data.tSplit.otherIndex, earliestMatchPos);
         }
         else if (ctx->nodes[nodeIndex].nodeKind == REGEXNODE_EMPTY) {
                 set_active(ctx, ctx->nodes[nodeIndex].nextIndex, earliestMatchPos);
-        }
-        else {
-                state->isActive = 1;
-                state->earliestMatchPos = earliestMatchPos;
         }
 }
 
@@ -321,6 +363,14 @@ void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
         ALLOC_MEMORY(&matchCtx->nextMatchState, matchCtx->numNodes);
         clear_next_matchstates(matchCtx);
         ENSURE(matchCtx->nodes[matchCtx->initialNodeIndex].nodeKind == REGEXNODE_EMPTY);
+
+        // some regexes match the empty string. With the current interface,
+        // which consists basically of feed_character_into_regex_search(),
+        // we need to start the search right now.
+        FILEPOS currentFilepos = 0; // XXX the current interface is wrong since we can't specify where we start without feeding an actual character.
+        matchCtx->matchStartPos = currentFilepos;
+        matchCtx->matchEndPos = currentFilepos;
+        set_active(matchCtx, matchCtx->initialNodeIndex, currentFilepos);
 }
 
 void setup_matchctx_from_pattern(struct MatchCtx *matchCtx, const char *pattern)
@@ -343,11 +393,11 @@ void feed_character_into_regex_search(struct MatchCtx *ctx, int c, FILEPOS curre
         ctx->matchEndPos = currentFilepos;  //XXX
 
         // is this the right place?
+        ctx->haveMatch = 0;
         set_active(ctx, ctx->initialNodeIndex, currentFilepos);
 
         /* switch to next char */
         struct NodeMatchState *tmp = ctx->matchState;
-        ctx->haveMatch = 0;
         ctx->matchState = ctx->nextMatchState;
         ctx->nextMatchState = tmp;
         clear_next_matchstates(ctx);
@@ -376,11 +426,13 @@ void feed_character_into_regex_search(struct MatchCtx *ctx, int c, FILEPOS curre
 
 int match_regex(struct MatchCtx *ctx, const char *string, int length)
 {
-        for (int i = 0; i < length; i++) {
-                int c = string[i];
-                feed_character_into_regex_search(ctx, c, i);
+        for (int i = 0; ; i++) {
                 if (ctx->haveMatch)
                         log_postf("Have match!");
+                if (i == length)
+                        break;
+                int c = string[i];
+                feed_character_into_regex_search(ctx, c, i);
         }
 
         return 1;//XXX
