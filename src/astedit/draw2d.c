@@ -360,15 +360,22 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
         }
 }
 
-static void draw_cursor(struct TextEdit *edit, int x, int y)
+// TODO: better name
+static void draw_cursor_active(int isActive, int x, int y)
 {
         //XXX
         int w = 1;
         int h = TEXT_HEIGHT_PIXELS;
-        if (edit->vistate.vimodeKind == VIMODE_INPUT)
+        if (isActive)
                 draw_colored_border(x, y, w, h, 2, C(cursorColor));
         else
                 draw_colored_border(x, y, w, h, 1, C(cursorColor));
+}
+
+static void draw_cursor(struct TextEdit *edit, int x, int y)
+{
+        int isActive = edit->vistate.vimodeKind == VIMODE_INPUT;
+        draw_cursor_active(isActive, x, y);
 }
 
 static void draw_textedit_lines(struct TextEdit *edit,
@@ -702,6 +709,38 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
                 draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
 }
 
+//XXX this is a duplication of draw_textedit_ViCmdline.
+// We probably should share code.
+static void draw_LineEdit(struct LineEdit *lineEdit, int x, int y, int w, int h)
+{
+        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
+
+        struct GuiRect boundingBox;
+        struct DrawCursor drawCursor;
+        struct GuiRect *box = &boundingBox;
+        struct DrawCursor *cursor = &drawCursor;
+
+        set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
+        set_draw_cursor(cursor, x, y, 0, 0);
+        set_cursor_color(cursor, C(statusbarTextColor));
+
+        const char *text = lineEdit->buf;
+        int textLength = lineEdit->fill;
+        int cursorBytePosition = lineEdit->cursorBytePosition;
+
+        struct FixedStringUTF8Decoder decoder = {text, textLength};
+        for (;;) {
+                int active = 1;
+                if (decoder.pos == cursorBytePosition)
+                        draw_cursor_active(active, cursor->x, cursor->lineY);
+                uint32_t codepoint;
+                if (!decode_codepoint_from_FixedStringUTF8Decoder(&decoder, &codepoint))
+                        //XXX: what if there are only decode errors? Should we
+                        //try to recover?
+                        break;
+                draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint);
+        }
+}
 
 #include <astedit/buffers.h>
 void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
@@ -726,6 +765,11 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
         cursor->distanceYtoBaseline = bufferBoxH * 2 / 3;
 
         draw_colored_rect(canvasX, canvasY, canvasW, canvasH, C(texteditBgColor));
+
+        if (globalData.isSelectingBufferWithSearch) {
+                // TODO: layout
+                draw_LineEdit(&globalData.bufferSelectLineEdit, 0, 0, 500, 200);
+        }
 
         for (struct Buffer *buffer = buffers;
                 buffer != NULL;

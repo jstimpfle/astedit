@@ -601,10 +601,19 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
 {
         if (edit->loading.isActive)
                 return;
+
+        if (is_input_keypress_of_key_and_modifiers(input, KEY_N, MODIFIER_CONTROL)) {
+                globalData.isShowingLineNumbers ^= 1;
+                return;
+        }
+
         if (edit->isVimodeActive) {
                 process_input_in_TextEdit_with_ViMode(input, edit, &edit->vistate);
                 return;
         }
+
+        // below code is bit-rotting since I've only use Vimode for some time...
+
         ENSURE(!edit->loading.isActive);
         if (input->inputKind == INPUT_KEY) {
                 int modifiers = input->data.tKey.modifierMask;
@@ -679,8 +688,40 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
         }
 }
 
+void process_input_in_LineEdit(struct Input *input, struct LineEdit *lineEdit)
+{
+        static struct {
+                int keyKind;
+                void (*func)(struct LineEdit *lineEdit);
+        } map[] = {
+                { KEY_BACKSPACE, LineEdit_erase_backwards },
+                { KEY_DELETE, LineEdit_erase_forwards },
+                { KEY_HOME, LineEdit_move_cursor_to_beginning },
+                { KEY_END, LineEdit_move_cursor_to_end },
+                { KEY_CURSORLEFT, LineEdit_move_cursor_left },
+                { KEY_CURSORRIGHT, LineEdit_move_cursor_right },
+        };
+
+        for (int i = 0; i < LENGTH(map); i++) {
+                if (is_input_keypress_of_key(input, map[i].keyKind)) {
+                        map[i].func(lineEdit);
+                        return;
+                }
+        }
+        if (is_input_unicode(input))
+                LineEdit_insert_codepoint(input->data.tKey.codepoint, lineEdit);
+}
+
 void process_input_in_buffer_list_dialog(struct Input *input)
 {
+        if (globalData.isSelectingBufferWithSearch)
+                process_input_in_LineEdit(input, &globalData.bufferSelectLineEdit);
+
+        if (is_input_keypress_of_key_and_modifiers(input, KEY_F, MODIFIER_CONTROL)) {
+                globalData.isSelectingBufferWithSearch ^= 1;
+                return;
+        }
+
         static struct {
                 int keyKind;
                 int actionKind;  // BUFFERLIST_???
@@ -708,12 +749,6 @@ void handle_input(struct Input *input)
                 if (globalData.isSelectingBuffer && globalData.selectedBuffer == NULL)
                         globalData.selectedBuffer = currentBuffer;
                 return;
-        }
-
-        if (!globalData.isSelectingBuffer) {  // in normal text editing
-                if (is_input_keypress_of_key_and_modifiers(input, KEY_N, MODIFIER_CONTROL)) {
-                        globalData.isShowingLineNumbers ^= 1;
-                }
         }
 
         if (globalData.isSelectingBuffer)

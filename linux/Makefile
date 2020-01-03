@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall
+CFLAGS += -g -Wall
 CFLAGS += -Wno-switch -Wno-enum-compare
 CFLAGS += -D_POSIX_C_SOURE=200809LL
 CFLAGS += -pthread  # needed additionally to -lpthread.
@@ -33,6 +33,7 @@ src/astedit/filesystem-linux.c \
 src/astedit/font.c \
 src/astedit/font-freetype.c \
 src/astedit/gfx-opengl.c \
+src/astedit/lineedit.c \
 src/astedit/logging.c \
 src/astedit/main.c \
 src/astedit/memoryalloc.c \

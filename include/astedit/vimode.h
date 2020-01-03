@@ -29,6 +29,7 @@ enum ViMoveModal {
         VIMOVEMODAL_G,
 };
 
+// TODO: we want to use LineEdit in the future to re-use some code
 struct ViCmdline {
         char buf[1024];
         int fill;
