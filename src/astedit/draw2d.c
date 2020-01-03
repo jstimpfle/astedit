@@ -363,7 +363,7 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
 static void draw_cursor(struct TextEdit *edit, int x, int y)
 {
         //XXX
-        int w = 10;
+        int w = 1;
         int h = TEXT_HEIGHT_PIXELS;
         if (edit->vistate.vimodeKind == VIMODE_INPUT)
                 draw_colored_border(x, y, w, h, 2, C(cursorColor));
@@ -416,6 +416,23 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 if (markEnd >= textropeLength) markEnd = textropeLength;
         }
         ENSURE(markStart <= markEnd);
+
+        { // draw box of line width where the cursor is.
+        struct DrawCursor drawCursor;
+        struct DrawCursor *cursor = &drawCursor;
+        // draw a rectangular border around the text line that has cursor
+        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
+        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
+        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
+        for (int i = 0; i < linesDiff; i++)
+                next_line(cursor);
+        int borderX = x;
+        int borderY = cursor->lineY;
+        int borderH = cursor->lineHeight;
+        int borderW = w;
+        int borderThickness = 1;
+        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C_ALPHA(currentLineBorderColor, 128));
+        }
 
         while (cursor->lineY < box->y + box->h) {
                 struct Blunt_Token token;
@@ -485,23 +502,6 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 draw_cursor(edit, cursor->x, cursor->lineY);
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
-
-        { // draw box of line width where the cursor is.
-        struct DrawCursor drawCursor;
-        struct DrawCursor *cursor = &drawCursor;
-        // draw a rectangular border around the text line that has cursor
-        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
-        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
-        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
-        for (int i = 0; i < linesDiff; i++)
-                next_line(cursor);
-        int borderX = x;
-        int borderY = cursor->lineY;
-        int borderH = cursor->lineHeight;
-        int borderW = w;
-        int borderThickness = 1;
-        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C_ALPHA(currentLineBorderColor, 128));
-        }
 }
 
 static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, int h)
