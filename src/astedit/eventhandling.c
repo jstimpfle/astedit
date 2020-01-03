@@ -710,6 +710,12 @@ void handle_input(struct Input *input)
                 return;
         }
 
+        if (!globalData.isSelectingBuffer) {  // in normal text editing
+                if (is_input_keypress_of_key_and_modifiers(input, KEY_N, MODIFIER_CONTROL)) {
+                        globalData.isShowingLineNumbers ^= 1;
+                }
+        }
+
         if (globalData.isSelectingBuffer)
                 process_input_in_buffer_list_dialog(input);
         else

@@ -651,9 +651,9 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
 
         int linesX = canvasX;
         int linesY = canvasY;
-        int linesW;
+        int linesW = 0;
         int linesH = restH;
-        {
+        if (globalData.isShowingLineNumbers) {
                 //FILEPOS x = firstVisibleLine + edit->numberOfLinesDisplayed;
                 FILEPOS x = textrope_number_of_lines_quirky(edit->rope);
                 int numDigitsNeeded = 1;
@@ -671,12 +671,12 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
         int textAreaX = linesX + linesW;
         int textAreaY = canvasY;
         int textAreaW = canvasW - linesW; if (textAreaW < 0) textAreaW = 0;
-        int textAreaH = linesH;
+        int textAreaH = restH;
 
-        draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
-
-        draw_vertical_line(textAreaX, textAreaY + 3, textAreaH - 2 * 3);
-
+        if (globalData.isShowingLineNumbers) {
+                draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
+                draw_vertical_line(textAreaX, textAreaY + 3, textAreaH - 2 * 3);
+        }
         draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH);
 
         if (edit->vistate.vimodeKind == VIMODE_COMMAND)

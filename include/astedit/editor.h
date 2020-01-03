@@ -7,6 +7,8 @@ struct EditorData {
         // buffer selection mode
         int isSelectingBuffer; 
         struct Buffer *selectedBuffer;
+
+        int isShowingLineNumbers;
 };
 
 DATA struct EditorData globalData;  // for now
