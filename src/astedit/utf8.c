@@ -49,7 +49,7 @@ int encode_codepoint_as_utf8(unsigned codepoint, char *str, int start, int end)
         return 0;
 }
 
-int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_next, unsigned *out_codepoint)
+int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_next, uint32_t *out_codepoint)
 {
         const unsigned char *s = (void *)&str[start];  //XXX
         if (start >= end)
@@ -165,4 +165,11 @@ void decode_utf8_span_and_move_rest_to_front(char *inputText, int length,
         ENSURE(0 <= remainingBytes && remainingBytes < 4);
         move_memory(inputText + pos, -pos, remainingBytes);
         *outLength = remainingBytes;
+}
+
+int decode_codepoint_from_FixedStringUTF8Decoder(struct FixedStringUTF8Decoder *decoder, uint32_t *outCodepoint)
+{
+        ENSURE(decoder->pos <= decoder->length);
+        int r = decode_codepoint_from_utf8(decoder->text, decoder->pos, decoder->length, &decoder->pos, outCodepoint);
+        return r > 0;
 }

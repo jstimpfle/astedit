@@ -360,8 +360,11 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
         }
 }
 
-static void draw_cursor(struct TextEdit *edit, int x, int y, int w, int h)
+static void draw_cursor(struct TextEdit *edit, int x, int y)
 {
+        //XXX
+        int w = 10;
+        int h = TEXT_HEIGHT_PIXELS;
         if (edit->vistate.vimodeKind == VIMODE_INPUT)
                 draw_colored_border(x, y, w, h, 2, C(cursorColor));
         else
@@ -441,7 +444,7 @@ static void draw_textedit_lines(struct TextEdit *edit,
                         if (readpos >= tokenEndPos)
                                 break;
                         if (readpos == edit->cursorBytePosition)
-                                draw_cursor(edit, cursor->x, cursor->lineY, 10, cursor->lineHeight);
+                                draw_cursor(edit, cursor->x, cursor->lineY);
                         int drawstringKind;
                         if (markStart <= cursor->codepointpos && cursor->codepointpos < markEnd)
                                 drawstringKind = DRAWSTRING_HIGHLIGHT;
@@ -479,7 +482,7 @@ static void draw_textedit_lines(struct TextEdit *edit,
         // markStart/markEnd are currently abused to draw the text cursor, and
         // in this case here we know it has to be the text cursor
         if (readpos_in_bytes_of_UTF8Decoder(&decoder) == edit->cursorBytePosition)
-                draw_cursor(edit, cursor->x, cursor->lineY, 10, cursor->lineHeight);
+                draw_cursor(edit, cursor->x, cursor->lineY);
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
 
@@ -518,16 +521,30 @@ static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, 
 
         const char *text;
         int textLength;
+        int cursorBytePosition;
         if (edit->vistate.cmdline.isNavigatingHistory) {
                 struct CmdlineHistory *history = &edit->vistate.cmdline.history;
                 text = history->iter->cmdline;
                 textLength = history->iter->length;
+                cursorBytePosition = history->iter->length; //XXX???
         }
         else {
                 text = edit->vistate.cmdline.buf;
                 textLength = edit->vistate.cmdline.fill;
+                cursorBytePosition = edit->vistate.cmdline.cursorBytePosition;
         }
-        draw_text_with_cursor(cursor, box, text, textLength);
+
+        struct FixedStringUTF8Decoder decoder = {text, textLength};
+        for (;;) {
+                if (decoder.pos == cursorBytePosition)
+                        draw_cursor(edit, cursor->x, cursor->lineY);
+                uint32_t codepoint;
+                if (!decode_codepoint_from_FixedStringUTF8Decoder(&decoder, &codepoint))
+                        //XXX: what if there are only decode errors? Should we
+                        //try to recover?
+                        break;
+                draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint);
+        }
 }
 
 static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)

@@ -27,4 +27,18 @@ remaining bytes is stored in *outLength.
 void decode_utf8_span_and_move_rest_to_front(char *inputText, int length,
         uint32_t *codepointOut, int *outLength, int *outNumCodepoints);
 
+
+
+/* This version is maybe easier to use than the above functions. */
+struct FixedStringUTF8Decoder {
+        const char *text;  // initialize this
+        int length; // initialize this
+        // initialize the rest to 0.
+        int pos;
+};
+/* returns whether a codepoint could be decoded. When no further codepoint could
+ * be decoded, check whether it was EOF or an invalid-UTF8 error by comparing
+ * length and pos. */
+int decode_codepoint_from_FixedStringUTF8Decoder(struct FixedStringUTF8Decoder *decoder, uint32_t *outCodepoint);
+
 #endif
