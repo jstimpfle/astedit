@@ -43,7 +43,7 @@ static int read_next_character_from_rope(struct TextropeReadBuffer *buffer)
         return buffer->buffer[buffer->numConsumedBytes++];
 }
 
-static struct RegexReadCtx readCtx;
+static struct Regex regex;
 static struct MatchCtx matchCtx;
 struct TextropeReadBuffer readBuffer;
 
@@ -68,14 +68,12 @@ void setup_search(struct TextEdit *edit, const char *pattern, int length)
         if (isMatchingInitialized)
                 teardown_search(edit); //XXX: should we rather die?
         log_postf("Search started for pattern '%s'", pattern);
-        setup_readctx(&readCtx, pattern);
-        read_pattern(&readCtx);
-        if (readCtx.bad) {
+        setup_regex(&regex);
+        if (!compile_regex_from_pattern(&regex, pattern, length)) {
                 send_notification_to_textedit_f(edit, NOTIFICATION_ERROR, "Bad pattern.");
-                teardown_readctx(&readCtx);
         }
         else {
-                setup_matchctx_from_readctx(&matchCtx, &readCtx);
+                setup_matchctx(&matchCtx, &regex);
                 reset_TextropeReadBuffer(&readBuffer, edit->rope, edit->cursorBytePosition);
                 isMatchingInitialized = 1;
         }
@@ -94,7 +92,7 @@ void teardown_search(struct TextEdit *edit)
         UNUSED(edit);
         if (isMatchingInitialized) {
                 teardown_matchctx(&matchCtx);
-                teardown_readctx(&readCtx);
+                teardown_regex(&regex);
                 isMatchingInitialized = 0;
         }
 }

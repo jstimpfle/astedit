@@ -5,6 +5,37 @@
 #include <astedit/regex.h>
 #include <string.h>
 
+struct RegexReadGroupCtx {
+        int groupKind;  // REGEX_GROUP_??
+        /* a REGEXNODE_EMPTY node that allows us to add new alternatives */
+        int entryNodeIndex;
+        /* a pre-allocated exit node. This will be used later for the first
+         * element following the group, so it's not yet decided what kind
+         * of node this is. */
+        int exitNodeIndex;
+};
+
+struct RegexReadCtx {
+        int bad;  // bad flag
+
+        const char *pattern;
+        int patternLength;
+        int currentCharIndex;
+
+        struct RegexReadGroupCtx *groupStack;
+        int groupStackSize;
+
+        struct RegexNode *nodes;
+        int numNodes;
+        int initialNodeIndex;
+
+        int lastNodeIndex;  // current last node, where new nodes get appended
+        /* first "implementation node" corresponding to last syntactical element
+        (so we can apply quantifiers to it), or -1 if no last element (at the start
+        of a group or alternative) */
+        int startIndexOfLastElement;
+};
+
 static void _fatal_regex_parse_error_fv(struct LogInfo logInfo,
                                         struct RegexReadCtx *ctx,
                                         const char *fmt, va_list ap)
@@ -176,37 +207,6 @@ static int add_quantifier(struct RegexReadCtx *ctx, int quantifierKind)
         return 1;
 }
 
-void setup_readctx(struct RegexReadCtx *ctx, const char *pattern)
-{
-        ctx->bad = 0;
-
-        ctx->pattern = pattern;
-        ctx->patternLength = (int) strlen(pattern);
-        ctx->currentCharIndex = 0;
-
-        ctx->groupStack = NULL;
-        ctx->groupStackSize = 0;
-
-        ctx->nodes = NULL;
-        ctx->numNodes = 0;
-        ctx->lastNodeIndex = -1;
-
-        int initialNodeIndex = alloc_new_node(ctx);
-        ctx->nodes[initialNodeIndex].nodeKind = REGEXNODE_EMPTY;
-        ctx->initialNodeIndex = initialNodeIndex;
-        ctx->lastNodeIndex = initialNodeIndex;
-        ctx->startIndexOfLastElement = -1;  // no last element. technically not required since we push_group() below
-
-        // add a base group that is always there
-        push_group(ctx);
-}
-
-void teardown_readctx(struct RegexReadCtx *ctx)
-{
-        log_postf("TODO: find all the RegexNodes and free them");
-        ZERO_MEMORY(ctx);
-}
-
 static void add_character_node(struct RegexReadCtx *ctx, int character)
 {
         int nodeIndex = alloc_new_node(ctx);
@@ -216,7 +216,7 @@ static void add_character_node(struct RegexReadCtx *ctx, int character)
         ctx->startIndexOfLastElement = nodeIndex;
 }
 
-void read_pattern(struct RegexReadCtx *ctx)
+static void read_pattern(struct RegexReadCtx *ctx)
 {
 readmore:;
         int c = next_pattern_char(ctx);
@@ -297,6 +297,71 @@ readmore:;
         goto readmore;
 }
 
+static void setup_readctx(struct RegexReadCtx *ctx, const char *pattern, int length)
+{
+        ctx->bad = 0;
+
+        ctx->pattern = pattern;
+        ctx->patternLength = length;
+        ctx->currentCharIndex = 0;
+
+        ctx->groupStack = NULL;
+        ctx->groupStackSize = 0;
+
+        ctx->nodes = NULL;
+        ctx->numNodes = 0;
+        ctx->lastNodeIndex = -1;
+
+        int initialNodeIndex = alloc_new_node(ctx);
+        ctx->nodes[initialNodeIndex].nodeKind = REGEXNODE_EMPTY;
+        ctx->initialNodeIndex = initialNodeIndex;
+        ctx->lastNodeIndex = initialNodeIndex;
+        ctx->startIndexOfLastElement = -1;  // no last element. technically not required since we push_group() below
+
+        // add a base group that is always there
+        push_group(ctx);
+}
+
+static void teardown_readctx(struct RegexReadCtx *ctx)
+{
+        FREE_MEMORY(&ctx->nodes);
+        ZERO_MEMORY(ctx);
+}
+
+static void extract_regex_from_readctx(struct Regex *regex, struct RegexReadCtx *ctx)
+{
+        regex->nodes = ctx->nodes;
+        regex->numNodes = ctx->numNodes;
+        regex->initialNodeIndex = ctx->initialNodeIndex;
+
+        ctx->nodes = NULL;
+        ctx->numNodes = 0;
+        ctx->initialNodeIndex = 0;
+}
+
+int compile_regex_from_pattern(struct Regex *regex, const char *pattern, int length)
+{
+        struct RegexReadCtx ctx;
+        setup_readctx(&ctx, pattern, length);
+        read_pattern(&ctx);
+        int good = !ctx.bad;
+        if (good)
+                extract_regex_from_readctx(regex, &ctx);
+        teardown_readctx(&ctx);
+        return good;
+}
+
+void setup_regex(struct Regex *regex)
+{
+        ZERO_MEMORY(&regex);
+}
+
+void teardown_regex(struct Regex *regex)
+{
+        FREE_MEMORY(&regex->nodes);
+        ZERO_MEMORY(&regex);
+}
+
 
 static void set_active(struct MatchCtx *ctx, int nodeIndex, FILEPOS earliestMatchPos)
 {
@@ -352,12 +417,11 @@ static void clear_next_matchstates(struct MatchCtx *matchCtx)
         }
 }
 
-void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
-                                        struct RegexReadCtx *readCtx)
+void setup_matchctx(struct MatchCtx *matchCtx, struct Regex *regex)
 {
-        matchCtx->nodes = readCtx->nodes;
-        matchCtx->numNodes = readCtx->numNodes;
-        matchCtx->initialNodeIndex = readCtx->initialNodeIndex;
+        matchCtx->nodes = regex->nodes;
+        matchCtx->numNodes = regex->numNodes;
+        matchCtx->initialNodeIndex = regex->initialNodeIndex;
         matchCtx->haveMatch = 0;
         ALLOC_MEMORY(&matchCtx->matchState, matchCtx->numNodes);
         ALLOC_MEMORY(&matchCtx->nextMatchState, matchCtx->numNodes);
@@ -371,15 +435,6 @@ void setup_matchctx_from_readctx(struct MatchCtx *matchCtx,
         matchCtx->matchStartPos = currentFilepos;
         matchCtx->matchEndPos = currentFilepos;
         set_active(matchCtx, matchCtx->initialNodeIndex, currentFilepos);
-}
-
-void setup_matchctx_from_pattern(struct MatchCtx *matchCtx, const char *pattern)
-{
-        struct RegexReadCtx readCtx;
-        setup_readctx(&readCtx, pattern);
-        read_pattern(&readCtx);
-        setup_matchctx_from_readctx(matchCtx, &readCtx);
-        teardown_readctx(&readCtx);
 }
 
 void teardown_matchctx(struct MatchCtx *matchCtx)
@@ -422,18 +477,4 @@ void feed_character_into_regex_search(struct MatchCtx *ctx, int c, FILEPOS curre
                         break;
                 }
         }
-}
-
-int match_regex(struct MatchCtx *ctx, const char *string, int length)
-{
-        for (int i = 0; ; i++) {
-                if (ctx->haveMatch)
-                        log_postf("Have match!");
-                if (i == length)
-                        break;
-                int c = string[i];
-                feed_character_into_regex_search(ctx, c, i);
-        }
-
-        return 1;//XXX
 }
