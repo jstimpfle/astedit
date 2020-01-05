@@ -478,3 +478,17 @@ void feed_character_into_regex_search(struct MatchCtx *ctx, int c, FILEPOS curre
                 }
         }
 }
+
+int match_regex(struct Regex *regex, const char *data, int length)
+{
+        struct MatchCtx matchCtx;
+        setup_matchctx(&matchCtx, regex);
+        for (int i = 0; ; i++) {
+                if (matchCtx.haveMatch)
+                        return 1;
+                if (i == length)
+                        break;
+                feed_character_into_regex_search(&matchCtx, data[i], i);
+        }
+        return 0;
+}

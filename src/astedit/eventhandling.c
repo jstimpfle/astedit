@@ -714,13 +714,19 @@ void process_input_in_LineEdit(struct Input *input, struct LineEdit *lineEdit)
 
 void process_input_in_buffer_list_dialog(struct Input *input)
 {
-        if (globalData.isSelectingBufferWithSearch)
-                process_input_in_LineEdit(input, &globalData.bufferSelectLineEdit);
-
         if (is_input_keypress_of_key_and_modifiers(input, KEY_F, MODIFIER_CONTROL)) {
                 globalData.isSelectingBufferWithSearch ^= 1;
                 return;
         }
+
+        if (globalData.isSelectingBufferWithSearch) {
+                process_input_in_LineEdit(input, &globalData.bufferSelectLineEdit);
+                globalData.bufferSelectSearchRegexValid =
+                        compile_regex_from_pattern(&globalData.bufferSelectSearchRegex,
+                                                   globalData.bufferSelectLineEdit.buf,
+                                                   globalData.bufferSelectLineEdit.fill);
+        }
+
 
         static struct {
                 int keyKind;

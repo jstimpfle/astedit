@@ -3,6 +3,7 @@
 
 #include <astedit/buffers.h>
 #include <astedit/lineedit.h>
+#include <astedit/regex.h>
 
 struct EditorData {
         // buffer selection mode
@@ -11,6 +12,8 @@ struct EditorData {
 
         int isSelectingBufferWithSearch;
         struct LineEdit bufferSelectLineEdit;
+        struct Regex bufferSelectSearchRegex;
+        int bufferSelectSearchRegexValid;
 
         int isShowingLineNumbers;
 };

@@ -70,6 +70,7 @@ struct MatchCtx {
 void setup_regex(struct Regex *regex);  // remove this? it's only zero-allocation
 void teardown_regex(struct Regex *regex);
 int compile_regex_from_pattern(struct Regex *regex, const char *pattern, int length);
+int match_regex(struct Regex *regex, const char *data, int length);
 
 void setup_matchctx(struct MatchCtx *matchCtx, struct Regex *regex);
 void teardown_matchctx(struct MatchCtx *matchCtx);
@@ -77,7 +78,5 @@ void feed_character_into_regex_search(struct MatchCtx *ctx, int c, FILEPOS curre
 
 /* reports whether there is a match */
 int extract_current_match(struct MatchCtx *matchCtx, FILEPOS *matchStartPos, FILEPOS *matchEndPos);
-
-int match_regex(struct MatchCtx *matchCtx, const char *string, int length);
 
 #endif

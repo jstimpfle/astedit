@@ -752,7 +752,7 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
         struct GuiRect *box = &boundingBox;
 
         int bufferBoxX = 20;
-        int bufferBoxY = 20;
+        int bufferBoxY = 100;
         int bufferBoxW = canvasW - 20 - (bufferBoxX - canvasX);
         int bufferBoxH = 40;
 
@@ -768,13 +768,21 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
 
         if (globalData.isSelectingBufferWithSearch) {
                 // TODO: layout
-                draw_LineEdit(&globalData.bufferSelectLineEdit, 0, 0, 500, 200);
+                draw_LineEdit(&globalData.bufferSelectLineEdit, 20, 20, 500, 50);
         }
 
         for (struct Buffer *buffer = buffers;
                 buffer != NULL;
                 buffer = buffer->next)
         {
+                if (globalData.isSelectingBufferWithSearch
+                    && globalData.bufferSelectSearchRegexValid) {
+                        if (!match_regex(&globalData.bufferSelectSearchRegex,
+                                         buffer->name, strlen(buffer->name))) {
+                                // TODO: how to hanle
+                                continue;
+                        }
+                }
                 int borderX = bufferBoxX;
                 int borderY = cursor->lineY;
                 int borderH = cursor->lineHeight;
