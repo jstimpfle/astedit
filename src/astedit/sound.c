@@ -37,7 +37,7 @@ void continue_any_currently_playing_sounds(void)
                         factor = sndstate_sampleno / (float) RAMP_UP_SAMPLES;
                 else
                         factor = 1.0f;
-                samples[i][0] = samples[i][1] = factor * 20000.0f * sndstate_y;
+                samples[i][0] = samples[i][1] = (uint16_t) (factor * 20000.0f * sndstate_y);
                 float a = sndstate_x;
                 float b = sndstate_y;
                 float c = cosf(freq * 0.00014247585f); //TODO constify

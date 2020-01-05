@@ -147,6 +147,7 @@
     <ClCompile Include="..\src\astedit\font-freetype.c" />
     <ClCompile Include="..\src\astedit\font.c" />
     <ClCompile Include="..\src\astedit\gfx-opengl.c" />
+    <ClCompile Include="..\src\astedit\lineedit.c" />
     <ClCompile Include="..\src\astedit\logging.c" />
     <ClCompile Include="..\src\astedit\main.c" />
     <ClCompile Include="..\src\astedit\memoryalloc.c" />
@@ -188,6 +189,7 @@
     <ClInclude Include="..\include\astedit\filesystem.h" />
     <ClInclude Include="..\include\astedit\font.h" />
     <ClInclude Include="..\include\astedit\gfx.h" />
+    <ClInclude Include="..\include\astedit\lineedit.h" />
     <ClInclude Include="..\include\astedit\logging.h" />
     <ClInclude Include="..\include\astedit\memoryalloc.h" />
     <ClInclude Include="..\include\astedit\mutex.h" />

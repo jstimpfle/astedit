@@ -123,6 +123,9 @@
     <ClCompile Include="..\src\astedit\sound-win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\astedit\lineedit.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\rb3ptr.h">
@@ -234,6 +237,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\astedit\textpositions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\astedit\lineedit.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

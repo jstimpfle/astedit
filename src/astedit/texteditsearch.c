@@ -49,20 +49,6 @@ struct TextropeReadBuffer readBuffer;
 
 static int isMatchingInitialized;
 
-static void search_next_with_pattern(struct TextEdit *edit, struct MatchCtx *matchCtx)
-{
-        for (;;) {
-                FILEPOS currentFilepos = get_textropereadbuffer_filepos(&readBuffer);
-                //log_postf("read from pos %d", (int) currentFilepos);
-                int c = read_next_character_from_rope(&readBuffer);
-                if (c == -1)
-                        break;
-                feed_character_into_regex_search(matchCtx, c, currentFilepos);
-                if (matchCtx->haveMatch)
-                        break;
-        }
-}
-
 void setup_search(struct TextEdit *edit, const char *pattern, int length)
 {
         if (isMatchingInitialized)
@@ -83,7 +69,16 @@ int search_next_match(struct TextEdit *edit, FILEPOS *matchStart, FILEPOS *match
 {
         if (!isMatchingInitialized)
                 return 0;
-        search_next_with_pattern(edit, &matchCtx);
+        for (;;) {
+                FILEPOS currentFilepos = get_textropereadbuffer_filepos(&readBuffer);
+                //log_postf("read from pos %d", (int) currentFilepos);
+                int c = read_next_character_from_rope(&readBuffer);
+                if (c == -1)
+                        break;
+                feed_character_into_regex_search(&matchCtx, c, currentFilepos);
+                if (matchCtx.haveMatch)
+                        break;
+        }
         return extract_current_match(&matchCtx, matchStart, matchEnd);  // XXX just forwarding? really bad code!
 }
 

@@ -315,7 +315,7 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 }
 
 
-static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS codepointPos, FILEPOS lineNumber)
+static void set_draw_cursor(struct DrawCursor *cursor, int x, int y, FILEPOS lineNumber)
 {
         cursor->xLeft = x;
         cursor->fontSize = FONT_SIZE_PIXELS;
@@ -346,7 +346,7 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y - offsetPixelsY, 0, 0);
+        set_draw_cursor(cursor, x, y - offsetPixelsY, 0);
 
         set_cursor_color(cursor, C(normalTextColor));
 
@@ -404,10 +404,9 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 always a token separator. Otherwise, we'd need to find the start
                 a little before that line and with more complicated code. */
                 FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstVisibleLine);
-                FILEPOS initialCodepointPos = compute_codepoint_position(edit->rope, initialReadPos);
                 init_UTF8Decoder(&decoder, edit->rope, initialReadPos);
                 begin_lexing_blunt_tokens(&readCtx, edit->rope, initialReadPos);
-                set_draw_cursor(cursor, x, y - offsetPixelsY, initialCodepointPos, firstVisibleLine);
+                set_draw_cursor(cursor, x, y - offsetPixelsY, firstVisibleLine);
         }
 
         // AAARGH, we shouldn't call the drawing context "cursor"
@@ -430,7 +429,7 @@ static void draw_textedit_lines(struct TextEdit *edit,
         // draw a rectangular border around the text line that has cursor
         FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
         int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
-        set_draw_cursor(cursor, x, y, 0, 0); //XXX extract the computation for line geometry
+        set_draw_cursor(cursor, x, y, 0); //XXX extract the computation for line geometry
         for (int i = 0; i < linesDiff; i++)
                 next_line(cursor);
         int borderX = x;
@@ -521,7 +520,7 @@ static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, 
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
-        set_draw_cursor(cursor, x, y, 0, 0);
+        set_draw_cursor(cursor, x, y, 0);
         set_cursor_color(cursor, C(statusbarTextColor));
 
         draw_text_with_cursor(cursor, box, ":", 1);
@@ -571,7 +570,7 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y, 0, 0);
+        set_draw_cursor(cursor, x, y, 0);
         set_cursor_color(cursor, C(statusbarTextColor));
 
         if (edit->haveNotification) {
@@ -584,7 +583,7 @@ static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w,
                         if (edit->vistate.vimodeKind != VIMODE_NORMAL)
                                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
                 }
-                set_draw_cursor(cursor, x + 500, y, 0, 0);
+                set_draw_cursor(cursor, x + 500, y, 0);
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
                 draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
@@ -602,7 +601,7 @@ static void draw_textedit_loading_or_saving(const char *what, FILEPOS count, FIL
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y, 0, 0);
+        set_draw_cursor(cursor, x, y, 0);
 
         char textbuffer[512];
 
@@ -721,7 +720,7 @@ static void draw_LineEdit(struct LineEdit *lineEdit, int x, int y, int w, int h)
         struct DrawCursor *cursor = &drawCursor;
 
         set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
-        set_draw_cursor(cursor, x, y, 0, 0);
+        set_draw_cursor(cursor, x, y, 0);
         set_cursor_color(cursor, C(statusbarTextColor));
 
         const char *text = lineEdit->buf;
@@ -756,7 +755,7 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
         int bufferBoxW = canvasW - 20 - (bufferBoxX - canvasX);
         int bufferBoxH = 40;
 
-        set_draw_cursor(cursor, bufferBoxX, bufferBoxY, 0, 0);
+        set_draw_cursor(cursor, bufferBoxX, bufferBoxY, 0);
         set_cursor_color(cursor, C(normalTextColor));
         set_bounding_box(box, canvasX, canvasY, canvasW, canvasH);
 
