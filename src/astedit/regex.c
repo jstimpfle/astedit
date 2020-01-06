@@ -248,10 +248,15 @@ readmore:;
                 // read escape sequence
                 consume_pattern_char(ctx);
                 c = next_pattern_char(ctx);
-                if (c == '.') {
-                        add_character_node(ctx, '.');
+                static const char escapechars[] = ".\\()";
+                for (int i = 0; escapechars[i]; i++) {
+                        if (c == escapechars[i]) {
+                                consume_pattern_char(ctx);
+                                add_character_node(ctx, c);
+                                goto readmore;
+                        }
                 }
-                else if (c == -1) {
+                if (c == -1) {
                         fatal_regex_parse_error(ctx,
                                 "Unfinished escape sequence at end of pattern");
                         return;
