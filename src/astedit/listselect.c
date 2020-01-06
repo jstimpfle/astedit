@@ -6,6 +6,7 @@
 void setup_ListSelect(struct ListSelect *list)
 {
         ZERO_MEMORY(list);
+        list->selectedElemIndex = -1;
 }
 
 void teardown_ListSelect(struct ListSelect *list)
@@ -21,6 +22,7 @@ void ListSelect_clear_list(struct ListSelect *list)
         FREE_MEMORY(&list->elems);
         list->elems = NULL;
         list->numElems = 0;
+        list->selectedElemIndex = -1;
 }
 
 void ListSelect_append_elem(struct ListSelect *list, const char *caption, int captionLength, void *data)
@@ -34,7 +36,6 @@ void ListSelect_append_elem(struct ListSelect *list, const char *caption, int ca
 
 
 
-
 static int is_valid_selection(struct ListSelect *list, int index)
 {
         ENSURE(0 <= index && index < list->numElems);
@@ -45,6 +46,19 @@ static int is_valid_selection(struct ListSelect *list, int index)
                 return 0; //XXX ???
         return match_regex(&list->filterRegex,
                            elem->caption, elem->captionLength);
+}
+
+void ListSelect_select_first_matching_if_filter_does_not_match(struct ListSelect *list)
+{
+        if (list->selectedElemIndex != -1 && is_valid_selection(list, list->selectedElemIndex))
+                return;
+        list->selectedElemIndex = -1;
+        for (int i = 0; i < list->numElems; i++) {
+                if (is_valid_selection(list, i)) {
+                        list->selectedElemIndex = i;
+                        break;
+                }
+        }
 }
 
 static void ListSelect_move_to_prev(struct ListSelect *list)

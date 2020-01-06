@@ -765,6 +765,11 @@ static void draw_ListSelect(struct ListSelect *list,
         if (list->isFilterActive) {
                 // TODO: layout
                 draw_LineEdit(&list->filterLineEdit, 0, 0, 500, 50);
+
+                if (!list->isFilterRegexValid) {
+                        draw_colored_border(0, 0, 500, 50, 2,
+                                            255, 0, 0, 255);
+                }
         }
 
         for (int i = 0; i < list->numElems; i++) {

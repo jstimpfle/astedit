@@ -727,6 +727,7 @@ void process_input_in_buffer_list_dialog(struct Input *input)
                         compile_regex_from_pattern(&list->filterRegex,
                                                    list->filterLineEdit.buf,
                                                    list->filterLineEdit.fill);
+                ListSelect_select_first_matching_if_filter_does_not_match(list);
                 // XXX currently falling through: trying all input processing
         }
 
@@ -766,8 +767,6 @@ void handle_input(struct Input *input)
                              buffer != NULL; buffer = buffer->next) {
                                 ListSelect_append_elem(list, buffer->name,
                                                        (int) strlen(buffer->name), buffer);
-                                if (buffer == currentBuffer)
-                                        list->selectedElemIndex = list->numElems - 1; //XXX encapsulation?
                         }
                 }
                 else {

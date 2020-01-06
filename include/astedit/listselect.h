@@ -39,6 +39,7 @@ void teardown_ListSelect(struct ListSelect *list);
 
 void ListSelect_clear_list(struct ListSelect *list);
 void ListSelect_append_elem(struct ListSelect *list, const char *caption, int captionLength, void *data);
+void ListSelect_select_first_matching_if_filter_does_not_match(struct ListSelect *list);
 
 
 

@@ -42,10 +42,12 @@ static void _fatal_regex_parse_error_fv(struct LogInfo logInfo,
 {
         ctx->bad = 1;
 
+#if 0
         _log_begin(logInfo);
         log_writef("ERROR In pattern at char #%d: ", ctx->currentCharIndex);
         log_writefv(fmt, ap);
         log_end();
+#endif
         // should we tag the parse as failed?
 }
 
