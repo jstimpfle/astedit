@@ -4,14 +4,6 @@
 #include <astedit/astedit.h>
 #include <astedit/textedit.h>
 
-enum {  // TODO: better name. It's an enumeration of UI actions
-        BUFFERLIST_MOVE_TO_PREV,
-        BUFFERLIST_MOVE_TO_NEXT,
-        BUFFERLIST_CONFIRM_SELECTION,
-        BUFFERLIST_CANCEL_DIALOG,
-        NUM_BUFFERLIST_KINDS
-};
-
 struct Buffer {
         struct Buffer *prev;
         struct Buffer *next;
@@ -30,6 +22,5 @@ void switch_to_buffer(struct Buffer *buffer);
 struct Buffer *create_new_buffer(const char *name);
 void destroy_buffer(struct Buffer *buffer);
 
-void bufferlist_do(int actionKind /* BUFFERLIST_??? */);
 
 #endif

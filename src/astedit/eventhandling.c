@@ -714,53 +714,87 @@ void process_input_in_LineEdit(struct Input *input, struct LineEdit *lineEdit)
 
 void process_input_in_buffer_list_dialog(struct Input *input)
 {
+        struct ListSelect *list = &globalData.bufferSelect;
+
         if (is_input_keypress_of_key_and_modifiers(input, KEY_F, MODIFIER_CONTROL)) {
-                globalData.isSelectingBufferWithSearch ^= 1;
+                list->isFilterActive ^= 1;
                 return;
         }
 
-        if (globalData.isSelectingBufferWithSearch) {
-                process_input_in_LineEdit(input, &globalData.bufferSelectLineEdit);
-                globalData.bufferSelectSearchRegexValid =
-                        compile_regex_from_pattern(&globalData.bufferSelectSearchRegex,
-                                                   globalData.bufferSelectLineEdit.buf,
-                                                   globalData.bufferSelectLineEdit.fill);
+        if (list->isFilterActive) {
+                process_input_in_LineEdit(input, &list->filterLineEdit);
+                list->isFilterRegexValid =
+                        compile_regex_from_pattern(&list->filterRegex,
+                                                   list->filterLineEdit.buf,
+                                                   list->filterLineEdit.fill);
+                // XXX currently falling through: trying all input processing
         }
 
 
         static struct {
                 int keyKind;
-                int actionKind;  // BUFFERLIST_???
+                int actionKind;  // LISTSELECT_ACTION_???
         } map[] = {
-                { KEY_CURSORDOWN, BUFFERLIST_MOVE_TO_NEXT },
-                { KEY_CURSORUP, BUFFERLIST_MOVE_TO_PREV },
-                { KEY_J, BUFFERLIST_MOVE_TO_NEXT },
-                { KEY_K, BUFFERLIST_MOVE_TO_PREV },
-                { KEY_ENTER, BUFFERLIST_CONFIRM_SELECTION },
-                { KEY_ESCAPE, BUFFERLIST_CANCEL_DIALOG },
+                { KEY_CURSORDOWN, LISTSELECT_ACTION_MOVE_TO_NEXT },
+                { KEY_CURSORUP, LISTSELECT_ACTION_MOVE_TO_PREV },
+                /* currently disabled: this should not conflict with entering
+                text into the filter box. */
+                //{ KEY_J, LISTSELECT_ACTION_MOVE_TO_NEXT },
+                //{ KEY_K, LISTSELECT_ACTION_MOVE_TO_PREV },
+                { KEY_ENTER, LISTSELECT_ACTION_CONFIRM_SELECTION },
+                { KEY_ESCAPE, LISTSELECT_ACTION_CANCEL_DIALOG },
         };
 
         for (int i = 0; i < LENGTH(map); i++) {
                 if (is_input_keypress_of_key(input, map[i].keyKind)) {
-                        bufferlist_do(map[i].actionKind);
+                        ListSelect_do(list, map[i].actionKind);
                         break;
                 }
         }
 }
 
+#include <string.h>
 void handle_input(struct Input *input)
 {
         if (is_input_keypress_of_key_and_modifiers(input, KEY_B, MODIFIER_CONTROL)) {
                 globalData.isSelectingBuffer ^= 1;
-                if (globalData.isSelectingBuffer && globalData.selectedBuffer == NULL)
-                        globalData.selectedBuffer = currentBuffer;
+                struct ListSelect *list = &globalData.bufferSelect;
+                if (globalData.isSelectingBuffer) {
+                        setup_ListSelect(list);
+                        list->isFilterActive = 1; // good idea to always enable filter? I guess it's quicker to use it like this...
+                        for (struct Buffer *buffer = buffers;
+                             buffer != NULL; buffer = buffer->next) {
+                                ListSelect_append_elem(list, buffer->name,
+                                                       (int) strlen(buffer->name), buffer);
+                                if (buffer == currentBuffer)
+                                        list->selectedElemIndex = list->numElems - 1; //XXX encapsulation?
+                        }
+                }
+                else {
+                        teardown_ListSelect(list);
+                }
                 return;
         }
 
-        if (globalData.isSelectingBuffer)
+        if (globalData.isSelectingBuffer) {
+                struct ListSelect *list = &globalData.bufferSelect;
                 process_input_in_buffer_list_dialog(input);
-        else
+                if (list->isConfirmed) {
+                        int idx = list->selectedElemIndex;
+                        ENSURE(0 <= idx && idx < list->numElems);
+                        struct Buffer *buf = list->elems[idx].data;
+                        switch_to_buffer(buf);
+                        teardown_ListSelect(list);
+                        globalData.isSelectingBuffer = 0;
+                }
+                if (list->isCancelled) {
+                        teardown_ListSelect(list);
+                        globalData.isSelectingBuffer = 0;
+                }
+        }
+        else {
                 process_input_in_TextEdit(input, activeTextEdit);
+        }
 
         // also, do this other stuff here
 

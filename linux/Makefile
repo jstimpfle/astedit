@@ -34,6 +34,7 @@ src/astedit/font.c \
 src/astedit/font-freetype.c \
 src/astedit/gfx-opengl.c \
 src/astedit/lineedit.c \
+src/astedit/listselect.c \
 src/astedit/logging.c \
 src/astedit/main.c \
 src/astedit/memoryalloc.c \

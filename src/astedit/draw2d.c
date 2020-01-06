@@ -2,6 +2,7 @@
 #include <astedit/bytes.h>
 #include <astedit/editor.h>
 #include <astedit/logging.h>
+#include <astedit/listselect.h>
 #include <astedit/window.h>
 #include <astedit/font.h>
 #include <astedit/gfx.h>
@@ -741,8 +742,8 @@ static void draw_LineEdit(struct LineEdit *lineEdit, int x, int y, int w, int h)
         }
 }
 
-#include <astedit/buffers.h>
-void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
+static void draw_ListSelect(struct ListSelect *list,
+                            int canvasX, int canvasY, int canvasW, int canvasH)
 {
         struct DrawCursor drawCursor;
         struct GuiRect boundingBox;
@@ -765,23 +766,22 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
 
         draw_colored_rect(canvasX, canvasY, canvasW, canvasH, C(texteditBgColor));
 
-        if (globalData.isSelectingBufferWithSearch) {
+        if (list->isFilterActive) {
                 // TODO: layout
-                draw_LineEdit(&globalData.bufferSelectLineEdit, 20, 20, 500, 50);
+                draw_LineEdit(&list->filterLineEdit, 0, 0, 500, 50);
         }
 
-        for (struct Buffer *buffer = buffers;
-                buffer != NULL;
-                buffer = buffer->next)
-        {
-                if (globalData.isSelectingBufferWithSearch
-                    && globalData.bufferSelectSearchRegexValid) {
-                        if (!match_regex(&globalData.bufferSelectSearchRegex,
-                                         buffer->name, strlen(buffer->name))) {
+        for (int i = 0; i < list->numElems; i++) {
+                struct ListSelectElem *elem = &list->elems[i];
+
+                if (list->isFilterActive && list->isFilterRegexValid) {
+                        if (!match_regex(&list->filterRegex,
+                                         elem->caption, elem->captionLength)) {
                                 // TODO: how to hanle
                                 continue;
                         }
                 }
+
                 int borderX = bufferBoxX;
                 int borderY = cursor->lineY;
                 int borderH = cursor->lineHeight;
@@ -789,7 +789,7 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
                 int borderThickness = 1;
 
                 struct RGB rgb;
-                if (globalData.selectedBuffer == buffer)
+                if (i == list->selectedElemIndex)
                         rgb = (struct RGB) { 255, 0, 0 };
                 else
                         rgb = currentLineBorderColor;
@@ -799,12 +799,16 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
                 draw_colored_border(borderX, borderY, borderW, borderH,
                                     borderThickness, C(rgb));
 
-                const char *name = buffer->name;
-                int nameLength = (int) strlen(name);
-                draw_text_with_cursor(cursor, box, name, nameLength);
+                draw_text_with_cursor(cursor, box, elem->caption, elem->captionLength);
 
                 next_line(cursor);
         }
+}
+
+#include <astedit/buffers.h>
+void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
+{
+        draw_ListSelect(&globalData.bufferSelect, canvasX, canvasY, canvasW, canvasH);
 }
 
 void testdraw(struct TextEdit *edit)
