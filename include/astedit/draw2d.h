@@ -26,8 +26,6 @@ struct DrawCursor {
         /**/
         int x;
         int lineY;
-        FILEPOS codepointpos;
-        FILEPOS lineNumber;  // not sure if that's a good idea
         int r;
         int g;
         int b;
