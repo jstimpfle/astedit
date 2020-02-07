@@ -4,13 +4,11 @@ CFLAGS += -D_POSIX_C_SOURE=200809LL
 CFLAGS += -pthread  # needed additionally to -lpthread.
 
 CFLAGS += -Iinclude
-CFLAGS += $(shell pkg-config --cflags glfw3)
 CFLAGS += $(shell pkg-config --cflags freetype2)
 CFLAGS += $(shell pkg-config --cflags alsa)
 #CFLAGS += $(shell pkg-config --cflags gl)
 #CFLAGS += $(shell pkg-config --cflags glu)
 
-LDFLAGS += $(shell pkg-config --libs glfw3)
 LDFLAGS += $(shell pkg-config --libs freetype2)
 LDFLAGS += $(shell pkg-config --libs alsa)
 LDFLAGS += $(shell pkg-config --libs gl)
@@ -54,9 +52,18 @@ src/astedit/textropeUTF8decode.c \
 src/astedit/utf8.c \
 src/astedit/vimode.c \
 src/astedit/window.c \
-src/astedit/window-glfw.c \
 src/blunt/lex.c \
 src/rb3ptr.c
+
+ifeq ($(WITH_X11_BACKEND), y)
+LDFLAGS += $(shell pkg-config --libs x11)
+CFILES += src/astedit/window-x11.c
+else
+CFLAGS += $(shell pkg-config --cflags glfw3)
+LDFLAGS += $(shell pkg-config --libs glfw3)
+CFILES += src/astedit/window-glfw.c
+endif
+
 
 OBJECTS = $(CFILES:%.c=BUILD/%.o)
 DEPFILES = $(CFILES:%.c=BUILD/%.dep)

@@ -231,8 +231,6 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
                 by 0 / NaN problems resulting from window minimization. */
                 return;
         }
-        windowWidthInPixels = width;
-        windowHeightInPixels = height;
 
         struct Input inp;
         inp.inputKind = INPUT_WINDOWRESIZE;

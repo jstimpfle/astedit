@@ -186,6 +186,7 @@ const char *const programKindString[NUM_PROGRAM_KINDS] = {
         MAKE(PROGRAM_VARYINGCOLOR),
         MAKE(PROGRAM_TEXTUREALPHA),
         MAKE(PROGRAM_TEXTURERGBA),
+        MAKE(PROGRAM_SUBPIXELRENDEREDFONT),
 #undef MAKE
 };
 
@@ -259,8 +260,8 @@ static int get_compile_status(GLint shader, const char *name)
                 GLchar errorBuf[1024];
                 GLsizei length;
                 glGetShaderInfoLog(shader, sizeof errorBuf, &length, errorBuf);
-                fatalf("Warning: shader %s failed to compile: %s\n",
-                        name, errorBuf);
+                log_postf("Warning: shader %s failed to compile: %s\n",
+                          name, errorBuf);
         }
         return compileStatus == GL_TRUE;
 }

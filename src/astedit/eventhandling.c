@@ -798,11 +798,8 @@ void handle_input(struct Input *input)
         // also, do this other stuff here
 
         if (input->inputKind == INPUT_WINDOWRESIZE) {
-                /*
-                log_postf("Window size is now %d %d",
-                        input->data.tWindowresize.width,
-                        input->data.tWindowresize.height);
-                        */
+                windowWidthInPixels = input->data.tWindowresize.width;
+                windowHeightInPixels = input->data.tWindowresize.height;
         }
         else if (input->inputKind == INPUT_KEY) {
                 if (is_input_keypress_of_key(input, KEY_F4)) {
