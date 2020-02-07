@@ -58,7 +58,7 @@ static void precompute_samples()
                 if (BEEP_SAMPLES - i < RAMP_DOWN_SAMPLES)
                         factor = (BEEP_SAMPLES - i) / (float) RAMP_DOWN_SAMPLES;
                 else if (i < RAMP_UP_SAMPLES)
-                        factor = sndstate_sampleno / (float) RAMP_UP_SAMPLES;
+                        factor = i / (float) RAMP_UP_SAMPLES;
                 else
                         factor = 1.0f;
                 float amplitude = factor * volume;
