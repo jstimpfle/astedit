@@ -7,12 +7,12 @@
 #define RAMP_UP_SAMPLES 30
 #define RAMP_DOWN_SAMPLES 200
 
+#define BEEP_FREQ 400
 static int sndstate_playing;
 static int sndstate_sampleno;
-static float sndstate_x;
-static float sndstate_y;
+static int sndstate_index;
 
-static uint16_t samples[4096][2];
+static uint16_t samples[BEEP_SAMPLES][2];
 
 void continue_any_currently_playing_sounds(void)
 {
@@ -28,16 +28,41 @@ void continue_any_currently_playing_sounds(void)
         if (nToWrite > BEEP_SAMPLES - sndstate_sampleno)
                 nToWrite = BEEP_SAMPLES - sndstate_sampleno;
 
-        for (int i = 0; i < nToWrite; i++) {
-                float freq = 400.0f;
+        while (nToWrite > LENGTH(samples) - sndstate_index) {
+                write_samples(&samples[sndstate_index][0],
+                              LENGTH(samples) - sndstate_sampleno);
+                nToWrite -= LENGTH(samples) - sndstate_sampleno;
+                sndstate_index = 0;
+        }
+        write_samples(&samples[sndstate_index][0], nToWrite);
+        sndstate_index += nToWrite;
+        sndstate_sampleno += nToWrite;
+
+        if (sndstate_sampleno == BEEP_SAMPLES) {
+                sndstate_playing = 0;
+                end_playing_a_sound();
+                return;
+        }
+        //XXX: we probably need a separate thread to feed the sound card...
+        continue_any_currently_playing_sounds();
+}
+
+static void precompute_samples()
+{
+        float sndstate_x = 1.0f;
+        float sndstate_y = 0.0f;
+        float freq = (float) BEEP_FREQ;
+        float volume = 10000.f;
+        for (int i = 0; i < BEEP_SAMPLES; i++) {
                 float factor;
-                if (BEEP_SAMPLES - sndstate_sampleno < RAMP_DOWN_SAMPLES)
-                        factor = (BEEP_SAMPLES - sndstate_sampleno) / (float) RAMP_DOWN_SAMPLES;
-                else if (sndstate_sampleno < RAMP_UP_SAMPLES)
+                if (BEEP_SAMPLES - i < RAMP_DOWN_SAMPLES)
+                        factor = (BEEP_SAMPLES - i) / (float) RAMP_DOWN_SAMPLES;
+                else if (i < RAMP_UP_SAMPLES)
                         factor = sndstate_sampleno / (float) RAMP_UP_SAMPLES;
                 else
                         factor = 1.0f;
-                samples[i][0] = samples[i][1] = (uint16_t) (factor * 20000.0f * sndstate_y);
+                float amplitude = factor * volume;
+                samples[i][0] = samples[i][1] = (uint16_t) (amplitude * sndstate_y);
                 float a = sndstate_x;
                 float b = sndstate_y;
                 float c = cosf(freq * 0.00014247585f); //TODO constify
@@ -50,22 +75,14 @@ void continue_any_currently_playing_sounds(void)
                 sndstate_x /= len;
                 sndstate_y /= len;
                 }
-                sndstate_sampleno ++;
-        }
-
-        write_samples(&samples[0][0], nToWrite);
-
-        if (sndstate_sampleno == BEEP_SAMPLES) {
-                sndstate_playing = 0;
-                end_playing_a_sound();
         }
 }
 
 void play_navigation_impossible_sound(void)
 {
+        precompute_samples();
         sndstate_playing = 1;
         sndstate_sampleno = 0;
-        sndstate_x = 1.0f;
-        sndstate_y = 0.0f;
+        sndstate_index = 0;
         begin_playing_a_sound();
 }
