@@ -1,6 +1,7 @@
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
 #include <astedit/window.h>
+#include <astedit/clock.h>
 
 #include <stdlib.h>
 
@@ -9,6 +10,61 @@
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glxext.h> // glXCreateContextAttribsARB
+
+#include "x11keysym-to-unicode.h"
+
+static const struct {
+        int xkeysym;
+        int keyKind;
+} keymap[] = {
+        { XK_Return, KEY_ENTER, },
+        { XK_space, KEY_SPACE, },
+        { XK_comma, KEY_NONE, },
+        { XK_period, KEY_NONE, },
+        { XK_colon, KEY_NONE, },
+        { XK_semicolon, KEY_NONE, },
+        { XK_Escape, KEY_ESCAPE },
+        { XK_BackSpace, KEY_BACKSPACE },
+        { XK_Left, KEY_CURSORLEFT },
+        { XK_Right, KEY_CURSORRIGHT },
+        { XK_Up, KEY_CURSORUP },
+        { XK_Down, KEY_CURSORDOWN },
+        { XK_a, KEY_A, },
+        { XK_b, KEY_B, },
+        { XK_c, KEY_C, },
+        { XK_d, KEY_D, },
+        { XK_e, KEY_E, },
+        { XK_f, KEY_F, },
+        { XK_g, KEY_G, },
+        { XK_h, KEY_H, },
+        { XK_i, KEY_I, },
+        { XK_j, KEY_J, },
+        { XK_k, KEY_K, },
+        { XK_l, KEY_L, },
+        { XK_m, KEY_M, },
+        { XK_n, KEY_N, },
+        { XK_o, KEY_O, },
+        { XK_p, KEY_P, },
+        { XK_q, KEY_Q, },
+        { XK_r, KEY_R, },
+        { XK_s, KEY_S, },
+        { XK_t, KEY_T, },
+        { XK_u, KEY_U, },
+        { XK_w, KEY_W, },
+        { XK_x, KEY_X, },
+        { XK_y, KEY_Y, },
+        { XK_z, KEY_Z, },
+        { XK_0, KEY_0, },
+        { XK_1, KEY_1, },
+        { XK_2, KEY_2, },
+        { XK_3, KEY_3, },
+        { XK_4, KEY_4, },
+        { XK_5, KEY_5, },
+        { XK_6, KEY_6, },
+        { XK_7, KEY_7, },
+        { XK_8, KEY_8, },
+        { XK_9, KEY_9, },
+};
 
 static void send_mousemove_event(int x, int y)
 {
@@ -38,23 +94,14 @@ static void send_scroll_event(int keyKind)
         enqueue_input(&input);
 }
 
-static void send_key_event(int keyKind, int keyeventKind)
+static void send_key_event(int keyKind, int keyeventKind, int modifiers, int haveCodepoint, uint32_t codepoint)
 {
         struct Input input = {0};
         input.inputKind = INPUT_KEY;
         input.data.tKey.keyKind = keyKind;
         input.data.tKey.keyEventKind = keyeventKind;
-        enqueue_input(&input);
-}
-
-static void send_codepoint_event(int keyKind, uint32_t codepoint)
-{
-        // XXX
-        struct Input input = {0};
-        input.inputKind = INPUT_KEY;
-        input.data.tKey.keyKind = KEY_NONE;
-        input.data.tKey.keyEventKind = KEYEVENT_PRESS;
-        input.data.tKey.hasCodepoint = 1;
+        input.data.tKey.modifierMask = modifiers;
+        input.data.tKey.hasCodepoint = haveCodepoint;
         input.data.tKey.codepoint = codepoint;
         enqueue_input(&input);
 }
@@ -164,101 +211,6 @@ void teardown_window(void)
         XCloseDisplay(display);
 }
 
-static const struct {
-        int xkeysym;
-        int keyKind;
-} keymap[] = {
-        { XK_Escape, KEY_ESCAPE },
-        { XK_BackSpace, KEY_BACKSPACE },
-        { XK_Left, KEY_CURSORLEFT },
-        { XK_Right, KEY_CURSORRIGHT },
-        { XK_Up, KEY_CURSORUP },
-        { XK_Down, KEY_CURSORDOWN },
-};
-
-// urrrghh... What's a good mechanism to map keys to unicode?
-static const struct {
-        int xkeysym;
-        int keyKind;
-        uint32_t codepoint;
-} codepointmap[] = {
-        { XK_A, KEY_A, 'A' },
-        { XK_B, KEY_B, 'B' },
-        { XK_C, KEY_C, 'C' },
-        { XK_D, KEY_D, 'D' },
-        { XK_E, KEY_E, 'E' },
-        { XK_F, KEY_F, 'F' },
-        { XK_G, KEY_G, 'G' },
-        { XK_H, KEY_H, 'H' },
-        { XK_I, KEY_I, 'I' },
-        { XK_J, KEY_J, 'J' },
-        { XK_K, KEY_K, 'K' },
-        { XK_L, KEY_L, 'L' },
-        { XK_M, KEY_M, 'M' },
-        { XK_N, KEY_N, 'N' },
-        { XK_O, KEY_O, 'O' },
-        { XK_P, KEY_P, 'P' },
-        { XK_Q, KEY_Q, 'Q' },
-        { XK_R, KEY_R, 'R' },
-        { XK_S, KEY_S, 'S' },
-        { XK_T, KEY_T, 'T' },
-        { XK_U, KEY_U, 'U' },
-        { XK_W, KEY_W, 'W' },
-        { XK_X, KEY_X, 'X' },
-        { XK_Y, KEY_Y, 'Y' },
-        { XK_Z, KEY_Z, 'Z' },
-        { XK_a, KEY_A, 'a' },
-        { XK_b, KEY_B, 'b' },
-        { XK_c, KEY_C, 'c' },
-        { XK_d, KEY_D, 'd' },
-        { XK_e, KEY_E, 'e' },
-        { XK_f, KEY_F, 'f' },
-        { XK_g, KEY_G, 'g' },
-        { XK_h, KEY_H, 'h' },
-        { XK_i, KEY_I, 'i' },
-        { XK_j, KEY_J, 'j' },
-        { XK_k, KEY_K, 'k' },
-        { XK_l, KEY_L, 'l' },
-        { XK_m, KEY_M, 'm' },
-        { XK_n, KEY_N, 'n' },
-        { XK_o, KEY_O, 'o' },
-        { XK_p, KEY_P, 'p' },
-        { XK_q, KEY_Q, 'q' },
-        { XK_r, KEY_R, 'r' },
-        { XK_s, KEY_S, 's' },
-        { XK_t, KEY_T, 't' },
-        { XK_u, KEY_U, 'u' },
-        { XK_w, KEY_W, 'w' },
-        { XK_x, KEY_X, 'x' },
-        { XK_y, KEY_Y, 'y' },
-        { XK_z, KEY_Z, 'z' },
-        { XK_0, KEY_0, '0' },
-        { XK_1, KEY_1, '1' },
-        { XK_2, KEY_2, '2' },
-        { XK_3, KEY_3, '3' },
-        { XK_4, KEY_4, '4' },
-        { XK_5, KEY_5, '5' },
-        { XK_6, KEY_6, '6' },
-        { XK_7, KEY_7, '7' },
-        { XK_8, KEY_8, '8' },
-        { XK_9, KEY_9, '9' },
-        { XK_Adiaeresis, KEY_NONE, 0xC4 },
-        { XK_adiaeresis, KEY_NONE, 0xE4 },
-        { XK_Odiaeresis, KEY_NONE, 0xD6 },
-        { XK_odiaeresis, KEY_NONE, 0xF6 },
-        { XK_Udiaeresis, KEY_NONE, 0xDC },
-        { XK_udiaeresis, KEY_NONE, 0xFC },
-        { XK_ssharp, KEY_NONE, 0xDF },
-        { XK_EuroSign, KEY_NONE, 0x20 },
-
-        { XK_Return, KEY_ENTER, '\n' },
-        { XK_space, KEY_SPACE, ' ' },
-        { XK_comma, KEY_NONE, ',' },
-        { XK_period, KEY_NONE, '.' },
-        { XK_colon, KEY_NONE, ':' },
-        { XK_semicolon, KEY_NONE, ';' },
-};
-
 static int xbutton_to_mousebuttonKind(int xbutton)
 {
         if (xbutton == 1)
@@ -301,24 +253,61 @@ void fetch_all_pending_events(void)
                 XNextEvent(display, &event);
                 if (event.type == KeyPress) {
                         XKeyEvent *key = &event.xkey;
-                        int keysym = XkbKeycodeToKeysym(display, key->keycode, 0, key->state);
-                        //int keysym = XKeycodeToKeysym(display, key->keycode, key->state);
-                        log_postf("keysym is %d", keysym);
+
+                        /* TODO: I don't know how to correctly use either
+                        XKeycodeToKeysym() or XkbKeycodeToKeysym(), so I'm using
+                        the more convenient function XLookupString() which seems
+                        to do what I want. But it's probably slower!
+                        To find tricks like this, we have to read source like
+                        that of the `xev` program, because there is almost no
+                        documentation!
+                        I've tried to deal with XKB to do it properly but I will
+                        be saving it for later. */
+                        KeySym keysym;
+                        {
+                                //struct Timer timer;
+                                //start_timer(&timer);
+                                XLookupString(key, NULL, 0, &keysym, NULL);
+                                //stop_timer(&timer);
+                                //report_timer(&timer, "XLookupString()");
+                        }
+                        // Actually we can make use of XkbKeycodeToKeysym()
+                        // because we want to be dealing in symbols, but
+                        // ignoring modifiers!
+                        KeySym symNoMods = XkbKeycodeToKeysym(display, key->keycode, 0, 0);
+
+                        int keyKind = KEY_NONE;
+                        int haveCodepoint = 0;
+                        uint32_t codepoint = 0;
                         for (int i = 0; i < LENGTH(keymap); i++) {
-                                if (keymap[i].xkeysym == keysym) {
-                                        send_key_event(keymap[i].keyKind, KEYEVENT_PRESS);
-                                        goto ok;
+                                if (keymap[i].xkeysym == symNoMods) {
+                                        keyKind = keymap[i].keyKind;
+                                        break;
                                 }
                         }
-                        for (int i = 0; i < LENGTH(codepointmap); i++) {
-                                if (codepointmap[i].xkeysym == keysym) {
-                                        log_postf("Got '%c'", codepointmap[i].codepoint);
-                                        send_codepoint_event(codepointmap[i].keyKind,
-                                                             codepointmap[i].codepoint);
+
+                        /* directly encoded Unicode */
+                        if (0x01000100 <= keysym && keysym <= 0x0110FFFF) {
+                                haveCodepoint = 1;
+                                codepoint = keysym - 0x01000000;
+                        }
+                        else {
+                                for (int i = 0; i < LENGTH(codepointmap); i++) {
+                                        if (codepointmap[i].xkeysym == keysym) {
+                                                haveCodepoint = 1;
+                                                codepoint = codepointmap[i].codepoint;
+                                                break;
+                                        }
                                 }
                         }
-ok:
-                        ;
+                        int modifiers = 0;
+                        if (key->state & ControlMask)
+                                modifiers |= MODIFIER_CONTROL;
+                        if (key->state & Mod1Mask)
+                                modifiers |= MODIFIER_MOD;
+                        if (key->state & ShiftMask)
+                                modifiers |= MODIFIER_SHIFT;
+                        send_key_event(keyKind, KEYEVENT_PRESS, modifiers, haveCodepoint, codepoint);
                 }
                 else if (event.type == MotionNotify) {
                         XMotionEvent *motion = &event.xmotion;

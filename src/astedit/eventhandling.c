@@ -19,14 +19,14 @@ static int is_input_keypress(struct Input *input)
 
 static int is_input_keypress_of_key(struct Input *input, enum KeyKind keyKind)
 {
-        return is_input_keypress(input) && ! input->data.tKey.hasCodepoint && input->data.tKey.keyKind == keyKind;
+        return is_input_keypress(input) && input->data.tKey.keyKind == keyKind;
 }
 
-static int is_input_keypress_of_key_and_modifiers(struct Input *input, enum KeyKind keyKind, int modifierBits)
+static int is_input_keypress_of_key_and_modifiers(struct Input *input, enum KeyKind keyKind, int modifiers)
 {
         return is_input_keypress_of_key(input, keyKind)
-                && ((modifierBits & input->data.tKey.modifierMask)
-                        == modifierBits);
+                && ((modifiers & input->data.tKey.modifierMask)
+                        == modifiers);
 }
 
 static int is_input_unicode(struct Input *input)
@@ -62,7 +62,7 @@ static void go_to_move_modal_mode_in_vi(struct ViState *vi, enum ViMoveModal mov
 
 static struct {
         int keyKind;
-        int modifierBits;
+        int modifiers;
         int movementKind;
 } viMovementSimpleTable[] = {
         { KEY_CURSORLEFT, 0, MOVEMENT_LEFT },
@@ -111,12 +111,12 @@ static int input_to_movement_in_Vi(struct Input *input, struct Movement *outMove
                 return 0;
         struct Movement movement = {0}; // initialize to avoid compiler warning
         int keyKind = input->data.tKey.keyKind;
-        int modifierBits = input->data.tKey.modifierMask;
+        int modifiers = input->data.tKey.modifierMask;
         int hasCodepoint = input->data.tKey.hasCodepoint;
         int codepoint = (int) input->data.tKey.codepoint;
         for (int i = 0; i < LENGTH(viMovementSimpleTable); i++) {
                 if (viMovementSimpleTable[i].keyKind == keyKind
-                    && viMovementSimpleTable[i].modifierBits == modifierBits) {
+                    && viMovementSimpleTable[i].modifiers == modifiers) {
                         movement = (struct Movement) { viMovementSimpleTable[i].movementKind };
                         goto good;
                 }
@@ -288,6 +288,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                         edit->haveNotification = 0;
 
                 int hasCodepoint = input->data.tKey.hasCodepoint;
+                int modifiers = input->data.tKey.modifierMask;
                 /* !hasCodepoint currently means that the event came from GLFW's low-level
                 key-Callback, and not the unicode Callback.
                 We would like to use low-level access because that provides the modifiers,
@@ -344,6 +345,10 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 insert_codepoint_into_textedit(edit, 0x0a);
                                 go_to_major_mode_in_vi(state, VIMODE_INPUT);
                                 break;
+                        case 'r':
+                                if (modifiers & MODIFIER_CONTROL)
+                                        redo_next_edit_operation(edit);
+                                break;
                         case 'u':
                                 undo_last_edit_operation(edit);
                                 break;
@@ -363,12 +368,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                         }
                 }
                 else if (!hasCodepoint) {
-                        int modifierBits = input->data.tKey.modifierMask;
                         switch (input->data.tKey.keyKind) {
-                        case KEY_R:
-                                if (modifierBits & MODIFIER_CONTROL)
-                                        redo_next_edit_operation(edit);
-                                break;
                         case KEY_DELETE:
                                 delete_to_next_codepoint(edit);
                                 break;
@@ -397,6 +397,7 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
 
         if (is_input_keypress(input)) {
                 int hasCodepoint = input->data.tKey.hasCodepoint;
+                int modifiers = input->data.tKey.modifierMask;
                 /* !hasCodepoint currently means that the event came from GLFW's low-level
                 key-Callback, and not the unicode Callback.
                 We would like to use low-level access because that provides the modifiers,
@@ -404,8 +405,18 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                 access (which doesn't provide modifiers). It's not clear at this point how
                 we should handle combinations like Ctrl+Z while respecting keyboard layout.
                 (There's a github issue for that). */
+                /* Update 2020-01, the X11 backend now gives the events a little
+                 * differently. I still don't know how to handle the situation,
+                 * but for now I'll ocnsider the unicode codepoint if there is
+                 * no modifer and otherwise I'll consider the KEY_ vlaue */
                 if (hasCodepoint) {
                         switch (input->data.tKey.codepoint) {
+                        case 'c':
+                                if (modifiers == MODIFIER_CONTROL) {
+                                        edit->isSelectionMode = 0;
+                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
+                                }
+                                break;
                         case 'g':
                                 go_to_move_modal_mode_in_vi(state, VIMOVEMODAL_G);
                                 break;
@@ -421,15 +432,8 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                                 break;
                         }
                 }
-                else if (!hasCodepoint) {
-                        int modifiers = input->data.tKey.modifierMask;
+                else {
                         switch (input->data.tKey.keyKind) {
-                        case KEY_C:
-                                if (modifiers == MODIFIER_CONTROL) {
-                                        edit->isSelectionMode = 0;
-                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
-                                }
-                                break;
                         case KEY_ESCAPE:
                                 edit->isSelectionMode = 0;
                                 go_to_major_mode_in_vi(state, VIMODE_NORMAL);
@@ -452,13 +456,19 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
 {
         if (is_input_keypress(input)) {
                 int hasCodepoint = input->data.tKey.hasCodepoint;
-                if (!hasCodepoint) {
-                        int modifiers = input->data.tKey.modifierMask;
+                int modifiers = input->data.tKey.modifierMask;
+                if (hasCodepoint) {
+                        uint32_t codepoint = input->data.tKey.codepoint;
+                        if (codepoint == 'c' && (modifiers & MODIFIER_CONTROL))
+                                go_to_major_mode_in_vi(state, VIMODE_NORMAL);
+                        else {
+                                unsigned long codepoint = input->data.tKey.codepoint;
+                                insert_codepoint_into_textedit(edit, codepoint);
+                                move_cursor_to_next_codepoint(edit, 0);
+                        }
+                }
+                else {
                         switch (input->data.tKey.keyKind) {
-                        case KEY_C:
-                                if (modifiers == MODIFIER_CONTROL)
-                                        go_to_major_mode_in_vi(state, VIMODE_NORMAL);
-                                break;
                         case KEY_ENTER:
                                 insert_codepoint_into_textedit(edit, 0x0a);
                                 move_cursor_to_next_codepoint(edit, 0);
@@ -482,11 +492,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                                         delete_to_previous_codepoint(edit);
                                 break;
                         }
-                }
-                else if (hasCodepoint) {
-                        unsigned long codepoint = input->data.tKey.codepoint;
-                        insert_codepoint_into_textedit(edit, codepoint);
-                        move_cursor_to_next_codepoint(edit, 0);
                 }
         }
 }
