@@ -52,6 +52,7 @@ src/astedit/textropeUTF8decode.c \
 src/astedit/utf8.c \
 src/astedit/vimode.c \
 src/astedit/window.c \
+src/astedit/zoom.c \
 src/blunt/lex.c \
 src/rb3ptr.c
 

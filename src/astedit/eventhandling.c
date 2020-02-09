@@ -7,6 +7,7 @@
 #include <astedit/textedit.h>
 #include <astedit/texteditsearch.h>
 #include <astedit/textpositions.h>
+#include <astedit/zoom.h>
 #include <astedit/eventhandling.h>
 
 
@@ -362,6 +363,17 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                         case 'X':
                                 delete_to_previous_codepoint(edit);
                                 break;
+                        case '/':
+                                clear_ViCmdline(&state->cmdline);
+                                insert_codepoint_in_ViCmdline('/', &state->cmdline); // hack
+                                go_to_major_mode_in_vi(state, VIMODE_COMMAND);
+                                break;
+                        case '-':
+                                decrease_zoom();
+                                break;
+                        case '+':
+                                increase_zoom();
+                                break;
                         default:
                                 process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
                                 break;
@@ -496,14 +508,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
         }
 }
 
-static int is_cmdline_worthy_of_interpreting(struct ViCmdline *cmdline)
-{
-        for (int i = 0; i < cmdline->fill; i++)
-                if (cmdline->buf[i] > 32) //XXX
-                        return 1;
-        return 0;
-}
-
 static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
@@ -579,8 +583,11 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_COMMAND(
                 go_to_major_mode_in_vi(state, VIMODE_NORMAL);
         }
         if (cmdline->isConfirmed) {
-                // TODO
-                if (is_cmdline_worthy_of_interpreting(cmdline)) {
+                int good = 0;  // ignore if there are only spaces
+                for (int i = 0; i < cmdline->fill; i++)
+                        if (cmdline->buf[i] > 32)
+                                good = 1;
+                if (good) {
                         interpret_cmdline(cmdline, edit);
                         add_to_cmdline_history(&cmdline->history, cmdline->buf, cmdline->fill);
                 }

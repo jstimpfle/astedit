@@ -10,6 +10,7 @@
 #include <astedit/textedit.h>
 #include <astedit/utf8.h>
 #include <astedit/textropeUTF8decode.h>
+#include <astedit/zoom.h>
 #include <astedit/draw2d.h>
 #include <blunt/lex.h>
 #include <stdio.h> // snprintf
@@ -48,14 +49,6 @@ static const struct RGB cursorColor = { 16, 16, 32 };
 static const struct RGB currentLineBorderColor = { 32, 32, 32 };
 static const struct RGB statusbarTextColor = { 224, 224, 224 };
 #endif
-
-// TODO: These values should be dynamically computed. We want to support various
-// a wide range of monitor resolutions.
-static const int LINE_THICKNESS_PIXELS = 2;
-
-static const int TEXT_HEIGHT_PIXELS = 26;
-static const int CELL_WIDTH_PIXELS = -1;//22;
-static const int FONT_SIZE_PIXELS = 14;
 
 static struct ColorVertex2d colorVertexBuffer[3 * 1024];
 static struct TextureVertex2d subpixelRenderedFontVertexBuffer[3 * 1024];
@@ -213,30 +206,21 @@ void draw_subpixelRenderedFont_texture_rect(Texture texture,
         push_subpixelRenderedFont_texture_vertices(rp, LENGTH(rp));
 }
 
-static void draw_horizontal_line(int x, int y, int w)
-{
-        if (w < 0) w = 0;
-        y -= LINE_THICKNESS_PIXELS / 2;
-        int h = LINE_THICKNESS_PIXELS - (LINE_THICKNESS_PIXELS / 2);
-        draw_colored_rect(x, y, w, h, C(borderColor));
-}
-
 static void draw_vertical_line(int x, int y, int h)
 {
         if (h < 0) h = 0;
-        x -= LINE_THICKNESS_PIXELS / 2;
-        int w = LINE_THICKNESS_PIXELS - (LINE_THICKNESS_PIXELS / 2);
+        x -= lineThicknessPx / 2;
+        int w = lineThicknessPx - (lineThicknessPx / 2);
         draw_colored_rect(x, y, w, h, C(borderColor));
 }
 
-void draw_colored_border(int x, int y, int w, int h, int thicknessPerSide,
+void draw_colored_border(int x, int y, int w, int h, int t,
         int r, int g, int b, int a)
 {
-        int t = thicknessPerSide;
-        draw_colored_rect(x - t, y - t, w + 2 * t, 1 + 2 * t,          r, g, b, a);
-        draw_colored_rect(x - t, y + h - t, w + 2 * t, 1 + 2 * t,      r, g, b, a);
-        draw_colored_rect(x - t, y - t, 1 + 2 * t, h + 2 * t,          r, g, b, a);
-        draw_colored_rect(x + w - t, y - t, 1 + 2 * t, h + 2 * t,      r, g, b, a);
+        draw_colored_rect(x, y, w, t,          r, g, b, a);
+        draw_colored_rect(x, y + h - t, w, t,  r, g, b, a);
+        draw_colored_rect(x, y, t, h,          r, g, b, a);
+        draw_colored_rect(x + w - t, y, t, h,  r, g, b, a);
 }
 
 enum {
@@ -319,10 +303,10 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y)
 {
         cursor->xLeft = x;
-        cursor->fontSize = FONT_SIZE_PIXELS;
-        cursor->distanceYtoBaseline = TEXT_HEIGHT_PIXELS * 2 / 3;
-        cursor->lineHeight = TEXT_HEIGHT_PIXELS;
-        cursor->cellWidth = CELL_WIDTH_PIXELS;
+        cursor->fontSize = fontSizePx;
+        cursor->distanceYtoBaseline = textHeightPx * 2 / 3;
+        cursor->lineHeight = textHeightPx;
+        cursor->cellWidth = cellWidthPx;
         cursor->x = x;
         cursor->lineY = y;
 }
@@ -363,13 +347,9 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
 // TODO: better name
 static void draw_cursor_active(int isActive, int x, int y)
 {
-        //XXX
-        int w = 1;
-        int h = TEXT_HEIGHT_PIXELS;
-        if (isActive)
-                draw_colored_border(x, y, w, h, 2, C(cursorColor));
-        else
-                draw_colored_border(x, y, w, h, 1, C(cursorColor));
+        int w = isActive ? 2 : 1;
+        int h = textHeightPx;
+        draw_colored_rect(x, y, w, h, C(cursorColor));
 }
 
 static void draw_cursor(struct TextEdit *edit, int x, int y)
@@ -653,7 +633,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
                 restH = 0;
 
         // XXX is here the right place to do this?
-        edit->numberOfLinesDisplayed = restH / TEXT_HEIGHT_PIXELS;
+        edit->numberOfLinesDisplayed = restH / textHeightPx;
 
         /* Compute first line and y-offset for drawing */
         FILEPOS firstVisibleLine;
@@ -662,7 +642,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
                 //XXX overflow?
                 float linesProgress = edit->scrollAnimation.progress * (edit->scrollAnimation.targetLine - edit->scrollAnimation.startLine);
                 firstVisibleLine = edit->scrollAnimation.startLine + (FILEPOS) linesProgress;
-                offsetPixelsY = (int) (((linesProgress) - (FILEPOS) linesProgress) * TEXT_HEIGHT_PIXELS);
+                offsetPixelsY = (int) (((linesProgress) - (FILEPOS) linesProgress) * textHeightPx);
         }
         else {
                 firstVisibleLine = edit->firstLineDisplayed;
