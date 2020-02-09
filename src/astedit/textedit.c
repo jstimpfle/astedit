@@ -257,14 +257,10 @@ void exit_TextEdit(struct TextEdit *edit)
         teardown_LinescrollAnimation(&edit->scrollAnimation);
         teardown_vistate(&edit->vistate);
 
-        if (edit->loading.isActive) {
-                cancel_thread_and_wait(edit->loading.threadHandle);
-                dispose_thread(edit->loading.threadHandle);
-        }
-        if (edit->saving.isActive) {
-                cancel_thread_and_wait(edit->saving.threadHandle);
-                dispose_thread(edit->saving.threadHandle);
-        }
+        if (edit->loading.isActive)
+                cancel_loading_file_to_textedit(&edit->loading);
+        if (edit->saving.isActive)
+                cancel_saving_file_from_textedit(&edit->saving);
 }
 
 /* TODO: maybe introduce TIMETICK event or sth like that? */

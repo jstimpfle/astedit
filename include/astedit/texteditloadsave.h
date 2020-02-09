@@ -11,8 +11,7 @@ struct TextEditLoadingCtx {
         struct Mutex *mutex;
         struct TextEdit *edit;  // loading target
 
-        int isActive;
-        int isCompleted;
+        int isActive;  // set by caller (main) thread
 
         struct FilereadThreadCtx filereadThreadCtx;
         struct OsThreadHandle *threadHandle;
@@ -29,8 +28,7 @@ struct TextEditSavingCtx {
         struct Mutex *mutex;
         struct Textrope *rope;  // holds contents that should be saved
 
-        int isActive;
-        int isCompleted;
+        int isActive;  // set by caller (main) thread
 
         struct FilewriteThreadCtx filewriteThreadCtx;
         struct OsThreadHandle *threadHandle;
@@ -46,6 +44,9 @@ struct TextEditSavingCtx {
 
 void load_file_to_textedit(struct TextEditLoadingCtx *loading, const char *filepath, int filepathLength, struct TextEdit *edit);
 void write_textrope_contents_to_file(struct TextEditSavingCtx *saving, struct Textrope *rope, const char *filepath, int filepathLength);
+
+void cancel_loading_file_to_textedit(struct TextEditLoadingCtx *loading);
+void cancel_saving_file_from_textedit(struct TextEditSavingCtx *saving);
 
 int check_if_loading_completed_and_if_so_then_cleanup(struct TextEditLoadingCtx *ctx);
 int check_if_saving_completed_and_if_so_then_cleanup(struct TextEditSavingCtx *ctx);

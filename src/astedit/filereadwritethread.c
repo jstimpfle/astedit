@@ -1,6 +1,5 @@
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
-#include <astedit/window.h>  // XXX shouldWindowClose
 #include <astedit/filesystem.h>
 #include <astedit/filereadwritethread.h>
 #include <stdio.h>
@@ -27,7 +26,7 @@ void read_file_thread(struct FilereadThreadCtx *ctx)
         ctx->prepareFunc(ctx->param, filesize);
 
         for (;;) {
-                if (shouldWindowClose) {
+                if (ctx->isCancelled) {
                         /* Thread should terminate. We will abort the loading.
                         We might want a more general inter-thread communication system.
                         For now, this variable is good enough (although technically we

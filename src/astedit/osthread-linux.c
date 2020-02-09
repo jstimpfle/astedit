@@ -2,6 +2,7 @@
 #include <astedit/logging.h>
 #include <astedit/memoryalloc.h>
 #include <astedit/osthread.h>
+#include <errno.h>
 #include <string.h> // strerror
 #include <pthread.h>
 
@@ -52,7 +53,6 @@ void wait_for_thread_to_end(struct OsThreadHandle *handle)
         if (!handle->waitedForThreadEnd) {
                 int ret = pthread_join(handle->threadHandle, NULL);
                 ENSURE(ret == 0);
-                UNUSED(ret);
                 handle->waitedForThreadEnd = 1;
         }
 }
@@ -60,8 +60,11 @@ void wait_for_thread_to_end(struct OsThreadHandle *handle)
 void cancel_thread_and_wait(struct OsThreadHandle *handle)
 {
         int ret = pthread_cancel(handle->threadHandle);
-        ENSURE(ret == 0);
-        UNUSED(ret);
+        /* it can happen that the thread is already terminated. In this case
+           ENOSRCH error (No Such Process) is returned. */
+        ENSURE(ret == 0 || ret == ESRCH);
+        /* We need to pthread_join(), whether ESRC was returned or not.
+         * Otherwise there will be resource leakage. */
         wait_for_thread_to_end(handle);
 }
 

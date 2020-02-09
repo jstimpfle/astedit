@@ -6,6 +6,11 @@
 struct FilereadThreadCtx {
         char *filepath;
 
+        // signal from caller thread to cancel. volatile is
+        // said to be almost always the wrong approach, but I think it should
+        // work here.
+        volatile int isCancelled;
+
         /* Read buffer provided by the caller to the reader thread. */
         char *buffer;
         int bufferSize;
@@ -39,6 +44,11 @@ void read_file_thread_adapter(void *param);
 
 struct FilewriteThreadCtx {
         char *filepath;  // write destination.
+
+        // signal from caller thread to cancel. volatile is
+        // said to be almost always the wrong approach, but I think it should
+        // work here.
+        volatile int isCancelled;
 
         /* Write buffer provided by the caller to the writer thread. */
         char *buffer;
