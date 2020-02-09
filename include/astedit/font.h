@@ -1,6 +1,9 @@
 #ifndef ASTEDIT_FONT_H_INCLUDED
 #define ASTEDIT_FONT_H_INCLUDED
 
+#include <stdint.h>
+#include <astedit/gfx.h>  // XXX needed for texture
+
 enum {
         ALIGN_LEFT,
         ALIGN_RIGHT,
@@ -17,26 +20,19 @@ enum {
 
 DATA const char *configuredFontdir;
 
-
-#include <stdint.h>
-
 typedef int Font;
-struct GlyphMeta {
-        Font font;
-        int size;
-        uint32_t codepoint;
+
+struct TexDrawInfo {
+        Texture tex;
+        int bearingX;
+        int bearingY;
+        int texX;
+        int texY;
+        int texW;
+        int texH;
 };
 
-struct GlyphLayoutInfo {
-        int pixW;
-        int pixH;
-        /* Almost a copy of the freetype values. Maybe not a good idea
-        Difference: these values are in glyph raster pixel coordinates,
-        i.e. already divided by 64. */
-        int horiBearingX;
-        int horiBearingY;
-        int horiAdvance;  // XXX not accounted for kerning
-};
+void get_TexDrawInfo_for_glyph(Font font, int size, uint32_t codepoint, struct TexDrawInfo *out);
 
 #include <astedit/draw2d.h>  // BoundingBox
 int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
@@ -58,9 +54,22 @@ int measure_glyph_span(Font font, int size, int cellWidth,
         const uint32_t *text, int length, int initX, int *outPositions);
 
 
-
-
 /* font-freetype.c */
+struct GlyphMeta {
+        Font font;
+        int size;
+        uint32_t codepoint;
+};
+struct GlyphLayoutInfo {
+        int pixW;
+        int pixH;
+        /* Almost a copy of the freetype values. Maybe not a good idea
+        Difference: these values are in glyph raster pixel coordinates,
+        i.e. already divided by 64. */
+        int horiBearingX;
+        int horiBearingY;
+        int horiAdvance;  // XXX not accounted for kerning
+};
 void teardown_fonts(void);
 void setup_fonts(void);
 void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *outStride, struct GlyphLayoutInfo *outLayout);

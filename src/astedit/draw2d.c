@@ -67,6 +67,7 @@ void flush_all_vertex_buffers(void)
                 colorVertexCount = 0;
         }
         if (subpixelRenderedFontVertexCount > 0) {
+                commit_all_dirty_textures(); //XXX
                 draw_subpixelRenderedFont_vertices(subpixelRenderedFontVertexBuffer, subpixelRenderedFontVertexCount);
                 subpixelRenderedFontVertexCount = 0;
         }
@@ -209,8 +210,8 @@ void draw_subpixelRenderedFont_texture_rect(Texture texture,
 static void draw_vertical_line(int x, int y, int h)
 {
         if (h < 0) h = 0;
-        x -= lineThicknessPx / 2;
-        int w = lineThicknessPx - (lineThicknessPx / 2);
+        x -= borderWidthPx / 2;
+        int w = borderWidthPx - (borderWidthPx / 2);
         draw_colored_rect(x, y, w, h, C(borderColor));
 }
 
@@ -243,17 +244,27 @@ static void draw_codepoint(
         int drawstringKind,
         uint32_t codepoint)
 {
-        int xEnd = draw_glyphs_on_baseline(FONTFACE_REGULAR, boundingBox,
-                cursor->fontSize, cursor->cellWidth, &codepoint, 1,
-                cursor->x, cursor->lineY + cursor->distanceYtoBaseline,
-                cursor->r, cursor->g, cursor->b, cursor->a);
+
+        struct TexDrawInfo tdi;
+        get_TexDrawInfo_for_glyph(FONTFACE_REGULAR, cursor->fontSize, codepoint, &tdi);
+
+        int rectX = cursor->x + tdi.bearingX;
+        int rectY = cursor->lineY + cursor->distanceYtoBaseline - tdi.bearingY;
+        int rectW = tdi.texW;
+        int rectH = tdi.texH;
+
+                draw_subpixelRenderedFont_texture_rect(tdi.tex,
+                                                       cursor->r, cursor->g, cursor->b, cursor->a,
+                                                       rectX, rectY, rectW, rectH,
+                                                       tdi.texX, tdi.texY, tdi.texW, tdi.texH);
+
         if (drawstringKind == DRAWSTRING_HIGHLIGHT)
                 draw_colored_rect(cursor->x, cursor->lineY,
-                        xEnd - cursor->x, cursor->lineHeight, C(highlightColor));
+                        cellWidthPx, cursor->lineHeight, C(highlightColor));
         else if (drawstringKind == DRAWSTRING_HIGHLIGHT_BORDERS)
                 draw_colored_border(cursor->x, cursor->lineY,
-                        xEnd - cursor->x, cursor->lineHeight, 2, C(highlightColor));
-        cursor->x = xEnd;
+                        cellWidthPx, cursor->lineHeight, 2, C(highlightColor));
+        cursor->x += cellWidthPx;
 }
 
 static void draw_text_with_cursor(
@@ -303,9 +314,9 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y)
 {
         cursor->xLeft = x;
-        cursor->fontSize = fontSizePx;
-        cursor->distanceYtoBaseline = textHeightPx * 2 / 3;
-        cursor->lineHeight = textHeightPx;
+        cursor->fontSize = textHeightPx;
+        cursor->distanceYtoBaseline = lineHeightPx * 2 / 3;
+        cursor->lineHeight = lineHeightPx;
         cursor->cellWidth = cellWidthPx;
         cursor->x = x;
         cursor->lineY = y;
@@ -346,8 +357,8 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
 
 static void draw_cursor_active(int isActive, int x, int y)
 {
-        int w = lineThicknessPx + (isActive ? 1 : 0);
-        int h = textHeightPx;
+        int w = borderWidthPx + (isActive ? 1 : 0);
+        int h = lineHeightPx;
         draw_colored_rect(x, y, w, h, C(cursorColor));
 }
 
@@ -415,7 +426,7 @@ static void draw_textedit_lines(struct TextEdit *edit,
         int borderY = cursor->lineY;
         int borderH = cursor->lineHeight;
         int borderW = w;
-        draw_colored_border(borderX, borderY, borderW, borderH, lineThicknessPx, C_ALPHA(currentLineBorderColor, 128));
+        draw_colored_border(borderX, borderY, borderW, borderH, borderWidthPx, C_ALPHA(currentLineBorderColor, 128));
         }
 
         while (cursor->lineY < box->y + box->h) {
@@ -775,7 +786,7 @@ static void draw_ListSelect(struct ListSelect *list,
                 // TODO: make sure that the outline for the selected item is
                 // fully visible
                 draw_colored_border(borderX, borderY, borderW, borderH,
-                                    lineThicknessPx, C(rgb));
+                                    borderWidthPx, C(rgb));
 
                 draw_text_with_cursor(cursor, box, elem->caption, elem->captionLength);
 

@@ -183,3 +183,18 @@ int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
         ENSURE(x >= initX);
         return x;
 }
+
+void get_TexDrawInfo_for_glyph(Font font, int size, uint32_t codepoint, struct TexDrawInfo *out)
+{
+        struct CachedGlyph *cachedGlyph = lookup_or_render_glyph(font, size, codepoint);
+        struct TextureAtlasRegion region;
+        compute_region_from_CachedTexture(cachedGlyph->cachedTexture, &region);
+
+        out->tex = region.texture;
+        out->texX = region.texX;
+        out->texY = region.texY;
+        out->texW = region.texW;
+        out->texH = region.texH;
+        out->bearingX = cachedGlyph->layout.horiBearingX;
+        out->bearingY = cachedGlyph->layout.horiBearingY;
+}

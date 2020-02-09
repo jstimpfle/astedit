@@ -3,10 +3,10 @@
 
 #include <astedit/astedit.h>
 
-extern int lineThicknessPx;
 extern int textHeightPx;
+extern int lineHeightPx;
 extern int cellWidthPx;
-extern int fontSizePx;
+extern int borderWidthPx;
 
 void increase_zoom(void);
 void decrease_zoom(void);

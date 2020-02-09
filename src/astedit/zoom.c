@@ -2,38 +2,39 @@
 #include <astedit/zoom.h>
 
 struct Zoom {
-        int lineThicknessPx;
         int textHeightPx;
+        int lineHeightPx;
         int cellWidthPx;
-        int fontSizePx;
+        int borderWidthPx;
 };
 
 static const struct Zoom zooms[] = {
-        { 2, 15, -1, 8 },
-        { 2, 16, -1, 9 },
-        { 2, 17, -1, 10 },
-        { 2, 18, -1, 11 },
-        { 3, 19, -1, 12 },
-        { 3, 21, -1, 13 },
-        { 3, 22, -1, 14 },
-        { 3, 24, -1, 16 },
-        { 3, 25, -1, 18 },
+        { 8,  15,  8, 2, },
+        { 9,  16,  8, 2, },
+        { 10, 17,  9, 2, },
+        { 11, 18,  9, 2, },
+        { 12, 19, 10, 3, },
+        { 13, 20, 10, 3, },
+        { 14, 22, 11, 3, },
+        { 16, 24, 12, 3, },
+        { 18, 24, 14, 3, },
+        { 20, 28, 16, 3, },
 };
 
-int lineThicknessPx = 2;
-int textHeightPx = 15;
-int cellWidthPx = -1;
-int fontSizePx = 10;
+int textHeightPx = 11;
+int lineHeightPx = 18;
+int cellWidthPx = 9;
+int borderWidthPx = 2;
 
 static int currentZoomIndex = 1;
 
 static void set_zoom_index(int i)
 {
         currentZoomIndex = i;
-        lineThicknessPx = zooms[i].lineThicknessPx;
         textHeightPx = zooms[i].textHeightPx;
+        lineHeightPx = zooms[i].lineHeightPx;
         cellWidthPx = zooms[i].cellWidthPx;
-        fontSizePx = zooms[i].fontSizePx;
+        borderWidthPx = zooms[i].borderWidthPx;
 }
 
 void increase_zoom(void)

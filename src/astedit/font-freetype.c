@@ -25,11 +25,12 @@ void render_glyph(const struct GlyphMeta *meta, unsigned char **outBuffer, int *
         FT_Face face = faceKindTo_FT_Face[meta->font];
         int size = meta->size;
 
+        // interpret the size as max height of character in screen pixels
         error = FT_Set_Char_Size(face,
-                size * 64,   /* char_width in 1/64th of points */
-                0,  /* char_height in 1/64th of points */
-                96/*windowDPI_X*/,  /* horizontal device resolution */
-                96/*windowDPI_Y*/); /* vertical device resolution */
+                0,   /* char_width in 1/64th of points */
+                size * 64,  /* char_height in 1/64th of points */
+                72,  /* horizontal device resolution */
+                72); /* vertical device resolution */
         if (error)
                 fatal("Failed to set FreeType char size\n");
 
