@@ -344,10 +344,9 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
         }
 }
 
-// TODO: better name
 static void draw_cursor_active(int isActive, int x, int y)
 {
-        int w = isActive ? 2 : 1;
+        int w = lineThicknessPx + (isActive ? 1 : 0);
         int h = textHeightPx;
         draw_colored_rect(x, y, w, h, C(cursorColor));
 }
@@ -416,8 +415,7 @@ static void draw_textedit_lines(struct TextEdit *edit,
         int borderY = cursor->lineY;
         int borderH = cursor->lineHeight;
         int borderW = w;
-        int borderThickness = 1;
-        draw_colored_border(borderX, borderY, borderW, borderH, borderThickness, C_ALPHA(currentLineBorderColor, 128));
+        draw_colored_border(borderX, borderY, borderW, borderH, lineThicknessPx, C_ALPHA(currentLineBorderColor, 128));
         }
 
         while (cursor->lineY < box->y + box->h) {
@@ -767,7 +765,6 @@ static void draw_ListSelect(struct ListSelect *list,
                 int borderY = cursor->lineY;
                 int borderH = cursor->lineHeight;
                 int borderW = bufferBoxW;
-                int borderThickness = 1;
 
                 struct RGB rgb;
                 if (i == list->selectedElemIndex)
@@ -778,7 +775,7 @@ static void draw_ListSelect(struct ListSelect *list,
                 // TODO: make sure that the outline for the selected item is
                 // fully visible
                 draw_colored_border(borderX, borderY, borderW, borderH,
-                                    borderThickness, C(rgb));
+                                    lineThicknessPx, C(rgb));
 
                 draw_text_with_cursor(cursor, box, elem->caption, elem->captionLength);
 
