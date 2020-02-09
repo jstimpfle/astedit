@@ -169,6 +169,7 @@
     <ClCompile Include="..\src\astedit\vimode.c" />
     <ClCompile Include="..\src\astedit\window-glfw.c" />
     <ClCompile Include="..\src\astedit\window.c" />
+    <ClCompile Include="..\src\astedit\zoom.c" />
     <ClCompile Include="..\src\blunt\lex.c" />
     <ClCompile Include="..\src\blunt\parse.c" />
     <ClCompile Include="..\src\rb3ptr.c" />
@@ -210,6 +211,7 @@
     <ClInclude Include="..\include\astedit\utf8.h" />
     <ClInclude Include="..\include\astedit\vimode.h" />
     <ClInclude Include="..\include\astedit\window.h" />
+    <ClInclude Include="..\include\astedit\zoom.h" />
     <ClInclude Include="..\include\blunt\lex.h" />
     <ClInclude Include="..\include\rb3ptr.h" />
     <ClInclude Include="..\include\stringpool.h" />
