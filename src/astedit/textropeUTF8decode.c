@@ -26,7 +26,7 @@ void exit_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
         FREE_MEMORY(&decoder->buffer);
 }
 
-static void move_bytes_in_TextropeReadBuffer_to_front(struct TextropeUTF8Decoder *decoder)
+static void UTF8Decoder_move_bytes_to_front(struct TextropeUTF8Decoder *decoder)
 {
         int bufferedBytes = decoder->bufferEnd - decoder->bufferStart;
         move_memory(decoder->buffer + decoder->bufferStart,
@@ -35,7 +35,7 @@ static void move_bytes_in_TextropeReadBuffer_to_front(struct TextropeUTF8Decoder
         decoder->bufferEnd = bufferedBytes;
 }
 
-static void refill_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
+static void UTF8Decoder_refill(struct TextropeUTF8Decoder *decoder)
 {
         FILEPOS textropeLength = textrope_length(decoder->rope);
         int bytesToRead = min_filepos_as_int(
@@ -51,8 +51,8 @@ static void refill_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
 uint32_t read_codepoint_from_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
 {
         if (decoder->bufferEnd - decoder->bufferStart < 4) {
-                move_bytes_in_TextropeReadBuffer_to_front(decoder);
-                refill_UTF8Decoder(decoder);
+                UTF8Decoder_move_bytes_to_front(decoder);
+                UTF8Decoder_refill(decoder);
         }
 
         uint32_t codepoint;
