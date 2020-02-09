@@ -86,8 +86,8 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
                         unsigned d;
                         int next;
                         int r = decode_codepoint_from_utf8(str, start, end, &next, &d);
-                        if (!r)
-                                return 0;
+                        if (r <= 0)
+                                return r;
                         //if (d < 0xD800)
                           //      return 0;
                         start = next;
