@@ -26,7 +26,7 @@ int lineHeightPx = 18;
 int cellWidthPx = 9;
 int borderWidthPx = 2;
 
-static int currentZoomIndex = 1;
+static int currentZoomIndex = 3;
 
 static void set_zoom_index(int i)
 {

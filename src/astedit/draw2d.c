@@ -22,7 +22,6 @@ struct RGB { unsigned r, g, b; };
 #define C_ALPHA(x, a) x.r, x.g, x.b, a
 
 
-
 #if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
@@ -217,14 +216,6 @@ void draw_subpixelRenderedFont_texture_rect(Texture texture,
         push_subpixelRenderedFont_texture_vertices(rp, LENGTH(rp));
 }
 
-static void draw_vertical_line(int x, int y, int h)
-{
-        if (h < 0) h = 0;
-        x -= borderWidthPx / 2;
-        int w = borderWidthPx - (borderWidthPx / 2);
-        draw_colored_rect(x, y, w, h, C(borderColor));
-}
-
 void make_border(struct ColorVertex2d border[24],
                  int x, int y, int w, int h, int t,
                  int r, int g, int b, int a)
@@ -285,12 +276,8 @@ struct LayedOutRect {
         int a;
 };
 
-struct TextareaDisplayList {
+struct DrawList {
         int mustRelayout;
-
-        /* Placement of area. The stored lists are relative to it, so this can
-        be changed independently */
-        int x, y, w, h;
 
         struct LayedOutGlyph *glyphs;
         struct LayedOutRect *rects;
@@ -302,24 +289,37 @@ struct TextareaDisplayList {
         int rectsCount;
 };
 
-static struct TextareaDisplayList textareaDisplayList = { .mustRelayout = 1 };
-static struct TextareaDisplayList *const displayList = &textareaDisplayList;
+static struct DrawList contentsDrawList;
+static struct DrawList numbersDrawList;
+static struct DrawList statuslineDrawList;
 
-static struct LayedOutGlyph *alloc_LayedOutGlyph(void)
+static struct LayedOutGlyph *alloc_LayedOutGlyph(struct DrawList *drawList)
 {
-        int idx = displayList->glyphsCount++;
-        REALLOC_MEMORY(&displayList->glyphs, displayList->glyphsCount);
-        REALLOC_MEMORY(&displayList->glyphVerts, 6 * displayList->glyphsCount);
-        return &displayList->glyphs[idx];
+        int idx = drawList->glyphsCount++;
+        REALLOC_MEMORY(&drawList->glyphs, drawList->glyphsCount);
+        REALLOC_MEMORY(&drawList->glyphVerts, 6 * drawList->glyphsCount);
+        return drawList->glyphs + idx;
 }
 
-static struct LayedOutRect *alloc_LayedOutRect(int n)
+static struct LayedOutRect *alloc_LayedOutRect(struct DrawList *drawList, int n)
 {
-        int idx = displayList->rectsCount;
-        displayList->rectsCount += n;
-        REALLOC_MEMORY(&displayList->rects, displayList->rectsCount);
-        REALLOC_MEMORY(&displayList->rectVerts, 6 * displayList->rectsCount);
-        return &displayList->rects[idx];
+        int idx = drawList->rectsCount;
+        drawList->rectsCount += n;
+        REALLOC_MEMORY(&drawList->rects, drawList->rectsCount);
+        REALLOC_MEMORY(&drawList->rectVerts, 6 * drawList->rectsCount);
+        return &drawList->rects[idx];
+}
+
+static void clear_DrawList(struct DrawList *drawList)
+{
+        drawList->glyphsCount = 0;
+        drawList->rectsCount = 0;
+}
+
+static void lay_out_rect(struct DrawList *drawList, int x, int y, int w, int h,
+                       int r, int g, int b, int a)
+{
+        alloc_LayedOutRect(drawList, 1)[0] = (struct LayedOutRect) { x, y, w, h, r, g, b, a };
 }
 
 static void lay_out_border(struct LayedOutRect border[4],
@@ -332,7 +332,8 @@ static void lay_out_border(struct LayedOutRect border[4],
         border[3] = (struct LayedOutRect) { x + w - t, y, t, h,  r, g, b, a };
 }
 
-static void lay_out_glyph( // todo: receive target display list as an argument
+static void lay_out_glyph(
+        struct DrawList *drawList,
         struct DrawCursor *cursor,
         uint32_t codepoint)
 {
@@ -340,7 +341,8 @@ static void lay_out_glyph( // todo: receive target display list as an argument
         get_TexDrawInfo_for_glyph(FONTFACE_REGULAR, cursor->fontSize, codepoint, &tdi);
         int rectX = cursor->x + tdi.bearingX;
         int rectY = cursor->lineY + cursor->distanceYtoBaseline - tdi.bearingY;
-        struct LayedOutGlyph *log = alloc_LayedOutGlyph();
+
+        struct LayedOutGlyph *log = alloc_LayedOutGlyph(drawList);
         log->tex = tdi.tex;
         log->tx = tdi.texX;
         log->ty = tdi.texY;
@@ -352,13 +354,18 @@ static void lay_out_glyph( // todo: receive target display list as an argument
         log->g = cursor->g;
         log->b = cursor->b;
         log->a = cursor->a;
+        /*
+        log_postf("tex: %d, tx=%d, ty=%d, tw=%d, th=%d, x=%d, y=%d",
+                  tdi.tex, tdi.texX, tdi.texY, tdi.texW, tdi.texH,
+                  log->x, log->y);
+                  */
 
         cursor->x += cellWidthPx;
 }
 
-static void draw_text_with_cursor(
+static void lay_out_text_with_cursor(
+        struct DrawList *drawList,
         struct DrawCursor *cursor,
-        const struct GuiRect *boundingBox,
         const char *text, int length)
 {
         uint32_t codepoints[512];
@@ -373,22 +380,24 @@ static void draw_text_with_cursor(
                 decode_utf8_span(text, i, length, codepoints, LENGTH(codepoints), &i, &numCodepointsDecoded);
 
                 for (int j = 0; j < numCodepointsDecoded; j++) {
-                        lay_out_glyph(cursor, codepoints[j]);
+                        lay_out_glyph(drawList, cursor, codepoints[j]);
                 }
         }
 }
 
 static void draw_text_snprintf(
+        struct DrawList *drawList,
         struct DrawCursor *cursor,
-        const struct GuiRect *boundingBox,
         char *buffer, int length,
         const char *fmt, ...)
 {
         va_list ap;
         va_start(ap, fmt);
         int numBytes = vsnprintf(buffer, length, fmt, ap);
-        if (numBytes >= 0)
-                draw_text_with_cursor(cursor, boundingBox, buffer, numBytes);
+        if (numBytes >= 0) {
+                //log_postf("laying out at %d,%d: %s", cursor->x, cursor->lineY, buffer);
+                lay_out_text_with_cursor(drawList, cursor, buffer, numBytes);
+        }
         va_end(ap);
 }
 
@@ -419,62 +428,60 @@ static void set_cursor_color(struct DrawCursor *cursor, int r, int g, int b, int
         cursor->a = a;
 }
 
-static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, int offsetPixelsY, int x, int y, int w, int h)
+static void lay_out_line_numbers(struct DrawList *drawList,
+                                 struct TextEdit *edit, FILEPOS firstVisibleLine,
+                                 int offsetPixelsY, int w, int h)
 {
+        lay_out_rect(drawList, 0, 0, w, h, C(texteditBgColor));
+
         FILEPOS lastLine = textrope_number_of_lines_quirky(edit->rope);
 
-        struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
-        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
-        set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y - offsetPixelsY);
+        set_draw_cursor(cursor, 0, -offsetPixelsY);
         set_cursor_color(cursor, C(normalTextColor));
 
         for (FILEPOS i = firstVisibleLine;
-             i < lastLine && cursor->lineY < box->y + box->h;
+             i < lastLine && cursor->lineY < h;
              i++) {
                 char buf[32];
                 snprintf(buf, sizeof buf, "%4"FILEPOS_PRI, i + 1);
-                draw_text_with_cursor(cursor, &boundingBox, buf, (int) strlen(buf));
+                lay_out_text_with_cursor(drawList, cursor, buf, (int) strlen(buf));
                 next_line(cursor);
         }
+
+        struct LayedOutRect *r = alloc_LayedOutRect(drawList, 1);
+        *r = (struct LayedOutRect) { w - borderWidthPx, 0, borderWidthPx, h,
+                                        C(borderColor) };
 }
 
-static void draw_cursor_active(int isActive, int x, int y)
+static void draw_cursor_active(struct DrawList *drawList, int isActive, int x, int y)
 {
         int w = borderWidthPx + (isActive ? 1 : 0);
         int h = lineHeightPx;
-        draw_colored_rect(x, y, w, h, C(cursorColor));
+        struct LayedOutRect *rect = alloc_LayedOutRect(drawList, 1);
+        *rect = (struct LayedOutRect) { x, y, w, h, C(cursorColor) };
 }
 
-static void draw_cursor(struct TextEdit *edit, int x, int y)
+static void draw_cursor(struct DrawList *drawList, struct TextEdit *edit, int x, int y)
 {
         int isActive = edit->vistate.vimodeKind == VIMODE_INPUT;
-        draw_cursor_active(isActive, x, y);
+        draw_cursor_active(drawList, isActive, x, y);
 }
 
-static void draw_textedit_lines(struct TextEdit *edit,
+static void lay_out_textedit_lines(
+        struct DrawList *drawList,
+        struct TextEdit *edit,
         FILEPOS firstVisibleLine, int offsetPixelsY,
-        int x, int y, int w, int h)
+        int areaW, int areaH)
 {
-        { // we want to add a tiny little bit of pad
-                int pad = 5;
-                x += pad;
-                y += pad;
-                w -= 2 * pad;
-                h -= 2 * pad;
-        }
+        lay_out_rect(drawList, 0, 0, areaW, areaH, C(texteditBgColor));
 
-        if (displayList->mustRelayout) {
-                displayList->glyphsCount = 0;
-                displayList->rectsCount = 0;
-        }
-
-        struct GuiRect boundingBox;
-        struct GuiRect *box = &boundingBox;
-        set_bounding_box(box, x, y, w, h);
+        int x = 5;
+        int y = 5;
+        int w = areaW - 10;
+        //int h = areaH - 10;
 
         struct TextropeUTF8Decoder decoder;
         struct Blunt_ReadCtx readCtx;
@@ -512,12 +519,12 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 int borderY = cursor->lineY + lineHeightPx * linesDiff;
                 int borderH = cursor->lineHeight;
                 int borderW = w;
-                struct LayedOutRect *border = alloc_LayedOutRect(6);
+                struct LayedOutRect *border = alloc_LayedOutRect(&contentsDrawList, 6);
                 lay_out_border(border, borderX, borderY, borderW, borderH, borderWidthPx,
                                C_ALPHA(currentLineBorderColor, 128));
         }
 
-        while (cursor->lineY < box->y + box->h) {
+        while (cursor->lineY < areaH) {
                 struct Blunt_Token token;
                 lex_blunt_token(&readCtx, &token);
 
@@ -544,19 +551,13 @@ static void draw_textedit_lines(struct TextEdit *edit,
                         if (readpos >= tokenEndPos)
                                 break;
                         if (readpos == edit->cursorBytePosition)
-                                draw_cursor(edit, cursor->x, cursor->lineY);
+                                draw_cursor(drawList, edit, cursor->x, cursor->lineY);
                         if (markStart <= readpos && readpos < markEnd) {
                                 // XXX: could encode the shape from markStart to
                                 // markEnd more efficiently.
-                                struct LayedOutRect *lor = alloc_LayedOutRect(1);
-                                lor->x = cursor->x;
-                                lor->y = cursor->lineY;
-                                lor->w = cellWidthPx;
-                                lor->h = lineHeightPx;
-                                lor->r = highlightColor.r;
-                                lor->g = highlightColor.g;
-                                lor->b = highlightColor.b;
-                                lor->a = 255;
+                                lay_out_rect(drawList, cursor->x, cursor->lineY,
+                                             cellWidthPx, lineHeightPx,
+                                             C(highlightColor));
                         }
 
                         /* The text editor should be able to edit any kind of file (even
@@ -574,9 +575,9 @@ static void draw_textedit_lines(struct TextEdit *edit,
                                 next_line(cursor);
                         else if (codepoint == '\r')
                                 // TODO: display as \r (literally)
-                                lay_out_glyph(cursor, 0x23CE);  /* Unicode 'RETURN SYMBOL' */
+                                lay_out_glyph(&contentsDrawList, cursor, 0x23CE);  /* Unicode 'RETURN SYMBOL' */
                         else
-                                lay_out_glyph(cursor, codepoint);
+                                lay_out_glyph(&contentsDrawList, cursor, codepoint);
                 }
 
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
@@ -585,56 +586,22 @@ static void draw_textedit_lines(struct TextEdit *edit,
         // markStart/markEnd are currently abused to draw the text cursor, and
         // in this case here we know it has to be the text cursor
         if (readpos_in_bytes_of_UTF8Decoder(&decoder) == edit->cursorBytePosition)
-                draw_cursor(edit, cursor->x, cursor->lineY);
+                draw_cursor(drawList, edit, cursor->x, cursor->lineY);
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
-
-        // draw layed out glyphs
-        if (displayList->mustRelayout) {
-                displayList->mustRelayout = 0;
-
-                {
-                        struct TextureVertex2d *rp = displayList->glyphVerts;
-                        for (int i = 0; i < displayList->glyphsCount; i++, rp += 6) {
-                                struct LayedOutGlyph *log = &displayList->glyphs[i];
-                                fill_texture2d_rect(rp,
-                                                    log->r, log->g, log->b, log->a,
-                                                    log->x, log->y, log->tw, log->th,
-                                                    log->tx, log->ty, log->tw, log->th);
-                                for (int j = 0; j < 6; j++)
-                                        rp[j].tex = log->tex;
-                        }
-                }
-
-                {
-                        struct ColorVertex2d *v = displayList->rectVerts;
-                        for (int i = 0; i < displayList->rectsCount; i++, v += 6) {
-                                struct LayedOutRect *lor = &displayList->rects[i];
-                                fill_colored_rect(v,
-                                                  lor->x, lor->y, lor->w, lor->h,
-                                                  lor->r, lor->g, lor->b, lor->a);
-                        }
-                }
-        }
-        log_postf("pushing %d vertices", displayList->glyphsCount * 6);
-        push_color_vertices(displayList->rectVerts, displayList->rectsCount * 6);
-        push_subpixelRenderedFont_texture_vertices(displayList->glyphVerts, displayList->glyphsCount * 6);
 }
 
-static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, int h)
+static void lay_out_textedit_ViCmdline(struct DrawList *drawList, struct TextEdit *edit, int w, int h)
 {
-        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
+        lay_out_rect(drawList, 0, 0, w, h, C(statusbarBgColor));
 
-        struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
-        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
-        set_bounding_box(box, 0, 0, windowWidthInPixels, windowHeightInPixels);
-        set_draw_cursor(cursor, x, y);
+        set_draw_cursor(cursor, 0, 0);
         set_cursor_color(cursor, C(statusbarTextColor));
 
-        draw_text_with_cursor(cursor, box, ":", 1);
+        lay_out_text_with_cursor(drawList, cursor, ":", 1);
 
         const char *text;
         int textLength;
@@ -654,115 +621,132 @@ static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, 
         struct FixedStringUTF8Decoder decoder = {text, textLength};
         for (;;) {
                 if (decoder.pos == cursorBytePosition)
-                        draw_cursor(edit, cursor->x, cursor->lineY);
+                        draw_cursor(drawList, edit, cursor->x, cursor->lineY);
                 uint32_t codepoint;
                 if (!decode_codepoint_from_FixedStringUTF8Decoder(&decoder, &codepoint))
                         //XXX: what if there are only decode errors? Should we
                         //try to recover?
                         break;
-                lay_out_glyph(cursor, codepoint);
+                lay_out_glyph(&statuslineDrawList, cursor, codepoint);
         }
 }
 
-static void draw_textedit_statusline(struct TextEdit *edit, int x, int y, int w, int h)
+static void lay_out_statusline(struct DrawList *drawList, struct TextEdit *edit, int w, int h)
 {
-        flush_all_vertex_buffers();
+        lay_out_rect(drawList, 0, 0, w, h, C(statusbarBgColor));
 
         FILEPOS pos = edit->cursorBytePosition;
         FILEPOS codepointPos = compute_codepoint_position(edit->rope, pos);
         FILEPOS lineNumber = compute_line_number(edit->rope, pos);
         char textbuffer[512];
 
-        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
+        //draw_colored_rect(x, y, w, h, C(statusbarBgColor));
 
-        struct GuiRect boundingBox;
         struct DrawCursor drawCursor;
-        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
-        set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y);
+        set_draw_cursor(cursor, 0, 0);
         set_cursor_color(cursor, C(statusbarTextColor));
 
         if (edit->haveNotification) {
                 if (edit->notificationKind == NOTIFICATION_ERROR)
                         set_cursor_color(cursor, 255, 0, 0, 255);
-                draw_text_with_cursor(cursor, box, edit->notificationBuffer, edit->notificationLength);
+                lay_out_text_with_cursor(drawList, cursor, edit->notificationBuffer, edit->notificationLength);
         }
         else {
                 if (edit->isVimodeActive) {
                         if (edit->vistate.vimodeKind != VIMODE_NORMAL)
-                                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
+                                draw_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
                 }
-                set_draw_cursor(cursor, x + 500, y);
-                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
-                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
-                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
-                draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
+                // TODO: need measuring routines. Or simply first sprintf() to a
+                // buffer manually
+                set_draw_cursor(cursor, w - 55 * cellWidthPx, 0);
+                draw_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
+                draw_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
+                draw_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
+                draw_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
         }
 }
 
-static void draw_textedit_loading_or_saving(const char *what, FILEPOS count, FILEPOS total, int x, int y, int w, int h)
+static void draw_textedit_loading_or_saving(struct DrawList *drawList, const char *what,
+                                            FILEPOS count, FILEPOS total, int w, int h)
 {
-        flush_all_vertex_buffers();
-
-        struct GuiRect boundingBox;
+        char textbuffer[512];
         struct DrawCursor drawCursor;
-        struct GuiRect *box = &boundingBox;
         struct DrawCursor *cursor = &drawCursor;
 
-        set_bounding_box(box, x, y, w, h);
-        set_draw_cursor(cursor, x, y);
-
-        char textbuffer[512];
-
-        draw_colored_rect(x, y, w, h, C(statusbarBgColor));
-
+        set_draw_cursor(cursor, 0, 0);
         /* XXX: this computation is very dirty */
         FILEPOS percentage = (FILEPOS) (filepos_mul(count, 100) / (total ? total : 1));
 
         set_cursor_color(cursor, C(statusbarTextColor));
-        draw_text_snprintf(cursor, box, textbuffer, sizeof textbuffer,
+        draw_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer,
                 "%s %"FILEPOS_PRI"%%  (%"FILEPOS_PRI" / %"FILEPOS_PRI" bytes)",
                 what, percentage, count, total);
 }
 
-static void draw_textedit_loading(struct TextEdit *edit, int x, int y, int w, int h)
+static void draw_textedit_loading(struct DrawList *drawList, struct TextEdit *edit, int w, int h)
 {
         FILEPOS count = edit->loading.completedBytes;
         FILEPOS total = edit->loading.totalBytes;
-
-        draw_textedit_loading_or_saving("Loading", count, total, x, y, w, h);
+        draw_textedit_loading_or_saving(drawList, "Loading", count, total, w, h);
 }
 
-static void draw_textedit_saving(struct TextEdit *edit, int x, int y, int w, int h)
+static void draw_textedit_saving(struct DrawList *drawList, struct TextEdit *edit, int w, int h)
 {
         FILEPOS count = edit->saving.completedBytes;
         FILEPOS total = edit->saving.totalBytes;
+        draw_textedit_loading_or_saving(drawList, "Saving", count, total, w, h);
+}
 
-        draw_textedit_loading_or_saving("Saving", count, total, x, y, w, h);
+static void draw_list(struct DrawList *drawList, int x, int y, int w, int h)
+{
+        {
+                struct TextureVertex2d *rp = drawList->glyphVerts;
+                for (int i = 0; i < drawList->glyphsCount; i++, rp += 6) {
+                        struct LayedOutGlyph *log = &drawList->glyphs[i];
+                        fill_texture2d_rect(rp,
+                                            log->r, log->g, log->b, log->a,
+                                            log->x, log->y, log->tw, log->th,
+                                            log->tx, log->ty, log->tw, log->th);
+                        for (int j = 0; j < 6; j++)
+                                rp[j].tex = log->tex;
+                }
+        }
+
+        {
+                struct ColorVertex2d *v = drawList->rectVerts;
+                for (int i = 0; i < drawList->rectsCount; i++, v += 6) {
+                        struct LayedOutRect *lor = &drawList->rects[i];
+                        fill_colored_rect(v,
+                                          lor->x, lor->y, lor->w, lor->h,
+                                          lor->r, lor->g, lor->b, lor->a);
+                }
+        }
+
+        set_viewport_in_pixels(x, y, w, h);
+        set_2d_coordinate_system(0, 0, w, h);
+        draw_rgba_vertices(drawList->rectVerts, drawList->rectsCount * 6);
+        draw_subpixelRenderedFont_vertices(drawList->glyphVerts, drawList->glyphsCount * 6);
 }
 
 static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, struct TextEdit *edit)
 {
-        // clear
-        draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, C(texteditBgColor));
-
-        int statusLineH = 40;
-        int statusLineX = canvasX;
-        int statusLineY = canvasH - statusLineH; if (statusLineY < 0) statusLineY = 0;
-        int statusLineW = canvasW;
+        int statuslineH = lineHeightPx;
+        int statuslineX = canvasX;
+        int statuslineY = canvasH - statuslineH; if (statuslineY < 0) statuslineY = 0;
+        int statuslineW = canvasW;
 
         if (edit->loading.isActive) {
-                draw_textedit_loading(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                draw_textedit_loading(&statuslineDrawList, edit, statuslineW, statuslineH);
                 return;
         }
         if (edit->saving.isActive) {
-                draw_textedit_saving(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                draw_textedit_saving(&statuslineDrawList, edit, statuslineW, statuslineH);
                 return;
         }
 
-        int restH = canvasH - statusLineH;
+        int restH = canvasH - statuslineH;
         if (restH < 0)
                 restH = 0;
 
@@ -787,6 +771,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
         int linesY = canvasY;
         int linesW = 0;
         int linesH = restH;
+
         if (globalData.isShowingLineNumbers) {
                 //FILEPOS x = firstVisibleLine + edit->numberOfLinesDisplayed;
                 FILEPOS x = textrope_number_of_lines_quirky(edit->rope);
@@ -808,21 +793,31 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
         int textAreaH = restH;
 
         if (globalData.isShowingLineNumbers) {
-                draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
-                draw_vertical_line(textAreaX, textAreaY + 3, textAreaH - 2 * 3);
+                lay_out_line_numbers(&numbersDrawList, edit, firstVisibleLine, offsetPixelsY, linesW, linesH);
         }
 
-        draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH);
+        lay_out_textedit_lines(&contentsDrawList, edit, firstVisibleLine, offsetPixelsY, textAreaW, textAreaH);
 
         if (edit->vistate.vimodeKind == VIMODE_COMMAND)
-                draw_textedit_ViCmdline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                lay_out_textedit_ViCmdline(&statuslineDrawList, edit, statuslineW, statuslineH);
         else
-                draw_textedit_statusline(edit, statusLineX, statusLineY, statusLineW, statusLineH);
+                lay_out_statusline(&statuslineDrawList, edit, statuslineW, statuslineH);
+
+        // clear
+        set_viewport_in_pixels(0, 0, windowWidthInPixels, windowHeightInPixels);
+        draw_colored_rect(0, 0, windowWidthInPixels, windowHeightInPixels, 128, 0, 0, 255);
+        flush_all_vertex_buffers();
+
+        commit_all_dirty_textures(); //XXX
+        draw_list(&numbersDrawList, linesX, linesY, linesW, linesH);
+        draw_list(&contentsDrawList, textAreaX, textAreaY, textAreaW, textAreaH);
+        draw_list(&statuslineDrawList, statuslineX, statuslineY, statuslineW, statuslineH);
+        //draw_list(&statuslineDrawList, textAreaX, textAreaY, textAreaW, textAreaH);
 }
 
-//XXX this is a duplication of draw_textedit_ViCmdline.
+//XXX this is a duplication of lay_out_textedit_ViCmdline.
 // We probably should share code.
-static void draw_LineEdit(struct LineEdit *lineEdit, int x, int y, int w, int h)
+static void draw_LineEdit(struct DrawList *drawList, struct LineEdit *lineEdit, int x, int y, int w, int h)
 {
         draw_colored_rect(x, y, w, h, C(statusbarBgColor));
 
@@ -843,24 +838,23 @@ static void draw_LineEdit(struct LineEdit *lineEdit, int x, int y, int w, int h)
         for (;;) {
                 int active = 1;
                 if (decoder.pos == cursorBytePosition)
-                        draw_cursor_active(active, cursor->x, cursor->lineY);
+                        draw_cursor_active(drawList, active, cursor->x, cursor->lineY);
                 uint32_t codepoint;
                 if (!decode_codepoint_from_FixedStringUTF8Decoder(&decoder, &codepoint))
                         //XXX: what if there are only decode errors? Should we
                         //try to recover?
                         break;
-                lay_out_glyph(cursor, codepoint);
+                lay_out_glyph(drawList, cursor, codepoint);
         }
 }
 
-static void draw_ListSelect(struct ListSelect *list,
-                            int canvasX, int canvasY, int canvasW, int canvasH)
+static void draw_ListSelect(
+                struct DrawList *drawList,
+                struct ListSelect *list,
+                int canvasX, int canvasY, int canvasW, int canvasH)
 {
         struct DrawCursor drawCursor;
-        struct GuiRect boundingBox;
-
         struct DrawCursor *cursor = &drawCursor;
-        struct GuiRect *box = &boundingBox;
 
         int bufferBoxX = 20;
         int bufferBoxY = 100;
@@ -869,7 +863,6 @@ static void draw_ListSelect(struct ListSelect *list,
 
         set_draw_cursor(cursor, bufferBoxX, bufferBoxY);
         set_cursor_color(cursor, C(normalTextColor));
-        set_bounding_box(box, canvasX, canvasY, canvasW, canvasH);
 
         // actually, override this stuff
         cursor->lineHeight = bufferBoxH;
@@ -879,7 +872,7 @@ static void draw_ListSelect(struct ListSelect *list,
 
         if (list->isFilterActive) {
                 // TODO: layout
-                draw_LineEdit(&list->filterLineEdit, 0, 0, 500, 50);
+                draw_LineEdit(&statuslineDrawList, &list->filterLineEdit, 0, 0, 500, 50);
 
                 if (!list->isFilterRegexValid) {
                         draw_colored_border(0, 0, 500, 50, 2,
@@ -914,7 +907,7 @@ static void draw_ListSelect(struct ListSelect *list,
                 draw_colored_border(borderX, borderY, borderW, borderH,
                                     borderWidthPx, C(rgb));
 
-                draw_text_with_cursor(cursor, box, elem->caption, elem->captionLength);
+                lay_out_text_with_cursor(drawList, cursor, elem->caption, elem->captionLength);
 
                 next_line(cursor);
         }
@@ -923,12 +916,18 @@ static void draw_ListSelect(struct ListSelect *list,
 #include <astedit/buffers.h>
 void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
 {
-        draw_ListSelect(&globalData.bufferSelect, canvasX, canvasY, canvasW, canvasH);
+        draw_ListSelect(&contentsDrawList/*XXX*/, &globalData.bufferSelect, canvasX, canvasY, canvasW, canvasH);
 }
 
 void testdraw(struct TextEdit *edit)
 {
-        displayList->mustRelayout = 1;  // XXX for development / testing
+        clear_DrawList(&contentsDrawList);
+        clear_DrawList(&numbersDrawList);
+        clear_DrawList(&statuslineDrawList);
+
+        contentsDrawList.mustRelayout = 1;  // XXX for development / testing
+        numbersDrawList.mustRelayout = 1;  // XXX for development / testing
+        statuslineDrawList.mustRelayout = 1;  // XXX for development / testing
 
         int canvasX = 0;
         int canvasY = 0;
@@ -947,7 +946,6 @@ void testdraw(struct TextEdit *edit)
                 draw_buffer_list(0, 0, canvasW, canvasH);
         else
                 draw_TextEdit(0, 0, canvasW, canvasH, edit);
-
 
         end_frame();
 }

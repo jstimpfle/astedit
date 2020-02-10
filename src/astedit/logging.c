@@ -59,7 +59,7 @@ NORETURN void _fatalfv(struct LogInfo logInfo, const char *fmt, va_list ap)
         _log_begin(logInfo);
         log_writefv(fmt, ap);
         log_end();
-        exit(1);
+        abort();
 }
 
 NORETURN void _fatalf(struct LogInfo logInfo, const char *fmt, ...)
