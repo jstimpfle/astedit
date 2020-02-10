@@ -1,4 +1,5 @@
 #include <astedit/astedit.h>
+#include <astedit/memoryalloc.h>
 #include <astedit/bytes.h>
 #include <astedit/editor.h>
 #include <astedit/logging.h>
@@ -19,6 +20,8 @@
 struct RGB { unsigned r, g, b; };
 #define C(x) x.r, x.g, x.b, 255
 #define C_ALPHA(x, a) x.r, x.g, x.b, a
+
+
 
 #if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
@@ -157,10 +160,10 @@ static void fill_texture2d_rect(struct TextureVertex2d *rp,
         rp[5].texX = (float) texX + texW; rp[5].texY = (float) texY;
 }
 
-void draw_colored_rect(int x, int y, int w, int h,
+void fill_colored_rect(struct ColorVertex2d rectpoints[6],
+        int x, int y, int w, int h,
         unsigned r, unsigned g, unsigned b, unsigned a)
 {
-        static struct ColorVertex2d rectpoints[6];
         rectpoints[0].x = (float) x;     rectpoints[0].y = (float) y;       rectpoints[0].z = 0.0f;
         rectpoints[1].x = (float) x;     rectpoints[1].y = (float) y + h;   rectpoints[1].z = 0.0f;
         rectpoints[2].x = (float) x + w; rectpoints[2].y = (float) y + h;   rectpoints[2].z = 0.0f;
@@ -173,6 +176,13 @@ void draw_colored_rect(int x, int y, int w, int h,
                 rectpoints[i].b = b / 255.0f;
                 rectpoints[i].a = a / 255.0f;
         }
+}
+
+void draw_colored_rect(int x, int y, int w, int h,
+        unsigned r, unsigned g, unsigned b, unsigned a)
+{
+        static struct ColorVertex2d rectpoints[6];
+        fill_colored_rect(rectpoints, x, y, w, h, r, g, b, a);
         push_color_vertices(rectpoints, LENGTH(rectpoints));
 }
 
@@ -215,13 +225,22 @@ static void draw_vertical_line(int x, int y, int h)
         draw_colored_rect(x, y, w, h, C(borderColor));
 }
 
+void make_border(struct ColorVertex2d border[24],
+                 int x, int y, int w, int h, int t,
+                 int r, int g, int b, int a)
+{
+        fill_colored_rect(border + 0,  x, y, w, t,          r, g, b, a);
+        fill_colored_rect(border + 6,  x, y + h - t, w, t,  r, g, b, a);
+        fill_colored_rect(border + 12, x, y, t, h,          r, g, b, a);
+        fill_colored_rect(border + 18, x + w - t, y, t, h,  r, g, b, a);
+}
+
 void draw_colored_border(int x, int y, int w, int h, int t,
         int r, int g, int b, int a)
 {
-        draw_colored_rect(x, y, w, t,          r, g, b, a);
-        draw_colored_rect(x, y + h - t, w, t,  r, g, b, a);
-        draw_colored_rect(x, y, t, h,          r, g, b, a);
-        draw_colored_rect(x + w - t, y, t, h,  r, g, b, a);
+        struct ColorVertex2d border[24];
+        make_border(border, x, y, w, h, t, r, g, b, a);
+        push_color_vertices(border, 24);
 }
 
 enum {
@@ -238,32 +257,102 @@ void next_line(struct DrawCursor *cursor)
         cursor->lineY += cursor->lineHeight;
 }
 
-static void draw_codepoint(
+
+struct LayedOutGlyph {
+        Texture tex;
+        int tx;
+        int ty;
+        int tw;
+        int th;
+        int x;
+        int y;
+        // We should probably avoid storing the color here
+        int r;
+        int g;
+        int b;
+        int a;
+};
+
+struct LayedOutRect {
+        int x;
+        int y;
+        int w;
+        int h;
+        // We should probably avoid storing the color here
+        int r;
+        int g;
+        int b;
+        int a;
+};
+
+struct TextareaDisplayList {
+        int mustRelayout;
+
+        /* Placement of area. The stored lists are relative to it, so this can
+        be changed independently */
+        int x, y, w, h;
+
+        struct LayedOutGlyph *glyphs;
+        struct LayedOutRect *rects;
+
+        struct TextureVertex2d *glyphVerts;  // 6 * glyphsCount
+        struct ColorVertex2d *rectVerts;  // 6 * rectsCount
+
+        int glyphsCount;
+        int rectsCount;
+};
+
+static struct TextareaDisplayList textareaDisplayList = { .mustRelayout = 1 };
+static struct TextareaDisplayList *const displayList = &textareaDisplayList;
+
+static struct LayedOutGlyph *alloc_LayedOutGlyph(void)
+{
+        int idx = displayList->glyphsCount++;
+        REALLOC_MEMORY(&displayList->glyphs, displayList->glyphsCount);
+        REALLOC_MEMORY(&displayList->glyphVerts, 6 * displayList->glyphsCount);
+        return &displayList->glyphs[idx];
+}
+
+static struct LayedOutRect *alloc_LayedOutRect(int n)
+{
+        int idx = displayList->rectsCount;
+        displayList->rectsCount += n;
+        REALLOC_MEMORY(&displayList->rects, displayList->rectsCount);
+        REALLOC_MEMORY(&displayList->rectVerts, 6 * displayList->rectsCount);
+        return &displayList->rects[idx];
+}
+
+static void lay_out_border(struct LayedOutRect border[4],
+                 int x, int y, int w, int h, int t,
+                 int r, int g, int b, int a)
+{
+        border[0] = (struct LayedOutRect) { x, y, w, t,          r, g, b, a };
+        border[1] = (struct LayedOutRect) { x, y + h - t, w, t,  r, g, b, a };
+        border[2] = (struct LayedOutRect) { x, y, t, h,          r, g, b, a };
+        border[3] = (struct LayedOutRect) { x + w - t, y, t, h,  r, g, b, a };
+}
+
+static void lay_out_glyph( // todo: receive target display list as an argument
         struct DrawCursor *cursor,
-        const struct GuiRect *boundingBox,
-        int drawstringKind,
         uint32_t codepoint)
 {
-
         struct TexDrawInfo tdi;
         get_TexDrawInfo_for_glyph(FONTFACE_REGULAR, cursor->fontSize, codepoint, &tdi);
-
         int rectX = cursor->x + tdi.bearingX;
         int rectY = cursor->lineY + cursor->distanceYtoBaseline - tdi.bearingY;
-        int rectW = tdi.texW;
-        int rectH = tdi.texH;
+        struct LayedOutGlyph *log = alloc_LayedOutGlyph();
+        log->tex = tdi.tex;
+        log->tx = tdi.texX;
+        log->ty = tdi.texY;
+        log->tw = tdi.texW;
+        log->th = tdi.texH;
+        log->x = rectX;
+        log->y = rectY;
+        log->r = cursor->r;
+        log->g = cursor->g;
+        log->b = cursor->b;
+        log->a = cursor->a;
 
-                draw_subpixelRenderedFont_texture_rect(tdi.tex,
-                                                       cursor->r, cursor->g, cursor->b, cursor->a,
-                                                       rectX, rectY, rectW, rectH,
-                                                       tdi.texX, tdi.texY, tdi.texW, tdi.texH);
-
-        if (drawstringKind == DRAWSTRING_HIGHLIGHT)
-                draw_colored_rect(cursor->x, cursor->lineY,
-                        cellWidthPx, cursor->lineHeight, C(highlightColor));
-        else if (drawstringKind == DRAWSTRING_HIGHLIGHT_BORDERS)
-                draw_colored_border(cursor->x, cursor->lineY,
-                        cellWidthPx, cursor->lineHeight, 2, C(highlightColor));
         cursor->x += cellWidthPx;
 }
 
@@ -283,8 +372,9 @@ static void draw_text_with_cursor(
                 int numCodepointsDecoded;
                 decode_utf8_span(text, i, length, codepoints, LENGTH(codepoints), &i, &numCodepointsDecoded);
 
-                for (int j = 0; j < numCodepointsDecoded; j++)
-                        draw_codepoint(cursor, boundingBox, DRAWSTRING_NORMAL, codepoints[j]);
+                for (int j = 0; j < numCodepointsDecoded; j++) {
+                        lay_out_glyph(cursor, codepoints[j]);
+                }
         }
 }
 
@@ -310,7 +400,6 @@ static void set_bounding_box(struct GuiRect *box, int x, int y, int w, int h)
         box->h = h;
 }
 
-
 static void set_draw_cursor(struct DrawCursor *cursor, int x, int y)
 {
         cursor->xLeft = x;
@@ -330,7 +419,6 @@ static void set_cursor_color(struct DrawCursor *cursor, int r, int g, int b, int
         cursor->a = a;
 }
 
-
 static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, int offsetPixelsY, int x, int y, int w, int h)
 {
         FILEPOS lastLine = textrope_number_of_lines_quirky(edit->rope);
@@ -342,7 +430,6 @@ static void draw_line_numbers(struct TextEdit *edit, FILEPOS firstVisibleLine, i
 
         set_bounding_box(box, x, y, w, h);
         set_draw_cursor(cursor, x, y - offsetPixelsY);
-
         set_cursor_color(cursor, C(normalTextColor));
 
         for (FILEPOS i = firstVisibleLine;
@@ -380,6 +467,11 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 h -= 2 * pad;
         }
 
+        if (displayList->mustRelayout) {
+                displayList->glyphsCount = 0;
+                displayList->rectsCount = 0;
+        }
+
         struct GuiRect boundingBox;
         struct GuiRect *box = &boundingBox;
         set_bounding_box(box, x, y, w, h);
@@ -414,19 +506,15 @@ static void draw_textedit_lines(struct TextEdit *edit,
         ENSURE(markStart <= markEnd);
 
         { // draw box of line width where the cursor is.
-        struct DrawCursor drawCursor;
-        struct DrawCursor *cursor = &drawCursor;
-        // draw a rectangular border around the text line that has cursor
-        FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
-        int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
-        set_draw_cursor(cursor, x, y);
-        for (int i = 0; i < linesDiff; i++)
-                next_line(cursor);
-        int borderX = x;
-        int borderY = cursor->lineY;
-        int borderH = cursor->lineHeight;
-        int borderW = w;
-        draw_colored_border(borderX, borderY, borderW, borderH, borderWidthPx, C_ALPHA(currentLineBorderColor, 128));
+                FILEPOS currentLine = compute_line_number(edit->rope, edit->cursorBytePosition);
+                int linesDiff = cast_filepos_to_int(currentLine - firstVisibleLine);
+                int borderX = x;
+                int borderY = cursor->lineY + lineHeightPx * linesDiff;
+                int borderH = cursor->lineHeight;
+                int borderW = w;
+                struct LayedOutRect *border = alloc_LayedOutRect(6);
+                lay_out_border(border, borderX, borderY, borderW, borderH, borderWidthPx,
+                               C_ALPHA(currentLineBorderColor, 128));
         }
 
         while (cursor->lineY < box->y + box->h) {
@@ -457,12 +545,19 @@ static void draw_textedit_lines(struct TextEdit *edit,
                                 break;
                         if (readpos == edit->cursorBytePosition)
                                 draw_cursor(edit, cursor->x, cursor->lineY);
-                        int drawstringKind;
-                        if (markStart <= readpos && readpos < markEnd)
-                                drawstringKind = DRAWSTRING_HIGHLIGHT;
-                        else
-                                drawstringKind = DRAWSTRING_NORMAL;
-                        uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
+                        if (markStart <= readpos && readpos < markEnd) {
+                                // XXX: could encode the shape from markStart to
+                                // markEnd more efficiently.
+                                struct LayedOutRect *lor = alloc_LayedOutRect(1);
+                                lor->x = cursor->x;
+                                lor->y = cursor->lineY;
+                                lor->w = cellWidthPx;
+                                lor->h = lineHeightPx;
+                                lor->r = highlightColor.r;
+                                lor->g = highlightColor.g;
+                                lor->b = highlightColor.b;
+                                lor->a = 255;
+                        }
 
                         /* The text editor should be able to edit any kind of file (even
                          * binary). It should always operate on the literal file contents, not
@@ -474,15 +569,14 @@ static void draw_textedit_lines(struct TextEdit *edit,
                          * visible (displayed as hex, for example).
                          */
                         /* For now, we just implement a standard text editor view */
+                        uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
                         if (codepoint == '\n')
                                 next_line(cursor);
-                        else if (codepoint == '\r') {
+                        else if (codepoint == '\r')
                                 // TODO: display as \r (literally)
-                                draw_codepoint(cursor, box, drawstringKind, 0x23CE);  /* Unicode 'RETURN SYMBOL' */
-                        }
-                        else {
-                                draw_codepoint(cursor, box, drawstringKind, codepoint);
-                        }
+                                lay_out_glyph(cursor, 0x23CE);  /* Unicode 'RETURN SYMBOL' */
+                        else
+                                lay_out_glyph(cursor, codepoint);
                 }
 
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
@@ -494,6 +588,37 @@ static void draw_textedit_lines(struct TextEdit *edit,
                 draw_cursor(edit, cursor->x, cursor->lineY);
         end_lexing_blunt_tokens(&readCtx);
         exit_UTF8Decoder(&decoder);
+
+        // draw layed out glyphs
+        if (displayList->mustRelayout) {
+                displayList->mustRelayout = 0;
+
+                {
+                        struct TextureVertex2d *rp = displayList->glyphVerts;
+                        for (int i = 0; i < displayList->glyphsCount; i++, rp += 6) {
+                                struct LayedOutGlyph *log = &displayList->glyphs[i];
+                                fill_texture2d_rect(rp,
+                                                    log->r, log->g, log->b, log->a,
+                                                    log->x, log->y, log->tw, log->th,
+                                                    log->tx, log->ty, log->tw, log->th);
+                                for (int j = 0; j < 6; j++)
+                                        rp[j].tex = log->tex;
+                        }
+                }
+
+                {
+                        struct ColorVertex2d *v = displayList->rectVerts;
+                        for (int i = 0; i < displayList->rectsCount; i++, v += 6) {
+                                struct LayedOutRect *lor = &displayList->rects[i];
+                                fill_colored_rect(v,
+                                                  lor->x, lor->y, lor->w, lor->h,
+                                                  lor->r, lor->g, lor->b, lor->a);
+                        }
+                }
+        }
+        log_postf("pushing %d vertices", displayList->glyphsCount * 6);
+        push_color_vertices(displayList->rectVerts, displayList->rectsCount * 6);
+        push_subpixelRenderedFont_texture_vertices(displayList->glyphVerts, displayList->glyphsCount * 6);
 }
 
 static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, int h)
@@ -535,7 +660,7 @@ static void draw_textedit_ViCmdline(struct TextEdit *edit, int x, int y, int w, 
                         //XXX: what if there are only decode errors? Should we
                         //try to recover?
                         break;
-                draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint);
+                lay_out_glyph(cursor, codepoint);
         }
 }
 
@@ -686,6 +811,7 @@ static void draw_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, st
                 draw_line_numbers(edit, firstVisibleLine, offsetPixelsY, linesX, linesY, linesW, linesH);
                 draw_vertical_line(textAreaX, textAreaY + 3, textAreaH - 2 * 3);
         }
+
         draw_textedit_lines(edit, firstVisibleLine, offsetPixelsY, textAreaX, textAreaY, textAreaW, textAreaH);
 
         if (edit->vistate.vimodeKind == VIMODE_COMMAND)
@@ -723,7 +849,7 @@ static void draw_LineEdit(struct LineEdit *lineEdit, int x, int y, int w, int h)
                         //XXX: what if there are only decode errors? Should we
                         //try to recover?
                         break;
-                draw_codepoint(cursor, box, DRAWSTRING_NORMAL, codepoint);
+                lay_out_glyph(cursor, codepoint);
         }
 }
 
@@ -802,6 +928,8 @@ void draw_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
 
 void testdraw(struct TextEdit *edit)
 {
+        displayList->mustRelayout = 1;  // XXX for development / testing
+
         int canvasX = 0;
         int canvasY = 0;
         int canvasW = windowWidthInPixels;
