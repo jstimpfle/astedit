@@ -23,8 +23,6 @@ enum {
 static struct CachedGlyph *hash_buckets[NUM_HASH_BUCKETS];
 
 
-
-
 static void init_hash(uint32_t *hsh)
 {
         *hsh = 5381;
@@ -130,57 +128,6 @@ int measure_glyph_span(Font font, int size, int cellWidth,
                 else
                         x += cellWidth;
         }
-        return x;
-}
-
-int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
-        int size, int cellWidth,
-        const uint32_t *text, int length,
-        int initX, int baselineY,
-        int r, int g, int b, int a)
-{
-        int x = initX;
-        for (int i = 0; i < length; i++) {
-                struct CachedGlyph *cachedGlyph = lookup_or_render_glyph(font, size, text[i]);
-
-                struct TextureAtlasRegion region;
-                compute_region_from_CachedTexture(cachedGlyph->cachedTexture, &region);
-
-                struct GlyphLayoutInfo *layout = &cachedGlyph->layout;
-
-                // TODO: fix rectX based on cellWidth (for monospace fonts)
-                int rectX = x + layout->horiBearingX;
-                int rectY = baselineY - layout->horiBearingY;
-                int rectW = layout->pixW / 3; /* RGB format */
-                int rectH = layout->pixH;
-                Texture texture = region.texture;
-                int texX = region.texX;
-                int texY = region.texY;
-                int texW = region.texW;
-                int texH = region.texH;
-
-                commit_all_dirty_textures(); //XXX
-
-                if (rectX + rectW < boundingBox->x)
-                        continue;
-
-                if (rectX >= boundingBox->x + boundingBox->w)
-                        break;
-
-                if (rectY + rectH >= boundingBox->y &&
-                    rectY <= boundingBox->y + boundingBox->h) {
-                        draw_subpixelRenderedFont_texture_rect(
-                                texture, r, g, b, a,
-                                rectX, rectY, rectW, rectH,
-                                texX, texY, texW, texH);
-                }
-
-                if (cellWidth == -1)
-                        x += layout->horiAdvance;
-                else
-                        x += cellWidth;
-        }
-        ENSURE(x >= initX);
         return x;
 }
 

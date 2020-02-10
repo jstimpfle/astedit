@@ -34,11 +34,6 @@ struct TexDrawInfo {
 
 void get_TexDrawInfo_for_glyph(Font font, int size, uint32_t codepoint, struct TexDrawInfo *out);
 
-#include <astedit/draw2d.h>  // BoundingBox
-int draw_glyphs_on_baseline(Font font, const struct GuiRect *boundingBox,
-        int size, int cellWidth, const uint32_t *text, int length, int initX, int baselineY,
-        int r, int g, int b, int a);
-
 
 /*
 layouts text span returns total length.
