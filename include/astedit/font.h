@@ -24,6 +24,7 @@ typedef int Font;
 
 struct TexDrawInfo {
         Texture tex;
+        int horiAdvance;  // TODO: try to find way to get this setting globally. We have monospace fonts!
         int bearingX;
         int bearingY;
         int texX;

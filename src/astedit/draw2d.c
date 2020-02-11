@@ -84,7 +84,7 @@ struct RGB { unsigned r, g, b; };
 #if 1
 static const struct RGB texteditBgColor = { 0, 0, 0 };
 static const struct RGB statusbarBgColor = { 128, 160, 128 };
-static const struct RGB normalTextColor = {0, 255, 0 };
+static const struct RGB normalTextColor = {255, 255, 255 };
 static const struct RGB stringTokenColor = { 255, 255, 0 };
 static const struct RGB integerTokenColor = { 255, 255, 0 };
 static const struct RGB operatorTokenColor = { 255, 255, 0 };  // same as normalTextColor, but MSVC won't let me do that ("initializer is not a constant")
@@ -262,6 +262,7 @@ static void lay_out_glyph(
                   */
 
         cursor->x += cellWidthPx;
+        //cursor->x += tdi.horiAdvance;
 }
 
 static void lay_out_text_with_cursor(

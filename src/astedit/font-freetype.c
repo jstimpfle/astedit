@@ -6,6 +6,9 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include <freetype/ftlcdfil.h>
+#include <freetype/ftdriver.h>
+#include <freetype/ftmodapi.h>
 
 #define USE_SUBPIXEL_RENDERING 1
 
@@ -98,6 +101,19 @@ void setup_fonts(void)
                 if (error)
                         fatal("Failed to initialize the FreeType font library\n");
         }
+
+#if 0
+        {
+                FT_UInt interp_ver = TT_INTERPRETER_VERSION_40;
+                FT_Error err = FT_Property_Set(library, "truetype", "interpreter-version", &interp_ver);
+                if (err)
+                        log_postf("Warning: Freetype error %d returned from "
+                                  "FT_Property_Set() when setting "
+                                  "TT_INTERPRETER_VERSION_40. Visual quality might be drastically degraded.", err);
+        }
+#endif
+
+        FT_Library_SetLcdFilter(library, FT_LCD_FILTER_DEFAULT);  // Needed for subpixel rendering to work
 
         for (int i = 0; i < NUM_FONTFACES; i++) {
                 make_fontpath_from_pathspec(faceKindToFontpath[i]);

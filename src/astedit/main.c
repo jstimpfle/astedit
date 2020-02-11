@@ -50,7 +50,7 @@ void mainloop(void)
         start_timer(&redrawTimer);
         testdraw(activeTextEdit);
         stop_timer(&redrawTimer);
-        report_timer(&redrawTimer, "redraw");
+        //report_timer(&redrawTimer, "redraw");
 
         flush_gfx();
         stop_timer(&mainloopTimer);

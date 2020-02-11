@@ -138,6 +138,7 @@ void get_TexDrawInfo_for_glyph(Font font, int size, uint32_t codepoint, struct T
         compute_region_from_CachedTexture(cachedGlyph->cachedTexture, &region);
 
         out->tex = region.texture;
+        out->horiAdvance = cachedGlyph->layout.horiAdvance;
         out->texX = region.texX;
         out->texY = region.texY;
         out->texW = region.texW;
