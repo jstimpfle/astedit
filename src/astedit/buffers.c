@@ -18,7 +18,7 @@ struct Buffer *create_new_buffer(const char *name)
         int nameLength = (int) strlen(name);
         struct Buffer *buf;
         ALLOC_MEMORY(&buf, 1);
-        ALLOC_MEMORY(&buf->name, nameLength);
+        ALLOC_MEMORY(&buf->name, nameLength + 1);
         copy_string_and_zeroterminate(buf->name, name, nameLength);
         init_TextEdit(&buf->textEdit);
 
