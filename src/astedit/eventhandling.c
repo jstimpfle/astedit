@@ -814,6 +814,13 @@ void handle_input(struct Input *input)
                 windowHeightInPixels = input->data.tWindowresize.height;
         }
         else if (input->inputKind == INPUT_KEY) {
+                if (is_input_keypress_of_key(input, KEY_F1)) {
+                        extern int atlasTextureBytesAllocated;
+                        extern int atlasTextureBytesUsed;
+                        log_postf("bytesAllocated, used: %d, %d",
+                                  atlasTextureBytesAllocated,
+                                  atlasTextureBytesUsed);
+                }
                 if (is_input_keypress_of_key(input, KEY_F4)) {
                         //if (input->data.tKey.modifiers & MODIFIER_MOD)
                           //      shouldWindowClose = 1;

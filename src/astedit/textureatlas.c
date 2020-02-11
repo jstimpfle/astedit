@@ -4,6 +4,9 @@
 #include <astedit/memoryalloc.h>
 #include <astedit/textureatlas.h>
 
+int atlasTextureBytesAllocated;
+int atlasTextureBytesUsed;
+
 enum {
         /* the actual numbers of pixels stored is ATLASTEXTURE_WIDTH / 3. (RGB
          * format) */
@@ -69,6 +72,7 @@ static struct AtlasTexture *alloc_AtlasTexture(void)
         REALLOC_MEMORY(&atlasTextures, numAtlasTextures);
         ALLOC_MEMORY(&atlasTextures[texIdx], 1);
         struct AtlasTexture *a = atlasTextures[texIdx];
+        atlasTextureBytesAllocated += ATLASTEXTURE_WIDTH * ATLASTEXTURE_HEIGHT;
         a->alphaTexture = create_rgb_texture(ATLASTEXTURE_WIDTH / 3, ATLASTEXTURE_HEIGHT);
         a->width = ATLASTEXTURE_WIDTH;
         a->height = ATLASTEXTURE_HEIGHT;
@@ -154,6 +158,7 @@ struct CachedTexture *store_texture_in_texture_atlas(unsigned char *pixels, int 
         int h = (pixH + 3) & ~3;  /* next multiple of 4 */
 
         struct AtlasTextureRow *row = find_or_alloc_row(w, h);
+        atlasTextureBytesUsed += w * h;
         int pixX = row->x;
         row->x += pixW;
 
