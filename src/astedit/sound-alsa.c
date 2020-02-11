@@ -87,6 +87,9 @@ void setup_sound(void)
 
 void teardown_sound(void)
 {
+        /* Documented in file MEMORY LEAK in alsa-lib package */
+        snd_config_update_free_global();
+
         int err = snd_pcm_close(pcm_handle);
         CHECK("closing pcm");
 

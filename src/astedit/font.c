@@ -92,7 +92,8 @@ static struct CachedGlyph *render_and_insert_glyph(const struct GlyphMeta *meta)
         struct GlyphLayoutInfo layout;
         render_glyph(meta, &buffer, &stride, &layout);
 
-        struct CachedTexture *cachedTexture = store_texture_in_texture_atlas(buffer, layout.pixW, layout.pixH, stride);
+        struct CachedTexture *cachedTexture =
+                store_texture_in_texture_atlas(buffer, layout.pixW, layout.pixH, stride);
 
         struct CachedGlyph *cachedGlyph;
         cachedGlyph = cache_glyph(meta, &layout, cachedTexture);
@@ -145,4 +146,21 @@ void get_TexDrawInfo_for_glyph(Font font, int size, uint32_t codepoint, struct T
         out->texH = region.texH;
         out->bearingX = cachedGlyph->layout.horiBearingX;
         out->bearingY = cachedGlyph->layout.horiBearingY;
+}
+
+void setup_font_atlas(void)
+{
+        // nothing
+}
+
+void teardown_font_atlas(void)
+{
+        for (int i = 0; i < NUM_HASH_BUCKETS; i++) {
+                while (hash_buckets[i]) {
+                        struct CachedGlyph *cachedGlyph = hash_buckets[i];
+                        hash_buckets[i] = hash_buckets[i]->next;
+                        FREE_MEMORY(&cachedGlyph);
+                        //log_postf("freed %zu bytes", sizeof *cachedGlyph);
+                }
+        }
 }

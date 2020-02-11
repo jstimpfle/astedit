@@ -62,14 +62,6 @@ static UNUSEDFUNC void debug_print_texture(unsigned char *pixels, int pixW, int 
 }
 
 
-/* TODO: more efficient allocation */
-static struct CachedTexture *alloc_CachedTexture(void)
-{
-        struct CachedTexture *out;
-        ALLOC_MEMORY(&out, 1);
-        return out;
-}
-
 static struct AtlasTexture *alloc_AtlasTexture(void)
 {
         /* create a new AtlasTexture and allocate a row in it */
@@ -171,7 +163,9 @@ struct CachedTexture *store_texture_in_texture_atlas(unsigned char *pixels, int 
         copy_texture(row->buffer + pixX, pixels, pixW, pixH, dstStride, srcStride);
         row->dirty = 1;
 
-        struct CachedTexture *cachedTexture = alloc_CachedTexture();
+        struct CachedTexture *cachedTexture;
+        // XXX this is currently a leak
+        ALLOC_MEMORY(&cachedTexture, 1);
         cachedTexture->row = row;
         cachedTexture->x = pixX;
         cachedTexture->width = pixW;
@@ -195,17 +189,29 @@ void commit_all_dirty_textures(void)
                 for (int j = 0; j < a->numRows; j++) {
                         struct AtlasTextureRow *row = a->rows[j];
                         if (row->dirty) {
-                                ENSURE(row->buffer != NULL);
                                 update_rgb_texture_subimage(a->alphaTexture, row->y, row->height, ATLASTEXTURE_WIDTH, ATLASTEXTURE_WIDTH, row->buffer);
                                 row->dirty = 0;
-                                //FREE_MEMORY(&row->buffer);
-                                //ENSURE(row->buffer == NULL);
                         }
                 }
         }
 }
 
-void reset_texture_atlas(void)
+void setup_texture_atlas(void)
 {
         /*TODO*/
+}
+
+void teardown_texture_atlas(void)
+{
+        for (int i = 0; i < numAtlasTextures; i++) {
+                struct AtlasTexture *a = atlasTextures[i];
+                for (int j = 0; j < a->numRows; j++) {
+                        FREE_MEMORY(&a->rows[j]->buffer);
+                        FREE_MEMORY(&a->rows[j]);
+                }
+                destroy_texture(a->alphaTexture);
+                FREE_MEMORY(&a->rows);
+                FREE_MEMORY(&atlasTextures[i]);
+        }
+        FREE_MEMORY(&atlasTextures);
 }

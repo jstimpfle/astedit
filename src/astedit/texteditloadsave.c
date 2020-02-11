@@ -15,7 +15,7 @@ int check_if_loading_completed_and_if_so_then_cleanup(struct TextEditLoadingCtx 
                 return 0;
         dispose_thread(ctx->threadHandle);
         destroy_mutex(ctx->mutex);
-        FREE_MEMORY(&ctx->filereadThreadCtx);
+        FREE_MEMORY(&ctx->filereadThreadCtx.filepath);
         /* TODO: check for load errors */
         ctx->isActive = 0;
         return 1;
@@ -29,7 +29,7 @@ int check_if_saving_completed_and_if_so_then_cleanup(struct TextEditSavingCtx *c
                 return 0;
         dispose_thread(ctx->threadHandle);
         destroy_mutex(ctx->mutex);
-        FREE_MEMORY(&ctx->filewriteThreadCtx);
+        FREE_MEMORY(&ctx->filewriteThreadCtx.filepath);
         /* TODO: check for save errors */
         ctx->isActive = 0;
         return 1;

@@ -49,6 +49,9 @@ width.
 int measure_glyph_span(Font font, int size, int cellWidth,
         const uint32_t *text, int length, int initX, int *outPositions);
 
+void setup_font_atlas(void);
+void teardown_font_atlas(void);
+
 
 /* font-freetype.c */
 struct GlyphMeta {

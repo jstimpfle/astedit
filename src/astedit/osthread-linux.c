@@ -71,5 +71,6 @@ void cancel_thread_and_wait(struct OsThreadHandle *handle)
 void dispose_thread(struct OsThreadHandle *handle)
 {
         ENSURE(check_if_thread_has_exited(handle));
+        wait_for_thread_to_end(handle);
         FREE_MEMORY(&handle);
 }

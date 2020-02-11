@@ -208,6 +208,8 @@ void teardown_window(void)
         glXMakeCurrent(display, None, NULL);
         glXDestroyContext(display, contextGlx);
         XDestroyWindow(display, window);
+        XFree(visualInfo);
+        XFreeColormap(display, colormap);
         XCloseDisplay(display);
 }
 

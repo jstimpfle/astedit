@@ -8,6 +8,7 @@
 #include <astedit/gfx.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>
+#include <astedit/textureatlas.h>
 #include <astedit/eventhandling.h>
 #include <astedit/sound.h>
 #include <string.h>
@@ -94,6 +95,9 @@ int main(int argc, const char **argv)
         stop_timer(&gfxSetupTimer);
         report_timer(&gfxSetupTimer, "Setting up OpenGL context");
 
+        setup_texture_atlas();
+        setup_font_atlas();
+
         start_timer(&fontSetupTimer);
         setup_fonts();
         stop_timer(&fontSetupTimer);
@@ -127,6 +131,8 @@ int main(int argc, const char **argv)
 
         teardown_sound();
         teardown_fonts();
+        teardown_font_atlas();
+        teardown_texture_atlas();
         teardown_gfx();
         teardown_window();
         return 0;
