@@ -111,6 +111,37 @@ static const struct OpInfo2 opInfo2[] = {
         { '|', '|', BLUNT_TOKEN_BITWISEOR, BLUNT_TOKEN_LOGICALOR },
 };
 
+#if 0
+static const char *const bluntTokenKindString[NUM_BLUNT_TOKEN_KINDS] = {
+#define MAKE(x) [x] = #x
+        MAKE( BLUNT_TOKEN_EOF ),
+        MAKE( BLUNT_TOKEN_NAME ),
+        MAKE( BLUNT_TOKEN_INTEGER ),
+        MAKE( BLUNT_TOKEN_STRING ),
+        MAKE( BLUNT_TOKEN_LPAREN ),
+        MAKE( BLUNT_TOKEN_RPAREN ),
+        MAKE( BLUNT_TOKEN_COMMENT ),
+        MAKE( BLUNT_TOKEN_PLUS ),
+        MAKE( BLUNT_TOKEN_MINUS ),
+        MAKE( BLUNT_TOKEN_STAR ),
+        MAKE( BLUNT_TOKEN_SLASH ),
+        MAKE( BLUNT_TOKEN_DOUBLEPLUS ),
+        MAKE( BLUNT_TOKEN_DOUBLEMINUS ),
+        MAKE( BLUNT_TOKEN_GREATERTHAN ),
+        MAKE( BLUNT_TOKEN_LESSTHAN ),
+        MAKE( BLUNT_TOKEN_SHIFTLEFT ),
+        MAKE( BLUNT_TOKEN_SHIFTRIGHT ),
+        MAKE( BLUNT_TOKEN_LOGICALNOT ),
+        MAKE( BLUNT_TOKEN_LOGICALOR ),
+        MAKE( BLUNT_TOKEN_LOGICALAND ),
+        MAKE( BLUNT_TOKEN_BITWISEXOR ),
+        MAKE( BLUNT_TOKEN_BITWISEAND ),
+        MAKE( BLUNT_TOKEN_BITWISEOR ),
+        MAKE( BLUNT_TOKEN_JUNK ),
+#undef MAKE
+};
+#endif
+
 /* TODO: return more information than just a token kind. */
 void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
 {
@@ -251,6 +282,7 @@ void lex_blunt_token(struct Blunt_ReadCtx *ctx, struct Blunt_Token *outToken)
                 // how much to consume?
         }
 
+        ENSURE(ctx->readPos <= textrope_length(ctx->rope));
         outToken->tokenKind = tokenKind;
         outToken->length = filepos_sub(ctx->readPos, parseStart);
         outToken->leadingWhiteChars = leadingWhiteChars;

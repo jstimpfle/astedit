@@ -421,10 +421,7 @@ static void lay_out_textedit_lines(
         while (cursor->lineY < areaH) {
                 struct Blunt_Token token;
                 lex_blunt_token(&readCtx, &token);
-
-                FILEPOS currentPos = readpos_in_bytes_of_UTF8Decoder(&decoder);
-                //FILEPOS whiteEndPos = currentPos + token.leadingWhiteChars;
-                FILEPOS tokenEndPos = currentPos + token.length;
+                FILEPOS tokenEndPos = readCtx.readPos;
                 struct RGB rgb;
                 if (token.tokenKind == BLUNT_TOKEN_INTEGER)
                         rgb = integerTokenColor;
@@ -465,6 +462,7 @@ static void lay_out_textedit_lines(
                          */
                         /* For now, we just implement a standard text editor view */
                         uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
+                        ENSURE(codepoint != -1);  // should only happen at end of stream.
                         if (codepoint == '\n')
                                 next_line(cursor);
                         else if (codepoint == '\r')

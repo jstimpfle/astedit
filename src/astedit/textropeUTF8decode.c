@@ -60,10 +60,25 @@ uint32_t read_codepoint_from_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
                 decoder->bufferStart, decoder->bufferEnd,
                 &decoder->bufferStart, &codepoint);
         if (r == 0) {
-                ENSURE(decoder->bufferStart == decoder->bufferEnd);  // is that true?
+                /* Not enough bytes in buffer. Since we made sure above that at
+                 * least 4 bytes are in the buffer if so many are available,
+                 * that means that we're at the end of the stream. */
+                ENSURE(decoder->bufferEnd - decoder->bufferStart < 4 &&
+                       decoder->readPosition == textrope_length(decoder->rope));
+                /* If there are unconsumed final characters (unfinished UTF-8
+                 * sequence at the end of the stream - which can happen easily
+                 * with binary text), we'll consume them to allow us to arrive
+                 * at the end of the stream. */
+                if (decoder->bufferStart < decoder->bufferEnd) {
+                        decoder->bufferStart = decoder->bufferEnd;
+                        return (uint32_t) 0xFFFD;
+                }
+                /* Otherwise, return -1 to indicate regular end of stream (no
+                 * encoding errors). */
                 return (uint32_t) -1;
         }
         if (r == -1) {
+                /* Invalid UTF-8 */
                 /* Just eat one (invalid) byte to allow progress.
                  * Alternatively, we could try to find the start of the next
                  * UTF-8 sequence. */

@@ -30,6 +30,8 @@ enum Blunt_TokenKind {
         BLUNT_TOKEN_BITWISEOR,
         //
         BLUNT_TOKEN_JUNK,
+        //
+        NUM_BLUNT_TOKEN_KINDS
 };
 
 enum {

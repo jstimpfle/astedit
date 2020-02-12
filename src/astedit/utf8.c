@@ -1,5 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
+#include <astedit/logging.h>
 #include <astedit/utf8.h>
 
 int get_utf8_sequence_length_from_leader_byte(int c)
@@ -51,8 +52,9 @@ int encode_codepoint_as_utf8(unsigned codepoint, char *str, int start, int end)
 
 int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_next, uint32_t *out_codepoint)
 {
+        ENSURE(start <= end);
         const unsigned char *s = (void *)&str[start];  //XXX
-        if (start >= end)
+        if (start == end)
                 return 0;
         if (s[0] >> 7 == 0) {
                 *out_next = start + 1;
@@ -75,27 +77,9 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
                         return -1;
                 if ((s[2] & 0xc0) != 0x80)
                         return -1;
-
-                start += 3;
-                unsigned codepoint = ((s[0] & ~0xf0) << 12) | ((s[1] & ~0xc0) << 6)
+                *out_next = start + 3;
+                *out_codepoint = ((s[0] & ~0xf0) << 12) | ((s[1] & ~0xc0) << 6)
                         | (s[2] & ~0xc0);
-
-
-                /* special handling for broken input (surrogate pairs) */
-                if (codepoint >= 0xDC00 && end - start >= 3) {
-                        unsigned d;
-                        int next;
-                        int r = decode_codepoint_from_utf8(str, start, end, &next, &d);
-                        if (r <= 0)
-                                return r;
-                        //if (d < 0xD800)
-                          //      return 0;
-                        start = next;
-                        codepoint = 0x10000 + (codepoint - 0xDC00) + ((d - 0xD800) << 10);
-                }
-
-                *out_next = start;
-                *out_codepoint = codepoint;
                 return 1;
         }
         else if ((s[0] & 0xf8) == 0xf0) {
@@ -116,6 +100,28 @@ int decode_codepoint_from_utf8(const char *str, int start, int end, int *out_nex
                 return -1;
         }
 }
+
+// this was intended to handle surrogate pairs, but the code broke in the
+// recursion (what if the recursion detects a surrogate pair again...?)
+// At some point, when we want to support surrogate pairs again, we need to put
+// this in a function that acts as a proxy to decode_codepoint_from_utf8(),
+// instead of recursing.
+#if 0
+                /* special handling for broken input (surrogate pairs) */
+                if (codepoint >= 0xDC00 && end - start >= 3) {
+                        uint32_t d;
+                        int next;
+                        log_postf("surrogate!");
+                        int r = decode_codepoint_from_utf8(str, start, end, &next, &d);
+                        if (r <= 0)
+                                return r;
+                        //if (d < 0xD800)
+                          //      return 0;
+                        start = next;
+                        codepoint = 0x10000 + (codepoint - 0xDC00) + ((d - 0xD800) << 10);
+                }
+#endif
+
 
 void encode_utf8_span(const uint32_t *codepoints, int startPos, int maxPos, char *bufOut, int maxBytes,
         int *outPos, int *outNumBytes)
