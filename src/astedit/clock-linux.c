@@ -1,7 +1,7 @@
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
 #include <astedit/clock.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <errno.h>
 #include <string.h>
 #include <time.h>

@@ -1,6 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/osthread.h>
 #include <errno.h>
 #include <string.h> // strerror

@@ -1,7 +1,7 @@
 /* shit implementation, and only on linux for now. */
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/sound.h>
 #include <alsa/asoundlib.h>
 #include <alsa/asoundlib.h>

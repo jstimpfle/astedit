@@ -35,7 +35,7 @@ src/astedit/lineedit.c \
 src/astedit/listselect.c \
 src/astedit/logging.c \
 src/astedit/main.c \
-src/astedit/memoryalloc.c \
+src/astedit/memory.c \
 src/astedit/mutex-linux.c \
 src/astedit/osthread-linux.c \
 src/astedit/regex.c \
