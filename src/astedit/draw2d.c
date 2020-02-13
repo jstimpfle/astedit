@@ -625,7 +625,7 @@ static void lay_out_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
                 restH = 0;
 
         // XXX is here the right place to do this?
-        edit->numberOfLinesDisplayed = restH / textHeightPx;
+        edit->numberOfLinesDisplayed = restH / lineHeightPx;
 
         /* Compute first line and y-offset for drawing */
         FILEPOS firstVisibleLine;
