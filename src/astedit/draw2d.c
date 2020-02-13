@@ -530,7 +530,8 @@ static void lay_out_statusline(struct DrawList *drawList, struct TextEdit *edit,
         FILEPOS pos = edit->cursorBytePosition;
         FILEPOS codepointPos = compute_codepoint_position(edit->rope, pos);
         FILEPOS lineNumber = compute_line_number(edit->rope, pos);
-        char textbuffer[512];
+        FILEPOS posOfLine = compute_pos_of_line(edit->rope, lineNumber);
+        FILEPOS codepointPosOfLine = compute_codepoint_position(edit->rope, posOfLine);
 
         struct DrawCursor drawCursor;
         struct DrawCursor *cursor = &drawCursor;
@@ -544,17 +545,28 @@ static void lay_out_statusline(struct DrawList *drawList, struct TextEdit *edit,
                 lay_out_text_with_cursor(drawList, cursor, edit->notificationBuffer, edit->notificationLength);
         }
         else {
+                char textbuffer[512];
                 if (edit->isVimodeActive) {
                         if (edit->vistate.vimodeKind != VIMODE_NORMAL)
-                                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, "VI MODE: -- %s --", vimodeKindString[edit->vistate.vimodeKind]);
+                                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, "--%s--", vimodeKindString[edit->vistate.vimodeKind]);
                 }
-                // TODO: need measuring routines. Or simply first sprintf() to a
-                // buffer manually
-                set_draw_cursor(cursor, w - 55 * cellWidthPx, 0);
-                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, " pos: %"FILEPOS_PRI, pos);
-                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", codepointPos: %"FILEPOS_PRI, codepointPos);
-                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", lineNumber: %"FILEPOS_PRI, lineNumber);
+                /* TODO: need measuring routines. Or simply first sprintf() to a
+                 * buffer manually
+                 * As a hack, we're remembering the glyph position where we
+                 * added new stuff */
+                int firstIndex = drawList->glyphsCount;
+                set_draw_cursor(cursor, w - 80 * cellWidthPx, 0);
+
+                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, "line: %" FILEPOS_PRI, lineNumber);
+                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", pos: %" FILEPOS_PRI, pos);
+                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", col: %" FILEPOS_PRI "-%" FILEPOS_PRI, codepointPos - codepointPosOfLine, pos - posOfLine);
+                lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", codepoint: %" FILEPOS_PRI, codepointPos);
                 lay_out_text_snprintf(drawList, cursor, textbuffer, sizeof textbuffer, ", selecting?: %d", edit->isSelectionMode);
+                int x = w - cellWidthPx;
+                for (int i = drawList->glyphsCount; i --> firstIndex;) {
+                        x -= cellWidthPx;
+                        drawList->glyphs[i].x = x;
+                }
         }
 }
 
