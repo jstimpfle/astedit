@@ -10,6 +10,7 @@
 #include <astedit/textrope.h>
 #include <astedit/textedit.h>
 #include <astedit/utf8.h>
+#include <astedit/textpositions.h>
 #include <astedit/textropeUTF8decode.h>
 #include <astedit/zoom.h>
 #include <astedit/draw2d.h>
@@ -476,15 +477,14 @@ static void lay_out_textedit_lines(
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
                         break;
                 if (cursor->x >= areaW) {
-                        for (;;) {
-                                uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
-                                if (codepoint == -1) // EOF
-                                        break;
-                                if (codepoint == '\n') {
-                                        next_line(cursor);
-                                        break;
-                                }
-                        }
+                        // skip rest of line.
+                        struct FileCursor fc = { readpos_in_bytes_of_UTF8Decoder(&decoder) };
+                        get_position_line_end(edit, &fc);
+                        // because we skipped, need to reset read buffers
+                        exit_UTF8Decoder(&decoder);
+                        init_UTF8Decoder(&decoder, edit->rope, fc.bytePosition);
+                        end_lexing_blunt_tokens(&readCtx);
+                        begin_lexing_blunt_tokens(&readCtx, edit->rope, fc.bytePosition);
                 }
         }
         // markStart/markEnd are currently abused to draw the text cursor, and

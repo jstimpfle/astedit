@@ -124,9 +124,9 @@ void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, F
                 fc->didHitBoundary = 1;
                 newLineNumber = 0;
         }
-        else if (newLineNumber > textrope_number_of_lines(edit->rope)) {
+        else if (newLineNumber > textrope_number_of_lines_quirky(edit->rope)) {
                 fc->didHitBoundary = 1;
-                newLineNumber = textrope_number_of_lines(edit->rope);
+                newLineNumber = textrope_number_of_lines_quirky(edit->rope);
         }
         FILEPOS oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
         FILEPOS oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
@@ -175,9 +175,9 @@ void get_position_line_end(struct TextEdit *edit, struct FileCursor *fc)
                 }
         }
         FILEPOS nextLinePos = compute_pos_of_line(edit->rope, lineNumber + 1);
-        FILEPOS nextLineCodepointPos = compute_codepoint_position(edit->rope, nextLinePos);
-        FILEPOS codepointPos = nextLineCodepointPos - 1;  // should be '\n'
-        get_position_codepoint(edit, fc, codepointPos);
+        FILEPOS newlinePos = nextLinePos - 1;
+        ENSURE(textrope_read_char_at(edit->rope, newlinePos) == '\n');
+        fc->bytePosition = newlinePos;
 }
 
 void get_position_left(struct TextEdit *edit, struct FileCursor *fc)
