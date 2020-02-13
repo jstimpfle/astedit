@@ -438,6 +438,8 @@ static void lay_out_textedit_lines(
                         rgb = normalTextColor;
                 set_cursor_color(cursor, C(rgb));
                 for (;;) {
+                        if (cursor->x >= areaW)
+                                break;
                         FILEPOS readpos = readpos_in_bytes_of_UTF8Decoder(&decoder);
                         if (readpos >= tokenEndPos)
                                 break;
@@ -471,9 +473,19 @@ static void lay_out_textedit_lines(
                         else
                                 lay_out_glyph(&contentsDrawList, cursor, codepoint);
                 }
-
                 if (token.tokenKind == BLUNT_TOKEN_EOF)
                         break;
+                if (cursor->x >= areaW) {
+                        for (;;) {
+                                uint32_t codepoint = read_codepoint_from_UTF8Decoder(&decoder);
+                                if (codepoint == -1) // EOF
+                                        break;
+                                if (codepoint == '\n') {
+                                        next_line(cursor);
+                                        break;
+                                }
+                        }
+                }
         }
         // markStart/markEnd are currently abused to draw the text cursor, and
         // in this case here we know it has to be the text cursor
