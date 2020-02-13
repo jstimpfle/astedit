@@ -439,8 +439,6 @@ static void lay_out_textedit_lines(
                         rgb = normalTextColor;
                 set_cursor_color(cursor, C(rgb));
                 for (;;) {
-                        if (cursor->x >= areaW)
-                                break;
                         FILEPOS readpos = readpos_in_bytes_of_UTF8Decoder(&decoder);
                         if (readpos >= tokenEndPos)
                                 break;
@@ -468,6 +466,8 @@ static void lay_out_textedit_lines(
                         ENSURE(codepoint != -1);  // should only happen at end of stream.
                         if (codepoint == '\n')
                                 next_line(cursor);
+                        else if (cursor->x >= areaW)
+                                break;
                         else if (codepoint == '\r')
                                 // TODO: display as \r (literally)
                                 lay_out_glyph(&contentsDrawList, cursor, 0x23CE);  /* Unicode 'RETURN SYMBOL' */
@@ -585,6 +585,8 @@ static void lay_out_statusline(struct DrawList *drawList, struct TextEdit *edit,
 static void lay_out_textedit_loading_or_saving(struct DrawList *drawList, const char *what,
                                             FILEPOS count, FILEPOS total, int w, int h)
 {
+        UNUSED(w);
+        UNUSED(h);
         char textbuffer[512];
         struct DrawCursor drawCursor;
         struct DrawCursor *cursor = &drawCursor;
@@ -613,19 +615,43 @@ static void lay_out_textedit_saving(struct DrawList *drawList, struct TextEdit *
         lay_out_textedit_loading_or_saving(drawList, "Saving", count, total, w, h);
 }
 
-static void lay_out_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH, struct TextEdit *edit)
+static void lay_out_TextEdit(int canvasW, int canvasH, struct TextEdit *edit)
 {
-        statuslineH = lineHeightPx;
-        statuslineX = canvasX;
-        statuslineY = canvasH - statuslineH; if (statuslineY < 0) statuslineY = 0;
+        linesX = 0;
+        linesW = 0;
+        if (globalData.isShowingLineNumbers) {
+                //FILEPOS x = firstVisibleLine + edit->numberOfLinesDisplayed;
+                FILEPOS x = textrope_number_of_lines_quirky(edit->rope);
+                int numDigitsNeeded = 1;
+                while (x >= 10) {
+                        x /= 10;
+                        numDigitsNeeded ++;
+                }
+                /* allocate space for at least 4 digits to avoid popping in the
+                 * normal case. */
+                if (numDigitsNeeded < 4)
+                        numDigitsNeeded = 4;
+                linesW = cellWidthPx * (numDigitsNeeded + 1);
+        }
+
+        textAreaX = linesX + linesW;
+        textAreaW = canvasW - textAreaX; if (textAreaW < 0) textAreaW = 0;
+
+        statuslineX = 0;
         statuslineW = canvasW;
 
-        int restH = canvasH - statuslineH;
-        if (restH < 0)
-                restH = 0;
+        statuslineY = canvasH - statuslineH; if (statuslineY < 0) statuslineY = 0;
+        statuslineH = lineHeightPx;
+
+        textAreaY = 0;
+        textAreaH = canvasH - statuslineH;
+
+        linesY = 0;
+        linesH = canvasH - statuslineH;
 
         // XXX is here the right place to do this?
-        edit->numberOfLinesDisplayed = restH / lineHeightPx;
+        edit->numberOfLinesDisplayed = textAreaH / lineHeightPx;
+        edit->numberOfColumnsDisplayed = textAreaH / cellWidthPx;
 
         /* Compute first line and y-offset for drawing */
         FILEPOS firstVisibleLine;
@@ -640,31 +666,6 @@ static void lay_out_TextEdit(int canvasX, int canvasY, int canvasW, int canvasH,
                 firstVisibleLine = edit->firstLineDisplayed;
                 offsetPixelsY = 0;
         }
-
-        linesX = canvasX;
-        linesY = canvasY;
-        linesW = 0;
-        linesH = restH;
-
-        if (globalData.isShowingLineNumbers) {
-                //FILEPOS x = firstVisibleLine + edit->numberOfLinesDisplayed;
-                FILEPOS x = textrope_number_of_lines_quirky(edit->rope);
-                int numDigitsNeeded = 1;
-                while (x >= 10) {
-                        x /= 10;
-                        numDigitsNeeded ++;
-                }
-                /* allocate space for at least 4 digits to avoid popping in the
-                 * normal case. */
-                if (numDigitsNeeded < 4)
-                        numDigitsNeeded = 4;
-                linesW = 30 + numDigitsNeeded * 20; //XXX
-        }
-
-        textAreaX = linesX + linesW;
-        textAreaY = canvasY;
-        textAreaW = canvasW - linesW; if (textAreaW < 0) textAreaW = 0;
-        textAreaH = restH;
 
 
         if (edit->loading.isActive)
@@ -716,14 +717,14 @@ static void lay_out_LineEdit(struct DrawList *drawList, struct LineEdit *lineEdi
 static void lay_out_ListSelect(
                 struct DrawList *drawList,
                 struct ListSelect *list,
-                int canvasX, int canvasY, int canvasW, int canvasH)
+                int canvasW, int canvasH)
 {
         struct DrawCursor drawCursor;
         struct DrawCursor *cursor = &drawCursor;
 
         int bufferBoxX = 20;
         int bufferBoxY = 100;
-        int bufferBoxW = canvasW - 20 - (bufferBoxX - canvasX);
+        int bufferBoxW = canvasW - 20 - bufferBoxX;
         int bufferBoxH = 40;
 
         set_draw_cursor(cursor, bufferBoxX, bufferBoxY);
@@ -776,9 +777,9 @@ static void lay_out_ListSelect(
 }
 
 #include <astedit/buffers.h>
-void lay_out_buffer_list(int canvasX, int canvasY, int canvasW, int canvasH)
+void lay_out_buffer_list(int canvasW, int canvasH)
 {
-        lay_out_ListSelect(&contentsDrawList/*XXX*/, &globalData.bufferSelect, canvasX, canvasY, canvasW, canvasH);
+        lay_out_ListSelect(&contentsDrawList/*XXX*/, &globalData.bufferSelect, canvasW, canvasH);
 }
 
 static void draw_list(struct DrawList *drawList, int x, int y, int w, int h)
@@ -835,9 +836,9 @@ void testdraw(struct TextEdit *edit)
         clear_screen_and_drawing_state();
 
         if (globalData.isSelectingBuffer)
-                lay_out_buffer_list(0, 0, canvasW, canvasH);
+                lay_out_buffer_list(canvasW, canvasH);
         else
-                lay_out_TextEdit(0, 0, canvasW, canvasH, edit);
+                lay_out_TextEdit(canvasW, canvasH, edit);
 
         //lay_out_rect(&windowDrawList, 0, 0, windowWidthInPixels, windowHeightInPixels, 128, 0, 0, 255);
 
