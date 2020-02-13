@@ -539,12 +539,6 @@ static void lay_out_statusline(struct DrawList *drawList, struct TextEdit *edit,
 {
         lay_out_rect(drawList, 0, 0, w, h, C(statusbarBgColor));
 
-        FILEPOS pos = edit->cursorBytePosition;
-        FILEPOS codepointPos = compute_codepoint_position(edit->rope, pos);
-        FILEPOS lineNumber = compute_line_number(edit->rope, pos);
-        FILEPOS posOfLine = compute_pos_of_line(edit->rope, lineNumber);
-        FILEPOS codepointPosOfLine = compute_codepoint_position(edit->rope, posOfLine);
-
         struct DrawCursor drawCursor;
         struct DrawCursor *cursor = &drawCursor;
 
@@ -556,7 +550,13 @@ static void lay_out_statusline(struct DrawList *drawList, struct TextEdit *edit,
                         set_cursor_color(cursor, 255, 0, 0, 255);
                 lay_out_text_with_cursor(drawList, cursor, edit->notificationBuffer, edit->notificationLength);
         }
-        else {
+        else if (!edit->loading.isActive) {  // Important: Not allowed to access the rope while the textrope modified.
+                FILEPOS pos = edit->cursorBytePosition;
+                FILEPOS codepointPos = compute_codepoint_position(edit->rope, pos);
+                FILEPOS lineNumber = compute_line_number(edit->rope, pos);
+                FILEPOS posOfLine = compute_pos_of_line(edit->rope, lineNumber);
+                FILEPOS codepointPosOfLine = compute_codepoint_position(edit->rope, posOfLine);
+
                 char textbuffer[512];
                 if (edit->isVimodeActive) {
                         if (edit->vistate.vimodeKind != VIMODE_NORMAL)
