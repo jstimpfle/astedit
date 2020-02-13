@@ -2,18 +2,29 @@
 #include <astedit/memory.h>
 #include <stdlib.h>
 
+
 void realloc_memory(void **ptr, int numElems, int elemSize)
 {
-        int numBytes = numElems * elemSize + 16;
+        int numAlloced = get_number_of_allocated_elems(*ptr);
+        if (numAlloced < numElems) {
+                if (numAlloced == 0)
+                        numAlloced = numElems;
+                else {
+                        numAlloced = 2 * numAlloced;
+                        if (numAlloced < numElems)
+                                numAlloced = numElems;
+                }
+        }
+        int numBytes = numAlloced * elemSize + NUM_OVERALLOCATED_BYTES;
         void *p;
         if (*ptr)
-                p = realloc((char *) *ptr - 16, numBytes);
+                p = realloc((char *) *ptr - NUM_OVERALLOCATED_BYTES, numBytes);
         else
                 p = malloc(numBytes);
         if (p == NULL)
                 fatalf("OOM!\n");
-        *(int *) p = numElems;
-        *ptr = (char *) p + 16;
+        *(int *) p = numAlloced;
+        *ptr = (char *) p + NUM_OVERALLOCATED_BYTES;
 }
 
 void alloc_memory(void **ptr, int numElems, int elemSize)
@@ -24,6 +35,6 @@ void alloc_memory(void **ptr, int numElems, int elemSize)
 
 void free_memory(void **ptr)
 {
-        free((char*)*ptr - 16);
+        free((char*)*ptr - NUM_OVERALLOCATED_BYTES);
         *ptr = NULL;
 }

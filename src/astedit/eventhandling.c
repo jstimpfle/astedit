@@ -479,7 +479,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_INPUT(
                         if (codepoint == 'c' && (modifiers & MODIFIER_CONTROL))
                                 go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                         else {
-                                unsigned long codepoint = input->data.tKey.codepoint;
                                 insert_codepoint_into_textedit(edit, codepoint);
                                 move_cursor_to_next_codepoint(edit, 0);
                         }
@@ -771,6 +770,10 @@ void process_input_in_buffer_list_dialog(struct Input *input)
         }
 }
 
+// XXX
+static int mousePixelX;
+static int mousePixelY;
+
 #include <string.h>
 void handle_input(struct Input *input)
 {
@@ -838,6 +841,15 @@ void handle_input(struct Input *input)
                 }
         }
         else if (input->inputKind == INPUT_MOUSEBUTTON) {
+                if (input->data.tMousebutton.mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS) {
+                        if (input->data.tMousebutton.mousebuttonKind == MOUSEBUTTON_1) {
+                                //XXX
+                                int column = mousePixelX / cellWidthPx;
+                                int row = mousePixelY / lineHeightPx;
+                                move_cursor_to_line_and_column(activeTextEdit, activeTextEdit->firstLineDisplayed + row,
+                                        column, activeTextEdit->isSelectionMode);
+                        }
+                }
                 enum MousebuttonKind mousebuttonKind = input->data.tMousebutton.mousebuttonKind;
                 enum MousebuttonEventKind mousebuttonEventKind = input->data.tMousebutton.mousebuttonEventKind;
                 const char *event = mousebuttonEventKind == MOUSEBUTTONEVENT_PRESS ? "Press" : "Release";
@@ -858,5 +870,9 @@ void handle_input(struct Input *input)
                         flag = 1;
                 }
                 log_end();
+        }
+        else if (input->inputKind == INPUT_CURSORMOVE) {
+                mousePixelX = input->data.tCursormove.pixelX;
+                mousePixelY = input->data.tCursormove.pixelY;
         }
 }
