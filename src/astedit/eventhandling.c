@@ -136,14 +136,17 @@ good:
         return 1;
 }
 
-static void process_movements_in_ViMode_NORMAL_or_SELECTING(
+static int process_movements_in_ViMode_NORMAL_or_SELECTING(
         struct Input *input, struct TextEdit *edit, struct ViState *state)
 {
         UNUSED(state);
         int isSelecting = edit->isSelectionMode;
         struct Movement movement;
-        if (input_to_movement_in_Vi(input, &movement))
+        if (input_to_movement_in_Vi(input, &movement)) {
                 move_cursor_with_movement(edit, &movement, isSelecting);
+                return 1;
+        }
+        return 0;
 }
 
 static int do_movemodal_in_vi(struct Input *input, struct TextEdit *edit, struct ViState *state,
@@ -283,6 +286,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                 return;
         }
 
+        if (process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state))
+                return;
+
         if (is_input_keypress(input)) {
                 if (edit->haveNotification)
                         // clear notification
@@ -375,7 +381,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 increase_zoom();
                                 break;
                         default:
-                                process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
                                 break;
                         }
                 }
@@ -388,7 +393,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
                                 move_cursor_left(edit, 0);  // compare with KEY_DELETE, doesn't delete. It's strange but VIM doesn it this way.
                                 break;
                         default:
-                                process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
                                 break;
                         }
                 }
@@ -406,6 +410,9 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                 }
                 return;
         }
+
+        if (process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state))
+                return;
 
         if (is_input_keypress(input)) {
                 int hasCodepoint = input->data.tKey.hasCodepoint;
@@ -440,7 +447,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                                 go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         default:
-                                process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
                                 break;
                         }
                 }
@@ -456,7 +462,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
                                 go_to_major_mode_in_vi(state, VIMODE_NORMAL);
                                 break;
                         default:
-                                process_movements_in_ViMode_NORMAL_or_SELECTING(input, edit, state);
                                 break;
                         }
                 }
