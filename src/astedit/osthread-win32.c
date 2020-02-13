@@ -1,5 +1,5 @@
 #include <astedit/astedit.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/logging.h>
 #include <astedit/osthread.h>
 #include <Windows.h>

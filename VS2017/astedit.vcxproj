@@ -151,7 +151,7 @@
     <ClCompile Include="..\src\astedit\listselect.c" />
     <ClCompile Include="..\src\astedit\logging.c" />
     <ClCompile Include="..\src\astedit\main.c" />
-    <ClCompile Include="..\src\astedit\memoryalloc.c" />
+    <ClCompile Include="..\src\astedit\memory.c" />
     <ClCompile Include="..\src\astedit\mutex-win32.c" />
     <ClCompile Include="..\src\astedit\osthread-win32.c" />
     <ClCompile Include="..\src\astedit\regex.c" />
@@ -194,7 +194,7 @@
     <ClInclude Include="..\include\astedit\lineedit.h" />
     <ClInclude Include="..\include\astedit\listselect.h" />
     <ClInclude Include="..\include\astedit\logging.h" />
-    <ClInclude Include="..\include\astedit\memoryalloc.h" />
+    <ClInclude Include="..\include\astedit\memory.h" />
     <ClInclude Include="..\include\astedit\mutex.h" />
     <ClInclude Include="..\include\astedit\osthread.h" />
     <ClInclude Include="..\include\astedit\regex.h" />

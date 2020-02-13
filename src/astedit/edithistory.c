@@ -1,6 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/textedit.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/edithistory.h>
 
 

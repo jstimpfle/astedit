@@ -1,6 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/listselect.h>
 
 void setup_ListSelect(struct ListSelect *list)

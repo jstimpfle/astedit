@@ -59,6 +59,7 @@ struct TextEdit {
         FILEPOS cursorBytePosition;
         FILEPOS firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
         FILEPOS numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
+        FILEPOS numberOfColumnsDisplayed;
 
         struct EditItem startItem; // sentinel
         struct EditItem *editHistory;

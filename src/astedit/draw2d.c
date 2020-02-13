@@ -1,5 +1,5 @@
 #include <astedit/astedit.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/bytes.h>
 #include <astedit/editor.h>
 #include <astedit/logging.h>

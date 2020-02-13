@@ -3,7 +3,7 @@
 #include <astedit/draw2d.h>
 #include <astedit/textureatlas.h>
 #include <astedit/logging.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/utf8.h>
 #include <astedit/font.h>
 #include <stdint.h>

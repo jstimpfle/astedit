@@ -2,7 +2,7 @@
 #include <astedit/bytes.h>
 #include <astedit/textrope.h>
 #include <astedit/logging.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/utf8.h>
 #include <astedit/textropeUTF8decode.h>
 

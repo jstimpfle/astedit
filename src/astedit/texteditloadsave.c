@@ -1,7 +1,7 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
 #include <astedit/logging.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/utf8.h>
 #include <astedit/textedit.h>
 #include <astedit/texteditloadsave.h>

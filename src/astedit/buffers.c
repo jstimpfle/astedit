@@ -1,6 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/bytes.h>
-#include <astedit/memoryalloc.h>
+#include <astedit/memory.h>
 #include <astedit/window.h>
 #include <astedit/textedit.h>
 #include <astedit/buffers.h>
