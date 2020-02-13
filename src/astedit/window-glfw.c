@@ -113,53 +113,37 @@ static int glfwmods_to_modifiers(int mods)
         return modifiers;
 }
 
-static void enqueue_key_input(
-        enum KeyKind keyKind, enum KeyEventKind keyEventKind,
-        int modifierMask, int hasCodepoint, unsigned codepoint)
-{
-        struct Input inp;
-        inp.inputKind = INPUT_KEY;
-        inp.data.tKey.keyKind = keyKind;
-        inp.data.tKey.keyEventKind = keyEventKind;
-        inp.data.tKey.modifierMask = modifierMask;
-        inp.data.tKey.hasCodepoint = hasCodepoint;
-        inp.data.tKey.codepoint = codepoint;
-        enqueue_input(&inp);
-}
-
 static void mouse_cb_glfw(GLFWwindow *win, int button, int action, int mods)
 {
         UNUSED(win);
-        enum MousebuttonEventKind mousebuttonEventKind;
-
-        if (action == GLFW_PRESS)
-                mousebuttonEventKind = MOUSEBUTTONEVENT_PRESS;
-        else if (action == GLFW_RELEASE)
-                mousebuttonEventKind = MOUSEBUTTONEVENT_RELEASE;
-        else
-                return;
+        enum MousebuttonKind mousebuttonKind = -1;
+        enum MousebuttonEventKind mousebuttoneventKind;
 
         for (int i = 0; i < LENGTH(glfwMousebuttonToMousebutton); i++) {
                 if (button == glfwMousebuttonToMousebutton[i].glfwMousebutton) {
-                        enum MousebuttonKind mousebuttonKind = glfwMousebuttonToMousebutton[i].mousebutton;
-                        struct Input inp;
-                        inp.inputKind = INPUT_MOUSEBUTTON;
-                        inp.data.tMousebutton.mousebuttonKind = mousebuttonKind;
-                        inp.data.tMousebutton.mousebuttonEventKind = mousebuttonEventKind;
-                        inp.data.tMousebutton.modifiers = glfwmods_to_modifiers(mods);
-                        enqueue_input(&inp);
+                        mousebuttonKind = glfwMousebuttonToMousebutton[i].mousebutton;
+                        break;
                 }
         }
+        if (mousebuttonKind == -1)
+                return;
+
+        if (action == GLFW_PRESS)
+                mousebuttoneventKind = MOUSEBUTTONEVENT_PRESS;
+        else if (action == GLFW_RELEASE)
+                mousebuttoneventKind = MOUSEBUTTONEVENT_RELEASE;
+        else
+                return;
+
+        int modifiers = glfwmods_to_modifiers(mods);
+
+        enqueue_mousebutton_input(mousebuttonKind, mousebuttoneventKind, modifiers);
 }
 
 static void cursor_cb_glfw(GLFWwindow *win, double xoff, double yoff)
 {
         UNUSED(win);
-        struct Input inp;
-        inp.inputKind = INPUT_CURSORMOVE;
-        inp.data.tCursormove.pixelX = (int)xoff;
-        inp.data.tCursormove.pixelY = (int)yoff;
-        enqueue_input(&inp);
+        enqueue_cursormove_input((int) xoff, (int) yoff);
 }
 
 static void scroll_cb_glfw(GLFWwindow *win, double xoff, double yoff)
@@ -232,11 +216,7 @@ static void windowsize_cb_glfw(GLFWwindow *win, int width, int height)
                 return;
         }
 
-        struct Input inp;
-        inp.inputKind = INPUT_WINDOWRESIZE;
-        inp.data.tWindowresize.width = width;
-        inp.data.tWindowresize.height = height;
-        enqueue_input(&inp);
+        enqueue_windowsize_input(width, height);
 
         //XXX: there's an issue that glfwPollEvents() blocks on some platforms
         // during a window move or resize (see notes in GLFW docs).
@@ -298,7 +278,7 @@ void setup_window(void)
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
         //glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         //glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);  // window size dependent on monitor scale
-        windowGlfw = glfwCreateWindow(1024, 768, "Astedit", NULL, NULL);
+        windowGlfw = glfwCreateWindow(1024, 768, "Untitled Window", NULL, NULL);
         if (!windowGlfw)
                 fatal("Failed to create GLFW window\n");
 

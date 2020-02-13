@@ -42,7 +42,7 @@ static void _fatal_regex_parse_error_fv(struct LogInfo logInfo,
 {
         ctx->bad = 1;
 
-#if 0
+#if 1
         _log_begin(logInfo);
         log_writef("ERROR In pattern at char #%d: ", ctx->currentCharIndex);
         log_writefv(fmt, ap);

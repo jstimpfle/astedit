@@ -645,9 +645,13 @@ static void lay_out_TextEdit(int canvasW, int canvasH, struct TextEdit *edit)
 
         textAreaY = 0;
         textAreaH = canvasH - statuslineH;
+        if (textAreaH < 0)
+                textAreaH = 1;
 
         linesY = 0;
         linesH = canvasH - statuslineH;
+        if (linesH < 0)
+                linesH = 0;
 
         // XXX is here the right place to do this?
         edit->numberOfLinesDisplayed = textAreaH / lineHeightPx;

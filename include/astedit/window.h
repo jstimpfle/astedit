@@ -182,6 +182,13 @@ DATA int windowHeightInPixels;
 
 
 void enqueue_input(const struct Input *input);
+void enqueue_key_input(enum KeyKind keyKind, enum KeyEventKind keyEventKind,
+        int modifierMask, int hasCodepoint, uint32_t codepoint);
+void enqueue_mousebutton_input(enum MousebuttonKind mousebuttonKind,
+        enum MousebuttonEventKind mousebuttoneventKind, int modifiers);
+void enqueue_cursormove_input(int xoff, int yoff);
+void enqueue_windowsize_input(int width, int height);
+
 int look_input(struct Input *input);
 void consume_input(void);
 

@@ -87,6 +87,7 @@ int main(int argc, const char **argv)
         check if we can speed this up by calling directly into Win32. */
         start_timer(&windowSetupTimer);
         setup_window();
+        set_window_title("Astedit");
         stop_timer(&windowSetupTimer);
         report_timer(&windowSetupTimer, "Setting up graphics window");
 
