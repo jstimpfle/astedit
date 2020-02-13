@@ -65,6 +65,15 @@ static void destroy_textnode(struct Textnode *textnode)
         FREE_MEMORY(&textnode);
 }
 
+static void destroy_textrope_subtree(struct rb3_head *head)
+{
+        if (head != NULL) {
+                destroy_textrope_subtree(rb3_get_child(head, RB3_LEFT));
+                destroy_textrope_subtree(rb3_get_child(head, RB3_RIGHT));
+                destroy_textnode(textnode_from_head(head));
+        }
+}
+
 struct Textrope *create_textrope(void)
 {
         struct Textrope *textrope;
@@ -75,11 +84,9 @@ struct Textrope *create_textrope(void)
 
 void destroy_textrope(struct Textrope *textrope)
 {
+        destroy_textrope_subtree(rb3_get_root(&textrope->tree));
         FREE_MEMORY(&textrope);
-        // TODO destroy all nodes
 }
-
-
 
 
 
