@@ -83,55 +83,6 @@ static const struct {
         { XK_9, KEY_9, },
 };
 
-static void send_mousemove_event(int x, int y)
-{
-        struct Input input;
-        input.inputKind = INPUT_CURSORMOVE;
-        input.data.tCursormove.pixelX = x;
-        input.data.tCursormove.pixelY = y;
-        enqueue_input(&input);
-}
-
-static void send_mousebutton_event(int mousebuttonKind, int mousebuttoneventKind)
-{
-        struct Input input;
-        input.inputKind = INPUT_MOUSEBUTTON;
-        input.data.tMousebutton.mousebuttonKind = mousebuttonKind;
-        input.data.tMousebutton.mousebuttonEventKind = mousebuttoneventKind;
-        input.data.tMousebutton.modifiers = 0;
-        enqueue_input(&input);
-}
-
-static void send_scroll_event(int keyKind)
-{
-        struct Input input;
-        input.inputKind = INPUT_KEY;
-        input.data.tKey.keyKind = keyKind;
-        input.data.tKey.keyEventKind = KEYEVENT_PRESS;
-        enqueue_input(&input);
-}
-
-static void send_key_event(int keyKind, int keyeventKind, int modifiers, int haveCodepoint, uint32_t codepoint)
-{
-        struct Input input = {0};
-        input.inputKind = INPUT_KEY;
-        input.data.tKey.keyKind = keyKind;
-        input.data.tKey.keyEventKind = keyeventKind;
-        input.data.tKey.modifierMask = modifiers;
-        input.data.tKey.hasCodepoint = haveCodepoint;
-        input.data.tKey.codepoint = codepoint;
-        enqueue_input(&input);
-}
-
-static void send_windowresize_event(int width, int height)
-{
-        struct Input input;
-        input.inputKind = INPUT_WINDOWRESIZE;
-        input.data.tWindowresize.width = width;
-        input.data.tWindowresize.height = height;
-        enqueue_input(&input);
-}
-
 
 #define LENGTH(a) (sizeof (a) / sizeof (a)[0])
 
@@ -241,12 +192,25 @@ static int xbutton_to_mousebuttonKind(int xbutton)
         return -1;
 }
 
+static int modifiers_from_state(unsigned int state)
+{
+        int modifiers = 0;
+        if (state & ControlMask)
+                modifiers |= MODIFIER_CONTROL;
+        if (state & Mod1Mask)
+                modifiers |= MODIFIER_MOD;
+        if (state & ShiftMask)
+                modifiers |= MODIFIER_SHIFT;
+        return modifiers;
+}
+
 static void handle_x11_button_press_or_release(XButtonEvent *xbutton, int mousebuttoneventKind)
 {
+        int modifiers = modifiers_from_state(xbutton->state);
         if (xbutton->button == 4 || xbutton->button == 5) {
                 if (mousebuttoneventKind == MOUSEBUTTONEVENT_PRESS) {
                         int keyKind = xbutton->button == 4 ? KEY_SCROLLUP : KEY_SCROLLDOWN;
-                        send_scroll_event(keyKind);
+                        enqueue_key_input(keyKind, KEYEVENT_PRESS, modifiers, 0, 0);
                 }
                 else {
                         // should not happen normally
@@ -254,7 +218,7 @@ static void handle_x11_button_press_or_release(XButtonEvent *xbutton, int mouseb
         }
         else {
                 int mousebuttonKind = xbutton_to_mousebuttonKind(xbutton->button);
-                send_mousebutton_event(mousebuttonKind, mousebuttoneventKind);
+                enqueue_mousebutton_input(mousebuttonKind, mousebuttoneventKind, modifiers);
         }
 }
 
@@ -264,7 +228,7 @@ void fetch_all_pending_events(void)
         {
                 XWindowAttributes wa;
                 XGetWindowAttributes(display, window, &wa);
-                send_windowresize_event(wa.width, wa.height);
+                enqueue_windowsize_input(wa.width, wa.height);
         }
 
         while (XPending(display)) {
@@ -319,20 +283,14 @@ void fetch_all_pending_events(void)
                                         }
                                 }
                         }
-                        int modifiers = 0;
-                        if (key->state & ControlMask)
-                                modifiers |= MODIFIER_CONTROL;
-                        if (key->state & Mod1Mask)
-                                modifiers |= MODIFIER_MOD;
-                        if (key->state & ShiftMask)
-                                modifiers |= MODIFIER_SHIFT;
-                        send_key_event(keyKind, KEYEVENT_PRESS, modifiers, haveCodepoint, codepoint);
+                        int modifiers = modifiers_from_state(key->state);
+                        enqueue_key_input(keyKind, KEYEVENT_PRESS, modifiers, haveCodepoint, codepoint);
                 }
                 else if (event.type == MotionNotify) {
                         XMotionEvent *motion = &event.xmotion;
                         int x = motion->x;
                         int y = motion->y;
-                        send_mousemove_event(x, y);
+                        enqueue_cursormove_input(x, y);
                 }
                 else if (event.type == ButtonPress) {
                         XButtonEvent *button = &event.xbutton;
