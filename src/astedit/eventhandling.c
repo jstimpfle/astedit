@@ -296,13 +296,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_NORMAL(
 
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 int modifiers = input->data.tKey.modifierMask;
-                /* !hasCodepoint currently means that the event came from GLFW's low-level
-                key-Callback, and not the unicode Callback.
-                We would like to use low-level access because that provides the modifiers,
-                but unfortunately it doesn't respect keyboard layout, so we use high-level
-                access (which doesn't provide modifiers). It's not clear at this point how
-                we should handle combinations like Ctrl+Z while respecting keyboard layout.
-                (There's a github issue for that). */
                 if (hasCodepoint) {
                         switch (input->data.tKey.codepoint) {
                         case ':':
@@ -417,17 +410,6 @@ static void process_input_in_TextEdit_with_ViMode_in_VIMODE_SELECTING(
         if (is_input_keypress(input)) {
                 int hasCodepoint = input->data.tKey.hasCodepoint;
                 int modifiers = input->data.tKey.modifierMask;
-                /* !hasCodepoint currently means that the event came from GLFW's low-level
-                key-Callback, and not the unicode Callback.
-                We would like to use low-level access because that provides the modifiers,
-                but unfortunately it doesn't respect keyboard layout, so we use high-level
-                access (which doesn't provide modifiers). It's not clear at this point how
-                we should handle combinations like Ctrl+Z while respecting keyboard layout.
-                (There's a github issue for that). */
-                /* Update 2020-01, the X11 backend now gives the events a little
-                 * differently. I still don't know how to handle the situation,
-                 * but for now I'll ocnsider the unicode codepoint if there is
-                 * no modifer and otherwise I'll consider the KEY_ vlaue */
                 if (hasCodepoint) {
                         switch (input->data.tKey.codepoint) {
                         case 'c':
@@ -620,6 +602,15 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
 
         if (is_input_keypress_of_key_and_modifiers(input, KEY_N, MODIFIER_CONTROL)) {
                 globalData.isShowingLineNumbers ^= 1;
+                return;
+        }
+
+        if (is_input_keypress_of_key_and_modifiers(input, KEY_SCROLLUP, MODIFIER_CONTROL)) {
+                increase_zoom();
+                return;
+
+        if (is_input_keypress_of_key_and_modifiers(input, KEY_SCROLLDOWN, MODIFIER_CONTROL)) {
+                decrease_zoom();
                 return;
         }
 
