@@ -162,8 +162,23 @@ static void scroll_cb_glfw(GLFWwindow *win, double xoff, double yoff)
         else
                 return;
 
+        /* XXX: ugly hack to support modifiers with scrolling in GLFW. */
+        /* That glfwGetKey() returns GLFW_PRESS / GLFW_RELEASE is what we should
+         * expect, even though it's a flaw in the API in my opinion, since that
+         * naming confuses edge-triggered with level-triggered view
+         * (GLFW_UP / GLFW_DOWN would have been better). */
         int modifiers = 0;
+        if (glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+            glfwGetKey(win, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS)
+                modifiers |= MODIFIER_CONTROL;
+        if (glfwGetKey(win, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
+            glfwGetKey(win, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS)
+                modifiers |= MODIFIER_MOD;
+        if (glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+            glfwGetKey(win, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
+                modifiers |= MODIFIER_SHIFT;
         int hasCodepoint = 0;
+
         unsigned codepoint = 0;
         enqueue_key_input(keyKind, KEYEVENT_PRESS, modifiers, hasCodepoint, codepoint);
 }
