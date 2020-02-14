@@ -608,6 +608,7 @@ void process_input_in_TextEdit(struct Input *input, struct TextEdit *edit)
         if (is_input_keypress_of_key_and_modifiers(input, KEY_SCROLLUP, MODIFIER_CONTROL)) {
                 increase_zoom();
                 return;
+        }
 
         if (is_input_keypress_of_key_and_modifiers(input, KEY_SCROLLDOWN, MODIFIER_CONTROL)) {
                 decrease_zoom();
