@@ -35,6 +35,7 @@ void alloc_memory(void **ptr, int numElems, int elemSize)
 
 void free_memory(void **ptr)
 {
-        free((char*)*ptr - NUM_OVERALLOCATED_BYTES);
+        if (*ptr != NULL)
+                free((char*)*ptr - NUM_OVERALLOCATED_BYTES);
         *ptr = NULL;
 }
