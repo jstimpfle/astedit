@@ -190,9 +190,9 @@ LRESULT CALLBACK my_window_proc(
         }
         else if (msg == WM_MOUSEWHEEL) {
                 float direction = GET_WHEEL_DELTA_WPARAM(wParam) / (float) WHEEL_DELTA;
-                enum KeyeventKind keyeventKind = direction > 0 ? KEY_SCROLLUP : KEY_SCROLLDOWN;
+                enum KeyKind keyKind = direction > 0 ? KEY_SCROLLUP : KEY_SCROLLDOWN;
                 int modifiers = get_modifiers();
-                enqueue_key_input(keyeventKind, KEYEVENT_PRESS, modifiers, 0, 0);
+                enqueue_key_input(keyKind, KEYEVENT_PRESS, modifiers, 0, 0);
                 return TRUE;
         }
         else if (msg == WM_WINDOWPOSCHANGED) {
