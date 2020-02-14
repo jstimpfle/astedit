@@ -139,7 +139,9 @@ static FILEPOS compute_number_of_codepoints_in_line(struct Textrope *rope, FILEP
         // XXX compute_pos_of_line() currently clamps line numbers to the valid
         // range. We might want to change that later.
         FILEPOS p0 = compute_pos_of_line(rope, lineNumber);
-        FILEPOS p1 = compute_pos_of_line(rope, lineNumber + 1);
+        FILEPOS p1 = lineNumber < textrope_number_of_lines(rope)
+                ? compute_pos_of_line(rope, lineNumber + 1)
+                : textrope_length(rope);
         return compute_codepoint_position(rope, p1)
                 - compute_codepoint_position(rope, p0);
 }
