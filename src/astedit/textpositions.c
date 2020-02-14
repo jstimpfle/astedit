@@ -168,11 +168,15 @@ void get_position_line_begin(struct TextEdit *edit, struct FileCursor *fc)
 void get_position_line_end(struct TextEdit *edit, struct FileCursor *fc)
 {
         FILEPOS lineNumber = compute_line_number(edit->rope, fc->bytePosition);
-        if (lineNumber == textrope_number_of_lines_quirky(edit->rope) - 1) {
-                if (lineNumber != textrope_number_of_lines(edit->rope) - 1) {
-                        fc->bytePosition = textrope_length(edit->rope);
-                        return;
-                }
+        FILEPOS numLines = textrope_number_of_lines(edit->rope);
+        /* if the line number that we're on here equals the number of lines,
+         * that can be one of two cases: either that line is empty (i.e. we're
+         * at the one-past-last-index), or that line is not empty (i.e. it is a
+         * "quirky" line. In both cases (coincidentally) we want to end up
+         * on the one-past-last index. */
+        if (lineNumber == numLines) {
+                fc->bytePosition = textrope_length(edit->rope);
+                return;
         }
         FILEPOS nextLinePos = compute_pos_of_line(edit->rope, lineNumber + 1);
         FILEPOS newlinePos = nextLinePos - 1;
@@ -192,7 +196,6 @@ void get_position_left(struct TextEdit *edit, struct FileCursor *fc)
 
 void get_position_right(struct TextEdit *edit, struct FileCursor *fc)
 {
-        //XXX
         struct FileCursor lineEnd = { fc->bytePosition, 0 };
         get_position_line_end(edit, &lineEnd);
         if (fc->bytePosition == lineEnd.bytePosition)  // TODO: lineendPos is where the newline char is, right?
