@@ -93,6 +93,7 @@ static GLint att[] = {
         GLX_RGBA,
         GLX_DEPTH_SIZE, 24,
         GLX_DOUBLEBUFFER,
+        GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, 1,
         GLX_SAMPLE_BUFFERS, 1, // <-- MSAA
         GLX_SAMPLES, 4, // <-- MSAA
         None,
