@@ -24,10 +24,15 @@ in the text if the text length is > 0 and the last character isn't '\n'
 */
 FILEPOS textrope_number_of_lines_quirky(struct Textrope *rope);
 
+void compute_line_number_and_codepoint_position(
+        struct Textrope *rope, FILEPOS pos, FILEPOS *outLinenumber, FILEPOS *outCodepointPosition);
+void compute_pos_and_line_number_from_codepoint(
+        struct Textrope *rope, FILEPOS codepointPos, FILEPOS *outPos, FILEPOS *outLineNumber);
+void compute_pos_and_codepoint_of_line(
+        struct Textrope *rope, FILEPOS lineNumber, FILEPOS *outPos, FILEPOS *outCodepointPos);
+
 FILEPOS compute_codepoint_position(struct Textrope *rope, FILEPOS pos);
 FILEPOS compute_line_number(struct Textrope *rope, FILEPOS pos);
-void compute_line_number_and_codepoint_position(struct Textrope *rope, FILEPOS pos, FILEPOS *outLinenumber, FILEPOS *outCodepointPosition);
-
 FILEPOS compute_pos_of_codepoint(struct Textrope *rope, FILEPOS codepointPos);
 FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber);
 FILEPOS compute_pos_of_line_end(struct Textrope *rope, FILEPOS lineNumber);

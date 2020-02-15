@@ -223,7 +223,6 @@ static void init_textiter(struct Textiter *iter, struct Textrope *rope)
         }
 }
 
-
 static void go_to_left_child(struct Textiter *iter)
 {
         ENSURE(iter->current != NULL);
@@ -262,17 +261,17 @@ static void go_to_right_child(struct Textiter *iter)
 
 
 
-static int is_last_line_end(struct rb3_head *head)
+static int is_last_byte_end_of_line(struct rb3_head *head)
 {
         struct Textnode *node = textnode_from_head(head);
         ENSURE(node->ownLength > 0);
         return node->text[node->ownLength - 1] == '\n';
 }
 
-static int is_first_line_start(struct rb3_head *head)
+static int is_first_byte_start_of_line(struct rb3_head *head)
 {
         struct rb3_head *prev = rb3_get_prev(head);
-        return prev == NULL || is_last_line_end(prev);
+        return prev == NULL || is_last_byte_end_of_line(prev);
 }
 
 
@@ -300,11 +299,11 @@ static struct Textiter find_first_node_that_contains_the_given_line(struct Textr
         while (iter->current != NULL) {
                 if (iter->line > line)
                         go_to_left_child(iter);
-                else if (iter->line == line && !is_first_line_start(iter->current))
+                else if (iter->line == line && !is_first_byte_start_of_line(iter->current))
                         go_to_left_child(iter);
                 else if (iter->line + own_lines(iter->current) < line)
                         go_to_right_child(iter);
-                else if (iter->line + own_lines(iter->current) == line && is_last_line_end(iter->current))
+                else if (iter->line + own_lines(iter->current) == line && is_last_byte_end_of_line(iter->current))
                         go_to_right_child(iter);
                 else
                         break;
@@ -348,34 +347,90 @@ static int compute_internal_distance(struct Textiter *iter, FILEPOS pos)
 void compute_line_number_and_codepoint_position(
         struct Textrope *rope, FILEPOS pos, FILEPOS *outLinenumber, FILEPOS *outCodepointPosition)
 {
-        FILEPOS lineNumber;
-        FILEPOS codepointPosition;
         ENSURE(0 <= pos && pos <= textrope_length(rope));
-        if (pos == 0) {
-                lineNumber = 0;
-                codepointPosition = 0;
+        if (pos == textrope_length(rope)) {
+                *outLinenumber = textrope_number_of_lines(rope);
+                *outCodepointPosition = textrope_number_of_codepoints(rope);
+                return;
         }
-        else if (pos == textrope_length(rope)) {
-                lineNumber = textrope_number_of_lines(rope);
-                codepointPosition = textrope_number_of_codepoints(rope);
+        struct Textiter iter = find_first_node_that_contains_the_character_at_pos(rope, pos);
+        ENSURE(iter.current != NULL);
+        struct Textnode *node = textnode_from_head(iter.current);
+        FILEPOS currentPos = iter.pos;
+        FILEPOS currentLine = iter.line;
+        FILEPOS currentCodepoint = iter.codepointPosition;
+        for (int i = 0; ; i++) {
+                ENSURE(i < node->ownLength);
+                int c = node->text[i];
+                if (is_utf8_leader_byte(c))
+                        currentCodepoint++;
+                if (currentPos == pos)
+                        break;
+                currentPos++;
+                if (c == '\n')
+                        currentLine++;
         }
-        else {
-                struct Textiter textiter = find_first_node_that_contains_the_character_at_pos(rope, pos);
-                struct Textiter *iter = &textiter;
-                ENSURE(iter->current != NULL);
-                struct Textnode *node = textnode_from_head(iter->current);
-                lineNumber = iter->line;
-                codepointPosition = iter->codepointPosition;
-                FILEPOS internalOffset = pos - iter->pos;
-                for (FILEPOS i = 0; i < internalOffset; i++) {
-                        if (node->text[i] == '\n')
-                                lineNumber++;
-                        if (is_utf8_leader_byte(node->text[i]))
-                                codepointPosition++;
-                }
+        *outLinenumber = currentLine;
+        *outCodepointPosition = currentCodepoint;
+}
+
+void compute_pos_and_line_number_from_codepoint(
+        struct Textrope *rope, FILEPOS codepointPos, FILEPOS *outPos, FILEPOS *outLineNumber)
+{
+        ENSURE(0 <= codepointPos && codepointPos <= textrope_number_of_codepoints(rope));
+        if (codepointPos == textrope_number_of_codepoints(rope)) {
+                *outPos = textrope_length(rope);
+                *outLineNumber = textrope_number_of_codepoints(rope);
+                return;
         }
-        *outLinenumber = lineNumber;
-        *outCodepointPosition = codepointPosition;
+        struct Textiter iter = find_first_node_that_contains_the_given_codepointPos(rope, codepointPos);
+        ENSURE(iter.current != NULL);  // caller should check range first
+        struct Textnode *node = textnode_from_head(iter.current);
+        FILEPOS currentPos = iter.pos;
+        FILEPOS currentCodepoint = iter.codepointPosition;
+        FILEPOS currentLine = iter.line;
+        for (int i = 0; ; i++) {
+                ENSURE(i < node->ownLength);
+                int c = node->text[i];
+                if (is_utf8_leader_byte(c))
+                        currentCodepoint++;
+                if (currentCodepoint == codepointPos)
+                        break;
+                currentPos++;
+                if (c == '\n')
+                        currentLine++;
+        }
+        *outPos = currentPos;
+        *outLineNumber = currentLine;
+}
+
+void compute_pos_and_codepoint_of_line(struct Textrope *rope, FILEPOS lineNumber, FILEPOS *outPos, FILEPOS *outCodepointPos)
+{
+        ENSURE(lineNumber <= textrope_number_of_lines_quirky(rope));
+        if (lineNumber == textrope_number_of_lines_quirky(rope)) {
+                *outPos = textrope_length(rope);
+                *outCodepointPos = textrope_number_of_codepoints(rope);
+                return;
+        }
+        struct Textiter iter = find_first_node_that_contains_the_given_line(rope, lineNumber);
+        struct Textnode *node = textnode_from_head(iter.current);
+        ENSURE(node != 0);
+        FILEPOS currentPos = iter.pos;
+        FILEPOS codepointPosition = iter.codepointPosition;
+        FILEPOS currentLine = iter.line;
+        for (int i = 0; ; i++) {
+                ENSURE(i < node->ownLength); // I believe this can break with "quirky" lines
+                int c = node->text[i];
+                if (is_utf8_leader_byte(c))
+                        codepointPosition++;
+                if (currentLine == lineNumber)
+                        break;
+                currentPos++;
+                if (c == '\n')
+                        currentLine++;
+        }
+        *outPos = currentPos;
+        *outCodepointPos = codepointPosition;
 }
 
 FILEPOS compute_codepoint_position(struct Textrope *rope, FILEPOS pos)
@@ -394,49 +449,20 @@ FILEPOS compute_line_number(struct Textrope *rope, FILEPOS pos)
         return lineNumber;
 }
 
-
-
-
 FILEPOS compute_pos_of_codepoint(struct Textrope *rope, FILEPOS codepointPos)
 {
-        struct Textiter textiter = find_first_node_that_contains_the_given_codepointPos(rope, codepointPos);
-        struct Textiter *iter = &textiter;
-        FILEPOS currentCodepoints = iter->codepointPosition;
-        FILEPOS internalPos = 0;
-        if (iter->current != NULL) {
-                struct Textnode *node = textnode_from_head(iter->current);
-                while (internalPos < node->ownLength) {
-                        if (is_utf8_leader_byte(node->text[internalPos])) {
-                                if (currentCodepoints == codepointPos)
-                                        break;
-                                currentCodepoints++;
-                        }
-                        internalPos++;
-                }
-        }
-        return iter->pos + internalPos;
+        FILEPOS pos;
+        FILEPOS lineNumber;
+        compute_pos_and_line_number_from_codepoint(rope, codepointPos, &pos, &lineNumber);
+        return pos;
 }
 
 FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber)
 {
-        ENSURE(lineNumber <= textrope_number_of_lines_quirky(rope));
-        //XXX special case. TODO: should we restrict this to at most
-        //one-line-past-end?
-        if (lineNumber >= textrope_number_of_lines_quirky(rope))
-                return textrope_length(rope);
-
-        struct Textiter textiter = find_first_node_that_contains_the_given_line(rope, lineNumber);
-        struct Textiter *iter = &textiter;
-        struct Textnode *node = textnode_from_head(iter->current);
-        FILEPOS internalPos = 0;
-        FILEPOS currentLine = iter->line;
-        while (currentLine < lineNumber) {
-                ENSURE(internalPos < node->ownLength); // I believe this can break with "quirky" lines
-                if (node->text[internalPos] == '\n')
-                        currentLine++;
-                internalPos++;
-        }
-        return iter->pos + internalPos;
+        FILEPOS position;
+        FILEPOS codepointPosition;
+        compute_pos_and_codepoint_of_line(rope, lineNumber, &position, &codepointPosition);
+        return position;
 }
 
 FILEPOS compute_pos_of_line_end(struct Textrope *rope, FILEPOS lineNumber)
