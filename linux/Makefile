@@ -56,13 +56,14 @@ src/astedit/zoom.c \
 src/blunt/lex.c \
 src/rb3ptr.c
 
-ifeq ($(WITH_X11_BACKEND), y)
-LDFLAGS += $(shell pkg-config --libs x11)
-CFILES += src/astedit/window-x11.c
-else
+# GLFW backend is deprecated
+ifeq ($(WITH_GLFW_BACKEND), y)
 CFLAGS += $(shell pkg-config --cflags glfw3)
 LDFLAGS += $(shell pkg-config --libs glfw3)
 CFILES += src/astedit/window-glfw.c
+else
+LDFLAGS += $(shell pkg-config --libs x11)
+CFILES += src/astedit/window-x11.c
 endif
 
 
