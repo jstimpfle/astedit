@@ -11,22 +11,6 @@ enum {
         LINES_PER_PAGE = 15,   // XXX this value should be dependent on the current GUI viewport probably.
 };
 
-static void get_position_codepoint(struct TextEdit *edit, struct FileCursor *cursor, FILEPOS codepointPos)
-{
-        FILEPOS totalCodepoints = textrope_number_of_codepoints(edit->rope);
-        if (codepointPos < 0) {
-                cursor->didHitBoundary = 1;
-                cursor->bytePosition = 0;
-        }
-        else if (codepointPos > totalCodepoints) {
-                cursor->didHitBoundary = 1;
-                cursor->bytePosition = textrope_length(edit->rope);
-        }
-        else {
-                cursor->bytePosition = compute_pos_of_codepoint(edit->rope, codepointPos);
-        }
-}
-
 void get_position_of_line(struct TextEdit *edit, struct FileCursor *fc, FILEPOS lineNumber)
 {
         FILEPOS totalLines = textrope_number_of_lines_quirky(edit->rope);
@@ -46,13 +30,19 @@ void get_position_of_line(struct TextEdit *edit, struct FileCursor *fc, FILEPOS 
 void get_position_next_codepoint(struct TextEdit *edit, struct FileCursor *fc)
 {
         FILEPOS codepointPos = compute_codepoint_position(edit->rope, fc->bytePosition);
-        get_position_codepoint(edit, fc, codepointPos + 1);
+        if (codepointPos < textrope_number_of_codepoints(edit->rope))
+                fc->bytePosition = compute_pos_of_codepoint(edit->rope, codepointPos + 1);
+        else
+                fc->didHitBoundary = 1;
 }
 
 void get_position_prev_codepoint(struct TextEdit *edit, struct FileCursor *fc)
 {
         FILEPOS codepointPos = compute_codepoint_position(edit->rope, fc->bytePosition);
-        get_position_codepoint(edit, fc, codepointPos - 1);
+        if (codepointPos > 0)
+                fc->bytePosition = compute_pos_of_codepoint(edit->rope, codepointPos - 1);
+        else
+                fc->didHitBoundary = 1;
 }
 
 void get_position_next_word(struct TextEdit *edit, struct FileCursor *fc)
@@ -109,8 +99,19 @@ void get_position_previous_word(struct TextEdit *edit, struct FileCursor *fc)
 
 void get_position_codepoints_relative(struct TextEdit *edit, struct FileCursor *fc, FILEPOS codepointsDiff)
 {
-        FILEPOS oldCodepointPos = compute_codepoint_position(edit->rope, fc->bytePosition);
-        get_position_codepoint(edit, fc, oldCodepointPos + codepointsDiff);
+        FILEPOS codepointPos = compute_codepoint_position(edit->rope, fc->bytePosition)
+                                + codepointsDiff;
+        if (codepointPos < 0) {
+                fc->bytePosition = 0;
+                fc->didHitBoundary = 1;
+        }
+        else if (codepointPos >= textrope_length(edit->rope)) {
+                fc->bytePosition = textrope_length(edit->rope);
+                fc->didHitBoundary = 1;
+        }
+        else {
+                fc->bytePosition = compute_pos_of_codepoint(edit->rope, codepointPos);
+        }
 }
 
 void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, FILEPOS linesDiff)
@@ -122,13 +123,19 @@ void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, F
         FILEPOS newLineNumber = oldLineNumber + linesDiff;
         if (newLineNumber < 0) {
                 fc->didHitBoundary = 1;
+                /* don't move */
         }
         else if (newLineNumber >= textrope_number_of_lines_quirky(edit->rope)) {
                 fc->didHitBoundary = 1;
+                /* don't move */
         }
         else {
-                FILEPOS oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
-                FILEPOS oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
+                /* compute column offset using line number and codepoint
+                 * position */
+                FILEPOS oldLinePos;
+                FILEPOS oldLineCodepointPosition;
+                compute_pos_and_codepoint_of_line(edit->rope, oldLineNumber,
+                                                  &oldLinePos, &oldLineCodepointPosition);
                 FILEPOS codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
                 get_position_of_line_and_column(edit, fc, newLineNumber, codepointColumn);
         }
@@ -136,32 +143,32 @@ void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, F
 
 FILEPOS compute_column(struct Textrope *rope, FILEPOS bytePos)
 {
-        FILEPOS lineNumber = compute_line_number(rope, bytePos);
-        FILEPOS linePosition = compute_pos_of_line(rope, lineNumber);
-        FILEPOS columnNumber = compute_codepoint_position(rope, bytePos)
-                                - compute_codepoint_position(rope, linePosition);
+        FILEPOS lineNumber;
+        FILEPOS codepointPosition;
+        compute_line_number_and_codepoint_position(rope, bytePos, &lineNumber, &codepointPosition);
+        FILEPOS columnNumber = codepointPosition
+                                - compute_codepoint_of_line(rope, lineNumber);
         return columnNumber;
 }
 
 FILEPOS compute_number_of_codepoints_in_line(struct Textrope *rope, FILEPOS lineNumber)
 {
-        FILEPOS p0 = compute_pos_of_line(rope, lineNumber);
-        FILEPOS p1 = lineNumber < textrope_number_of_lines(rope)
-                ? compute_pos_of_line(rope, lineNumber + 1)
-                : textrope_length(rope);
-        return compute_codepoint_position(rope, p1)
-                - compute_codepoint_position(rope, p0);
+        FILEPOS cp0 = compute_codepoint_of_line(rope, lineNumber);
+        FILEPOS cp1 = lineNumber < textrope_number_of_lines(rope)
+                ? compute_codepoint_of_line(rope, lineNumber + 1)
+                : textrope_number_of_codepoints(rope);
+        return cp1 - cp0;
 }
 
-void get_position_of_line_and_column(struct TextEdit *edit, struct FileCursor *fc, FILEPOS lineNumber, FILEPOS codepointColumn)
+void get_position_of_line_and_column(struct TextEdit *edit, struct FileCursor *fc,
+                                     FILEPOS lineNumber, FILEPOS codepointColumn)
 {
         ENSURE(codepointColumn >= 0);
         get_position_of_line(edit, fc, lineNumber);
+        lineNumber = compute_line_number(edit->rope, fc->bytePosition);
         FILEPOS numCodepoints = compute_number_of_codepoints_in_line(edit->rope, lineNumber);
-        if (numCodepoints == 0) {
-                ENSURE(fc->bytePosition == textrope_length(edit->rope));
+        if (numCodepoints == 0)
                 return;
-        }
         ENSURE(numCodepoints > 0);
         if (codepointColumn >= numCodepoints)
                 codepointColumn = numCodepoints - 1;
@@ -245,7 +252,7 @@ void get_position_first_line(struct TextEdit *edit, struct FileCursor *fc)
 
 void get_position_last_line(struct TextEdit *edit, struct FileCursor *fc)
 {
-        FILEPOS numberOfLines = textrope_number_of_lines(edit->rope);
+        FILEPOS numberOfLines = textrope_number_of_lines_quirky(edit->rope);
         // XXX: isn't that conditional a little strange?
         if (numberOfLines == 0)
                 fc->bytePosition = 0;

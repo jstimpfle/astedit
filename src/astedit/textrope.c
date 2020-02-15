@@ -360,12 +360,12 @@ void compute_line_number_and_codepoint_position(
         FILEPOS currentLine = iter.line;
         FILEPOS currentCodepoint = iter.codepointPosition;
         for (int i = 0; ; i++) {
+                if (currentPos == pos)
+                        break;
                 ENSURE(i < node->ownLength);
                 int c = node->text[i];
                 if (is_utf8_leader_byte(c))
                         currentCodepoint++;
-                if (currentPos == pos)
-                        break;
                 currentPos++;
                 if (c == '\n')
                         currentLine++;
@@ -389,13 +389,17 @@ void compute_pos_and_line_number_from_codepoint(
         FILEPOS currentPos = iter.pos;
         FILEPOS currentCodepoint = iter.codepointPosition;
         FILEPOS currentLine = iter.line;
+        /* Codepoints are a little tricky / different. The codepoint with index
+         * N is not located at the byte that immediately follows the N'th leader
+         * byte, but at the byte that has the (N+1)'s leaderbyte. */
         for (int i = 0; ; i++) {
                 ENSURE(i < node->ownLength);
                 int c = node->text[i];
-                if (is_utf8_leader_byte(c))
+                if (is_utf8_leader_byte(c)) {
+                        if (currentCodepoint == codepointPos)
+                                break;
                         currentCodepoint++;
-                if (currentCodepoint == codepointPos)
-                        break;
+                }
                 currentPos++;
                 if (c == '\n')
                         currentLine++;
@@ -420,11 +424,11 @@ void compute_pos_and_codepoint_of_line(struct Textrope *rope, FILEPOS lineNumber
         FILEPOS currentLine = iter.line;
         for (int i = 0; ; i++) {
                 ENSURE(i < node->ownLength); // I believe this can break with "quirky" lines
+                if (currentLine == lineNumber)
+                        break;
                 int c = node->text[i];
                 if (is_utf8_leader_byte(c))
                         codepointPosition++;
-                if (currentLine == lineNumber)
-                        break;
                 currentPos++;
                 if (c == '\n')
                         currentLine++;
@@ -463,6 +467,14 @@ FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber)
         FILEPOS codepointPosition;
         compute_pos_and_codepoint_of_line(rope, lineNumber, &position, &codepointPosition);
         return position;
+}
+
+FILEPOS compute_codepoint_of_line(struct Textrope *rope, FILEPOS lineNumber)
+{
+        FILEPOS position;
+        FILEPOS codepointPosition;
+        compute_pos_and_codepoint_of_line(rope, lineNumber, &position, &codepointPosition);
+        return codepointPosition;
 }
 
 FILEPOS compute_pos_of_line_end(struct Textrope *rope, FILEPOS lineNumber)

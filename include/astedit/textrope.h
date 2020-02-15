@@ -34,7 +34,9 @@ void compute_pos_and_codepoint_of_line(
 FILEPOS compute_codepoint_position(struct Textrope *rope, FILEPOS pos);
 FILEPOS compute_line_number(struct Textrope *rope, FILEPOS pos);
 FILEPOS compute_pos_of_codepoint(struct Textrope *rope, FILEPOS codepointPos);
+FILEPOS compute_line_of_codepoint(struct Textrope *rope, FILEPOS codepointPos);
 FILEPOS compute_pos_of_line(struct Textrope *rope, FILEPOS lineNumber);
+FILEPOS compute_codepoint_of_line(struct Textrope *rope, FILEPOS lineNumber);
 FILEPOS compute_pos_of_line_end(struct Textrope *rope, FILEPOS lineNumber);
 
 void insert_text_into_textrope(struct Textrope *textrope, FILEPOS offset, const char *text, FILEPOS length);

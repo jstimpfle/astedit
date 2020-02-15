@@ -197,6 +197,9 @@ void delete_with_movement(struct TextEdit *edit, struct Movement *movement)
 void delete_current_line(struct TextEdit *edit)
 {
         FILEPOS lineNumber = compute_line_number(edit->rope, edit->cursorBytePosition);
+        if (lineNumber == textrope_number_of_lines_quirky(edit->rope))
+                // cursor is on the last byte, on its own (empty) line
+                return;
         FILEPOS startpos = compute_pos_of_line(edit->rope, lineNumber);
         FILEPOS endpos = compute_pos_of_line(edit->rope, lineNumber + 1);
         erase_text_from_textedit(edit, startpos, endpos - startpos);
@@ -271,7 +274,9 @@ void init_TextEdit(struct TextEdit *edit)
 
         edit->cursorBytePosition = 0;
         edit->firstLineDisplayed = 0;
-        edit->numberOfLinesDisplayed = 15;  // XXX need some mechanism to set and update this
+        edit->numberOfLinesDisplayed = 0;  // XXX need some mechanism to set and update this
+        edit->numberOfColumnsDisplayed = 0;  // XXX need some mechanism to set and update this
+        edit->lastNavigatedColumn = 0;
 
         edit->isVimodeActive = 0;
 
