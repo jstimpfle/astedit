@@ -101,6 +101,26 @@ static void error_cb_glfw(int err, const char *msg)
         fatalf("Error %d from GLFW: %s\n", err, msg);
 }
 
+/* XXX: ugly hack to support modifiers with scrolling in GLFW. */
+/* That glfwGetKey() returns GLFW_PRESS / GLFW_RELEASE is what we should
+ * expect, even though it's a flaw in the API in my opinion, since that
+ * naming confuses edge-triggered with level-triggered view
+ * (GLFW_UP / GLFW_DOWN would have been better). */
+static int get_modifiers(GLFWwindow *win)
+{
+        int modifiers = 0;
+        if (glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+            glfwGetKey(win, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS)
+                modifiers |= MODIFIER_CONTROL;
+        if (glfwGetKey(win, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
+            glfwGetKey(win, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS)
+                modifiers |= MODIFIER_MOD;
+        if (glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+            glfwGetKey(win, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
+                modifiers |= MODIFIER_SHIFT;
+        return modifiers;
+}
+
 static int glfwmods_to_modifiers(int mods)
 {
         int modifiers = 0;
@@ -162,21 +182,7 @@ static void scroll_cb_glfw(GLFWwindow *win, double xoff, double yoff)
         else
                 return;
 
-        /* XXX: ugly hack to support modifiers with scrolling in GLFW. */
-        /* That glfwGetKey() returns GLFW_PRESS / GLFW_RELEASE is what we should
-         * expect, even though it's a flaw in the API in my opinion, since that
-         * naming confuses edge-triggered with level-triggered view
-         * (GLFW_UP / GLFW_DOWN would have been better). */
-        int modifiers = 0;
-        if (glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
-            glfwGetKey(win, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS)
-                modifiers |= MODIFIER_CONTROL;
-        if (glfwGetKey(win, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
-            glfwGetKey(win, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS)
-                modifiers |= MODIFIER_MOD;
-        if (glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
-            glfwGetKey(win, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
-                modifiers |= MODIFIER_SHIFT;
+        int modifiers = get_modifiers(win);
         int hasCodepoint = 0;
 
         unsigned codepoint = 0;
@@ -211,11 +217,11 @@ static void char_cb_glfw(GLFWwindow *win, unsigned int codepoint)
         int modifiers = 0;
         if (65 <= codepoint && codepoint <= 90) {
                 keyKind = KEY_A + codepoint - 65;
-                modifiers = MODIFIER_SHIFT;
+                modifiers = get_modifiers(win);
         }
         if (97 <= codepoint && codepoint <= 122) {
                 keyKind = KEY_A + codepoint - 97;
-                modifiers = 0;
+                modifiers = get_modifiers(win);
         }
         int hasCodepoint = 1;
         enqueue_key_input(keyKind, KEYEVENT_PRESS, modifiers, hasCodepoint, codepoint);
