@@ -350,7 +350,6 @@ void compute_line_number_and_codepoint_position(
 {
         FILEPOS lineNumber;
         FILEPOS codepointPosition;
-
         ENSURE(0 <= pos && pos <= textrope_length(rope));
         if (pos == 0) {
                 lineNumber = 0;
@@ -744,9 +743,6 @@ void erase_text_from_textrope(struct Textrope *rope, FILEPOS pos, FILEPOS length
         /* Unlink/delete all nodes whose contents are completely in the
         to-be-deleted range. */
         while (length != numDeleted) {
-                if (head == NULL) {
-                        log_postf("AAAH!\n");
-                }
                 ENSURE(head != NULL);
 
                 struct Textnode *node = textnode_from_head(head);

@@ -138,8 +138,43 @@ FILEPOS get_movement_position(struct TextEdit *edit, struct Movement *movement)
         case MOVEMENT_NEXT_MATCH: get_position_next_match(edit, &fc); break;
         default: fatal("Not implemented or invalid value!\n");
         }
+
         if (fc.didHitBoundary)
                 play_navigation_impossible_sound();
+
+        /* Correct column when going up/down */
+        int preserveNavigated = 0;
+        switch (movement->movementKind) {
+        case MOVEMENT_UP:
+        case MOVEMENT_DOWN:
+        case MOVEMENT_PAGEUP:
+        case MOVEMENT_PAGEDOWN:
+                preserveNavigated = 1;
+                break;
+        default:
+                break;
+        }
+        if (!preserveNavigated) {
+                edit->lastNavigatedColumn = compute_column(edit->rope, fc.bytePosition);
+        }
+        if (preserveNavigated) {
+                FILEPOS lineNumber = compute_line_number(edit->rope, fc.bytePosition);
+                FILEPOS current = compute_column(edit->rope, fc.bytePosition);
+                FILEPOS target = edit->lastNavigatedColumn;
+                if (current < target) {
+                        FILEPOS length = compute_number_of_codepoints_in_line(edit->rope, lineNumber);
+                        ENSURE(length > 0); //???
+                        if (target >= length) {
+                                /* sub 1 from the diff because we're not interested in
+                                 * the line ending. Also, the last line might not have a
+                                 * line ending. */
+                                target = length - 1;
+                        }
+                        FILEPOS diff = target - current;
+                        get_position_codepoints_relative(edit, &fc, diff);
+                }
+        }
+
         return fc.bytePosition;
 }
 

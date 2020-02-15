@@ -122,22 +122,29 @@ void get_position_lines_relative(struct TextEdit *edit, struct FileCursor *fc, F
         FILEPOS newLineNumber = oldLineNumber + linesDiff;
         if (newLineNumber < 0) {
                 fc->didHitBoundary = 1;
-                newLineNumber = 0;
         }
-        else if (newLineNumber > textrope_number_of_lines_quirky(edit->rope)) {
+        else if (newLineNumber >= textrope_number_of_lines_quirky(edit->rope)) {
                 fc->didHitBoundary = 1;
-                newLineNumber = textrope_number_of_lines_quirky(edit->rope);
         }
-        FILEPOS oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
-        FILEPOS oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
-        FILEPOS codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
-        get_position_of_line_and_column(edit, fc, newLineNumber, codepointColumn);
+        else {
+                FILEPOS oldLinePos = compute_pos_of_line(edit->rope, oldLineNumber);
+                FILEPOS oldLineCodepointPosition = compute_codepoint_position(edit->rope, oldLinePos);
+                FILEPOS codepointColumn = oldCodepointPosition - oldLineCodepointPosition;
+                get_position_of_line_and_column(edit, fc, newLineNumber, codepointColumn);
+        }
 }
 
-static FILEPOS compute_number_of_codepoints_in_line(struct Textrope *rope, FILEPOS lineNumber)
+FILEPOS compute_column(struct Textrope *rope, FILEPOS bytePos)
 {
-        // XXX compute_pos_of_line() currently clamps line numbers to the valid
-        // range. We might want to change that later.
+        FILEPOS lineNumber = compute_line_number(rope, bytePos);
+        FILEPOS linePosition = compute_pos_of_line(rope, lineNumber);
+        FILEPOS columnNumber = compute_codepoint_position(rope, bytePos)
+                                - compute_codepoint_position(rope, linePosition);
+        return columnNumber;
+}
+
+FILEPOS compute_number_of_codepoints_in_line(struct Textrope *rope, FILEPOS lineNumber)
+{
         FILEPOS p0 = compute_pos_of_line(rope, lineNumber);
         FILEPOS p1 = lineNumber < textrope_number_of_lines(rope)
                 ? compute_pos_of_line(rope, lineNumber + 1)

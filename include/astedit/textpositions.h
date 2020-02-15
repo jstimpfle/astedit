@@ -8,6 +8,9 @@ struct FileCursor {
         int didHitBoundary;
 };
 
+FILEPOS compute_column(struct Textrope *rope, FILEPOS bytePos);
+FILEPOS compute_number_of_codepoints_in_line(struct Textrope *rope, FILEPOS lineNumber);
+
 void get_position_next_codepoint(struct TextEdit *edit, struct FileCursor *fc);
 void get_position_prev_codepoint(struct TextEdit *edit, struct FileCursor *fc);
 void get_position_codepoints_relative(struct TextEdit *edit, struct FileCursor *fc, FILEPOS codepointsDiff);

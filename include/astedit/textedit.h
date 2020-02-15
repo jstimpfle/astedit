@@ -60,6 +60,10 @@ struct TextEdit {
         FILEPOS firstLineDisplayed;  // need to change this when window size changes, such that cursor is always displayed.
         FILEPOS numberOfLinesDisplayed;  // should probably be set from outside (reacting to window events)
         FILEPOS numberOfColumnsDisplayed;
+        /* When moving up/down, the column can be involuntarily changed when the
+         * new line is shorter than the old one. This field stores the last
+         * column that was voluntarily selected, e.g. by moving left/right */
+        FILEPOS lastNavigatedColumn;
 
         struct EditItem startItem; // sentinel
         struct EditItem *editHistory;
