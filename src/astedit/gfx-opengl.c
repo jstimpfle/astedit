@@ -1,5 +1,6 @@
 #include <astedit/astedit.h>
 #include <astedit/logging.h>
+#include <astedit/memory.h>
 #include <astedit/gfx.h>
 #include <astedit/window.h>
 #include <stddef.h>  // offsetof()
@@ -15,6 +16,32 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glext.h>
+
+struct ColorVertex2d {
+        float x;
+        float y;
+        float z;
+        float r;
+        float g;
+        float b;
+        float a;
+};
+
+struct TextureVertex2d {
+        Texture tex;
+        float r;
+        float g;
+        float b;
+        float a;
+        float x;
+        float y;
+        float z;
+        /* These are non-normalized pixel coordinates (from 0 to texture-width/height, not from 0.0 to 1.0)
+        We currently still store them as floats only because I haven't yet figured out the compatibility stuff
+        with all OpenGL version. (I think OpenGL ES only supports floats) */
+        float texX;
+        float texY;
+};
 
 enum {
         SHADER_VERTEXVARYINGCOLOR,
@@ -585,6 +612,11 @@ void flush_gfx(void)
         CHECK_GL_ERRORS();
 }
 
+
+
+
+
+
 static void upload_vbo_data(const void *data, int numElems, int elemSize)
 {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -608,7 +640,7 @@ static void draw_texture_vertices_of_any_kind(struct TextureVertex2d *verts, int
         }
 }
 
-void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
+static void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -621,7 +653,7 @@ void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
         CHECK_GL_ERRORS();
 }
 
-void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
+static void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -635,7 +667,7 @@ void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
         CHECK_GL_ERRORS();
 }
 
-void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
+static void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -649,7 +681,7 @@ void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
         CHECK_GL_ERRORS();
 }
 
-void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVerts)
+static void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
         glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
@@ -662,3 +694,86 @@ void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVe
         glUseProgram(0);
         CHECK_GL_ERRORS();
 }
+
+static void fill_texture2d_rect(struct TextureVertex2d *rp,
+        int r, int g, int b, int a,
+        int x, int y, int w, int h,
+        int texX, int texY, int texW, int texH)
+{
+        for (int i = 0; i < 6; i++) {
+                rp[i].r = r / 255.0f;
+                rp[i].g = g / 255.0f;
+                rp[i].b = b / 255.0f;
+                rp[i].a = a / 255.0f;
+        }
+
+        rp[0].x = (float) x;     rp[0].y = (float) y;       rp[0].z = 0.0f;
+        rp[1].x = (float) x;     rp[1].y = (float) y + h;   rp[1].z = 0.0f;
+        rp[2].x = (float) x + w; rp[2].y = (float) y + h;   rp[2].z = 0.0f;
+        rp[3].x = (float) x;     rp[3].y = (float) y;       rp[3].z = 0.0f;
+        rp[4].x = (float) x + w; rp[4].y = (float) y + h;   rp[4].z = 0.0f;
+        rp[5].x = (float) x + w; rp[5].y = (float) y;       rp[5].z = 0.0f;
+
+        //for (int i = 0; i < 6; i++) rp[i].x += 0.5f;
+
+        rp[0].texX = (float) texX;        rp[0].texY = (float) texY;
+        rp[1].texX = (float) texX;        rp[1].texY = (float) texY + texH;
+        rp[2].texX = (float) texX + texW; rp[2].texY = (float) texY + texH;
+        rp[3].texX = (float) texX;        rp[3].texY = (float) texY;
+        rp[4].texX = (float) texX + texW; rp[4].texY = (float) texY + texH;
+        rp[5].texX = (float) texX + texW; rp[5].texY = (float) texY;
+}
+
+static void fill_colored_rect(struct ColorVertex2d rectpoints[6],
+        int x, int y, int w, int h,
+        unsigned r, unsigned g, unsigned b, unsigned a)
+{
+        rectpoints[0].x = (float) x;     rectpoints[0].y = (float) y;       rectpoints[0].z = 0.0f;
+        rectpoints[1].x = (float) x;     rectpoints[1].y = (float) y + h;   rectpoints[1].z = 0.0f;
+        rectpoints[2].x = (float) x + w; rectpoints[2].y = (float) y + h;   rectpoints[2].z = 0.0f;
+        rectpoints[3].x = (float) x;     rectpoints[3].y = (float) y;       rectpoints[3].z = 0.0f;
+        rectpoints[4].x = (float) x + w; rectpoints[4].y = (float) y + h;   rectpoints[4].z = 0.0f;
+        rectpoints[5].x = (float) x + w; rectpoints[5].y = (float) y;       rectpoints[5].z = 0.0f;
+        for (int i = 0; i < 6; i++) {
+                rectpoints[i].r = r / 255.0f;
+                rectpoints[i].g = g / 255.0f;
+                rectpoints[i].b = b / 255.0f;
+                rectpoints[i].a = a / 255.0f;
+        }
+}
+
+void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs)
+{
+        struct TextureVertex2d *verts;
+        int numVerts = 6 * numGlyphs;
+        ALLOC_MEMORY(&verts, numVerts);
+        struct TextureVertex2d *ptr = verts;
+        for (int i = 0; i < numGlyphs; i++, ptr += 6) {
+                struct LayedOutGlyph *log = &glyphs[i];
+                fill_texture2d_rect(ptr,
+                                    log->r, log->g, log->b, log->a,
+                                    log->x, log->y, log->tw, log->th,
+                                    log->tx, log->ty, log->tw, log->th);
+                for (int j = 0; j < 6; j++)
+                        ptr[j].tex = log->tex;
+        }
+        draw_subpixelRenderedFont_vertices(verts, numVerts);
+        FREE_MEMORY(&verts);
+}
+
+void draw_rects(struct LayedOutRect *rects, int numRects)
+{
+        struct ColorVertex2d *verts;
+        int numVerts = 6 * numRects;
+        ALLOC_MEMORY(&verts, numVerts);
+        struct ColorVertex2d *ptr = verts;
+        for (int i = 0; i < numRects; i++, ptr += 6) {
+                struct LayedOutRect *lor = &rects[i];
+                fill_colored_rect(ptr,
+                                  lor->x, lor->y, lor->w, lor->h,
+                                  lor->r, lor->g, lor->b, lor->a);
+        }
+        draw_rgba_vertices(verts, numVerts);
+        FREE_MEMORY(&verts);
+}
+

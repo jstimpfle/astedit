@@ -9,35 +9,34 @@ typedef int Texture;
 
 
 
-/*
- * Currently we have two drawing modes: plain colored drawing and textured
- * drawing.
- */
+/* These newer, higher-level interfaces should supersede the ColorVertex2d
+ * and TextureVertex2d structures soon. */
 
-struct ColorVertex2d {
-        float x;
-        float y;
-        float z;
-        float r;
-        float g;
-        float b;
-        float a;
+struct LayedOutGlyph {
+        Texture tex;
+        int tx;
+        int ty;
+        int tw;
+        int th;
+        int x;
+        int y;
+        // We should probably avoid storing the color here
+        int r;
+        int g;
+        int b;
+        int a;
 };
 
-struct TextureVertex2d {
-        Texture tex;
-        float r;
-        float g;
-        float b;
-        float a;
-        float x;
-        float y;
-        float z;
-        /* These are non-normalized pixel coordinates (from 0 to texture-width/height, not from 0.0 to 1.0)
-        We currently still store them as floats only because I haven't yet figured out the compatibility stuff
-        with all OpenGL version. (I think OpenGL ES only supports floats) */
-        float texX;
-        float texY;
+struct LayedOutRect {
+        int x;
+        int y;
+        int w;
+        int h;
+        // We should probably avoid storing the color here
+        int r;
+        int g;
+        int b;
+        int a;
 };
 
 
@@ -62,10 +61,7 @@ void upload_alpha_texture_data(Texture texture, const unsigned char *data, int s
 void update_alpha_texture_subimage(Texture texture, int row, int numRows, int rowWidth, int stride, const unsigned char *data);
 void update_rgb_texture_subimage(Texture texture, int row, int numRows, int rowWidth, int stride, const unsigned char *data);
 
-void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts);
-void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts);
-void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts);
-void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVerts);
-
+void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs);
+void draw_rects(struct LayedOutRect *rects, int numRects);
 
 #endif

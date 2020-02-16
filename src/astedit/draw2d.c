@@ -36,41 +36,11 @@ struct DrawCursor {
         int a;
 };
 
-struct LayedOutGlyph {
-        Texture tex;
-        int tx;
-        int ty;
-        int tw;
-        int th;
-        int x;
-        int y;
-        // We should probably avoid storing the color here
-        int r;
-        int g;
-        int b;
-        int a;
-};
-
-struct LayedOutRect {
-        int x;
-        int y;
-        int w;
-        int h;
-        // We should probably avoid storing the color here
-        int r;
-        int g;
-        int b;
-        int a;
-};
-
 struct DrawList {
         int mustRelayout;
 
         struct LayedOutGlyph *glyphs;
         struct LayedOutRect *rects;
-
-        struct TextureVertex2d *glyphVerts;  // 6 * glyphsCount
-        struct ColorVertex2d *rectVerts;  // 6 * rectsCount
 
         int glyphsCount;
         int rectsCount;
@@ -113,53 +83,6 @@ static const struct RGB statusbarTextColor = { 224, 224, 224 };
 #endif
 
 
-static void fill_texture2d_rect(struct TextureVertex2d *rp,
-        int r, int g, int b, int a,
-        int x, int y, int w, int h,
-        int texX, int texY, int texW, int texH)
-{
-        for (int i = 0; i < 6; i++) {
-                rp[i].r = r / 255.0f;
-                rp[i].g = g / 255.0f;
-                rp[i].b = b / 255.0f;
-                rp[i].a = a / 255.0f;
-        }
-
-        rp[0].x = (float) x;     rp[0].y = (float) y;       rp[0].z = 0.0f;
-        rp[1].x = (float) x;     rp[1].y = (float) y + h;   rp[1].z = 0.0f;
-        rp[2].x = (float) x + w; rp[2].y = (float) y + h;   rp[2].z = 0.0f;
-        rp[3].x = (float) x;     rp[3].y = (float) y;       rp[3].z = 0.0f;
-        rp[4].x = (float) x + w; rp[4].y = (float) y + h;   rp[4].z = 0.0f;
-        rp[5].x = (float) x + w; rp[5].y = (float) y;       rp[5].z = 0.0f;
-
-        //for (int i = 0; i < 6; i++) rp[i].x += 0.5f;
-
-        rp[0].texX = (float) texX;        rp[0].texY = (float) texY;
-        rp[1].texX = (float) texX;        rp[1].texY = (float) texY + texH;
-        rp[2].texX = (float) texX + texW; rp[2].texY = (float) texY + texH;
-        rp[3].texX = (float) texX;        rp[3].texY = (float) texY;
-        rp[4].texX = (float) texX + texW; rp[4].texY = (float) texY + texH;
-        rp[5].texX = (float) texX + texW; rp[5].texY = (float) texY;
-}
-
-void fill_colored_rect(struct ColorVertex2d rectpoints[6],
-        int x, int y, int w, int h,
-        unsigned r, unsigned g, unsigned b, unsigned a)
-{
-        rectpoints[0].x = (float) x;     rectpoints[0].y = (float) y;       rectpoints[0].z = 0.0f;
-        rectpoints[1].x = (float) x;     rectpoints[1].y = (float) y + h;   rectpoints[1].z = 0.0f;
-        rectpoints[2].x = (float) x + w; rectpoints[2].y = (float) y + h;   rectpoints[2].z = 0.0f;
-        rectpoints[3].x = (float) x;     rectpoints[3].y = (float) y;       rectpoints[3].z = 0.0f;
-        rectpoints[4].x = (float) x + w; rectpoints[4].y = (float) y + h;   rectpoints[4].z = 0.0f;
-        rectpoints[5].x = (float) x + w; rectpoints[5].y = (float) y;       rectpoints[5].z = 0.0f;
-        for (int i = 0; i < 6; i++) {
-                rectpoints[i].r = r / 255.0f;
-                rectpoints[i].g = g / 255.0f;
-                rectpoints[i].b = b / 255.0f;
-                rectpoints[i].a = a / 255.0f;
-        }
-}
-
 void next_line(struct DrawCursor *cursor)
 {
         cursor->x = cursor->xLeft;
@@ -191,7 +114,6 @@ static struct LayedOutGlyph *alloc_LayedOutGlyph(struct DrawList *drawList)
 {
         int idx = drawList->glyphsCount++;
         REALLOC_MEMORY(&drawList->glyphs, drawList->glyphsCount);
-        REALLOC_MEMORY(&drawList->glyphVerts, 6 * drawList->glyphsCount);
         return drawList->glyphs + idx;
 }
 
@@ -200,7 +122,6 @@ static struct LayedOutRect *alloc_LayedOutRect(struct DrawList *drawList, int n)
         int idx = drawList->rectsCount;
         drawList->rectsCount += n;
         REALLOC_MEMORY(&drawList->rects, drawList->rectsCount);
-        REALLOC_MEMORY(&drawList->rectVerts, 6 * drawList->rectsCount);
         return &drawList->rects[idx];
 }
 
@@ -640,8 +561,8 @@ static void lay_out_TextEdit(int canvasW, int canvasH, struct TextEdit *edit)
         statuslineX = 0;
         statuslineW = canvasW;
 
-        statuslineY = canvasH - statuslineH; if (statuslineY < 0) statuslineY = 0;
         statuslineH = lineHeightPx;
+        statuslineY = canvasH - statuslineH; if (statuslineY < 0) statuslineY = 0;
 
         textAreaY = 0;
         textAreaH = canvasH - statuslineH;
@@ -788,33 +709,11 @@ void lay_out_buffer_list(int canvasW, int canvasH)
 
 static void draw_list(struct DrawList *drawList, int x, int y, int w, int h)
 {
-        {
-                struct TextureVertex2d *rp = drawList->glyphVerts;
-                for (int i = 0; i < drawList->glyphsCount; i++, rp += 6) {
-                        struct LayedOutGlyph *log = &drawList->glyphs[i];
-                        fill_texture2d_rect(rp,
-                                            log->r, log->g, log->b, log->a,
-                                            log->x, log->y, log->tw, log->th,
-                                            log->tx, log->ty, log->tw, log->th);
-                        for (int j = 0; j < 6; j++)
-                                rp[j].tex = log->tex;
-                }
-        }
-
-        {
-                struct ColorVertex2d *v = drawList->rectVerts;
-                for (int i = 0; i < drawList->rectsCount; i++, v += 6) {
-                        struct LayedOutRect *lor = &drawList->rects[i];
-                        fill_colored_rect(v,
-                                          lor->x, lor->y, lor->w, lor->h,
-                                          lor->r, lor->g, lor->b, lor->a);
-                }
-        }
 
         set_viewport_in_pixels(x, y, w, h);
         set_2d_coordinate_system(0, 0, w, h);
-        draw_rgba_vertices(drawList->rectVerts, drawList->rectsCount * 6);
-        draw_subpixelRenderedFont_vertices(drawList->glyphVerts, drawList->glyphsCount * 6);
+        draw_rects(drawList->rects, drawList->rectsCount);
+        draw_glyphs(drawList->glyphs, drawList->glyphsCount);
 }
 
 void testdraw(struct TextEdit *edit)
