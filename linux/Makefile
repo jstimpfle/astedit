@@ -6,13 +6,9 @@ CFLAGS += -pthread  # needed additionally to -lpthread.
 CFLAGS += -Iinclude
 CFLAGS += $(shell pkg-config --cflags freetype2)
 CFLAGS += $(shell pkg-config --cflags alsa)
-#CFLAGS += $(shell pkg-config --cflags gl)
-#CFLAGS += $(shell pkg-config --cflags glu)
 
 LDFLAGS += $(shell pkg-config --libs freetype2)
 LDFLAGS += $(shell pkg-config --libs alsa)
-LDFLAGS += $(shell pkg-config --libs gl)
-LDFLAGS += $(shell pkg-config --libs glu)
 LDFLAGS += -l pthread
 LDFLAGS += -l rt  # clock_gettime() and friends
 LDFLAGS += -l m
@@ -30,7 +26,6 @@ src/astedit/filereadwritethread.c \
 src/astedit/filesystem-linux.c \
 src/astedit/font.c \
 src/astedit/font-freetype.c \
-src/astedit/gfx-opengl.c \
 src/astedit/lineedit.c \
 src/astedit/listselect.c \
 src/astedit/logging.c \
@@ -56,14 +51,28 @@ src/astedit/zoom.c \
 src/blunt/lex.c \
 src/rb3ptr.c
 
-# GLFW backend is deprecated
-ifeq ($(WITH_GLFW_BACKEND), y)
-CFLAGS += $(shell pkg-config --cflags glfw3)
-LDFLAGS += $(shell pkg-config --libs glfw3)
-CFILES += src/astedit/window-glfw.c
+ifeq ($(WITH_BACKEND), glfw)
+	# GLFW backend is deprecated
+	CFILES += src/astedit/window-glfw.c
+	CFILES += src/astedit/gfx-opengl.c
+	CFLAGS += $(shell pkg-config --cflags glfw3)
+	LDFLAGS += $(shell pkg-config --libs glfw3)
+	LDFLAGS += $(shell pkg-config --libs gl)
+	LDFLAGS += $(shell pkg-config --libs glu)
 else
-LDFLAGS += $(shell pkg-config --libs x11)
-CFILES += src/astedit/window-x11.c
+	#CFLAGS += $(shell pkg-config --cflags gl)
+	#CFLAGS += $(shell pkg-config --cflags glu)
+	LDFLAGS += $(shell pkg-config --libs x11)
+	LDFLAGS += $(shell pkg-config --libs gl)
+	LDFLAGS += $(shell pkg-config --libs glu)
+	ifeq ($(WITH_BACKEND), x11)
+		CFILES += src/astedit/window-x11.c
+		CFILES += src/astedit/gfx-x11.c
+	else
+		CFILES += src/astedit/window-x11.c
+		CFILES += src/astedit/window-glx.c
+		CFILES += src/astedit/gfx-opengl.c
+	endif
 endif
 
 

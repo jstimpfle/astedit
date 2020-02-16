@@ -99,11 +99,11 @@ static GLint att[] = {
         None,
 };
 
-static Display *display;
-static int screen;
-static Window rootWin;
-static Window window;
-static XVisualInfo *visualInfo;
+Display *display;
+int screen;
+Window rootWin;
+Window window;
+XVisualInfo *visualInfo;
 static Colormap colormap;
 static GLXContext contextGlx;
 
@@ -325,7 +325,9 @@ ANY_FUNCTION *window_get_OpenGL_function_pointer(const char *name)
         return glXGetProcAddress((const GLubyte *) name);
 }
 
+/*
 void swap_buffers(void)
 {
         glXSwapBuffers(display, window);
 }
+*/

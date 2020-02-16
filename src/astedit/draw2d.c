@@ -122,7 +122,7 @@ static struct LayedOutRect *alloc_LayedOutRect(struct DrawList *drawList, int n)
         int idx = drawList->rectsCount;
         drawList->rectsCount += n;
         REALLOC_MEMORY(&drawList->rects, drawList->rectsCount);
-        return &drawList->rects[idx];
+        return drawList->rects + idx;
 }
 
 static void clear_DrawList(struct DrawList *drawList)
@@ -709,7 +709,6 @@ void lay_out_buffer_list(int canvasW, int canvasH)
 
 static void draw_list(struct DrawList *drawList, int x, int y, int w, int h)
 {
-
         set_viewport_in_pixels(x, y, w, h);
         set_2d_coordinate_system(0, 0, w, h);
         draw_rects(drawList->rects, drawList->rectsCount);
