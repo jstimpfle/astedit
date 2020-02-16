@@ -219,7 +219,6 @@ static void lay_out_text_snprintf(
         va_start(ap, fmt);
         int numBytes = vsnprintf(buffer, length, fmt, ap);
         if (numBytes >= 0) {
-                //log_postf("laying out at %d,%d: %s", cursor->x, cursor->lineY, buffer);
                 lay_out_text_with_cursor(drawList, cursor, buffer, numBytes);
         }
         va_end(ap);

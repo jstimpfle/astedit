@@ -21,6 +21,8 @@ static int pixmapW;
 static int pixmapH;
 static int viewportX;
 static int viewportY;
+static int viewportW;
+static int viewportH;
 
 enum {
         TEXTURE_RGB,
@@ -83,6 +85,8 @@ void set_viewport_in_pixels(int x, int y, int w, int h)
         }
         viewportX = x;
         viewportY = y;
+        viewportW = w;
+        viewportH = h;
 }
 
 void set_clipping_rect_in_pixels(int x, int y, int w, int h)
@@ -155,8 +159,6 @@ void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs)
                 struct LayedOutGlyph *glyph = &glyphs[i];
                 int tx = glyph->tx;
                 int ty = glyph->ty;
-                int tw = glyph->tw;
-                //int th = glyph->th;
                 int x = glyph->x + viewportX;
                 int y = glyph->y + viewportY;
                 int w = glyph->tw;
@@ -165,6 +167,20 @@ void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs)
                 int colorG = glyph->g;
                 int colorB = glyph->b;
                 //int colorA = glyph->a;
+                if (x < 0)
+                        continue;
+                if (x >= viewportX + viewportW)
+                        continue;
+                if (y < 0)
+                        continue;
+                if (y >= viewportY + viewportH)
+                        continue;
+                if (w > viewportX + viewportW - x)
+                        w = viewportW - x;
+                if (h > viewportY + viewportH - y)
+                        h = viewportH - y;
+                ENSURE(w >= 0);
+                ENSURE(h >= 0);
                 ENSURE(0 <= x);
                 ENSURE(0 <= y);
                 ENSURE(x + w <= pixmapW);
@@ -174,10 +190,10 @@ void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs)
                 unsigned char *src = texture->data + 3 * (ty * texture->w + tx);
                 int texStride = 3 * texture->w;
                 char *ptr = pixmapBuffer + 4 * (y * pixmapW + x);
-                //uint32_t color = (a << 24) | (r << 16) | (g << 8) | b;
                 for (int j = 0; j < h; j++) {
                         unsigned char *a = ptr;
                         unsigned char *b = src;
+                        // TOOD: maybe SIMD this?
                         for (int k = 0; k < w; k++) {
                                 a[0] = ((uint32_t) (255 - b[2]) * a[0] + ((uint32_t) b[2] * colorB)) / 255;
                                 a[1] = ((uint32_t) (255 - b[1]) * a[1] + ((uint32_t) b[1] * colorG)) / 255;
@@ -205,8 +221,18 @@ void draw_rects(struct LayedOutRect *rects, int numRects)
                 int g = rect->g;
                 int b = rect->b;
                 int a = rect->a;
-                ENSURE(x + w <= pixmapW);
-                ENSURE(y + h <= pixmapH);
+                if (x < 0)
+                        continue;
+                if (x >= viewportX + viewportW)
+                        continue;
+                if (y < 0)
+                        continue;
+                if (y >= viewportY + viewportH)
+                        continue;
+                if (w > viewportX + viewportW - x)
+                        w = viewportW - x;
+                if (h > viewportY + viewportH - y)
+                        h = viewportH - y;
                 uint32_t *ptr = pixmapBuffer + 4 * (y * pixmapW + x);
                 uint32_t color = (a << 24) | (r << 16) | (g << 8) | b;
                 for (int j = 0; j < h; j++) {
@@ -215,7 +241,6 @@ void draw_rects(struct LayedOutRect *rects, int numRects)
                                 row[k] = color;
                         ptr += pixmapW;
                 }
-                ENSURE((char*)ptr - pixmapBuffer <= 4 * pixmapW * pixmapH);
         }
 }
 
