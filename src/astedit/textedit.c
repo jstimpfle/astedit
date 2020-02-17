@@ -28,9 +28,9 @@ static void erase_text_from_textedit(struct TextEdit *edit, FILEPOS start, FILEP
         FILEPOS nextCursorPosition = start; // TODO: Not sure that this is true generally.
         record_delete_operation(edit, start, length, previousCursorPosition, nextCursorPosition);
         erase_text_from_textrope(edit->rope, start, length);
-	if (edit->cursorBytePosition > textrope_length(edit->rope))  //XXX we want to separate cursors from the Textedit soon
-		edit->cursorBytePosition = textrope_length(edit->rope);
-	edit->lastNavigatedColumn = compute_column(edit->rope, edit->cursorBytePosition);
+        if (edit->cursorBytePosition > textrope_length(edit->rope))  //XXX we want to separate cursors from the Textedit soon
+                edit->cursorBytePosition = textrope_length(edit->rope);
+        edit->lastNavigatedColumn = compute_column(edit->rope, edit->cursorBytePosition);
 }
 
 static void setup_LinescrollAnimation(struct LinescrollAnimation *scrollAnimation)

@@ -20,10 +20,10 @@ void setup_window(void)
 
         screen = DefaultScreen(display);
         rootWin = DefaultRootWindow(display);
-	visual = DefaultVisual(display, screen);
-	depth = DefaultDepth(display, screen);
+        visual = DefaultVisual(display, screen);
+        depth = DefaultDepth(display, screen);
 
-	log_postf("depth is %d", depth);
+        log_postf("depth is %d", depth);
 
         XSetWindowAttributes wa = {0};
         wa.event_mask = ExposureMask
@@ -43,6 +43,6 @@ void setup_window(void)
 
 void teardown_window(void)
 {
-	XDestroyWindow(display, window);
-	XCloseDisplay(display);
+        XDestroyWindow(display, window);
+        XCloseDisplay(display);
 }

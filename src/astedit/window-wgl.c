@@ -313,14 +313,14 @@ void setup_window(void)
                 fatalf("Failed to GetModuleHandle(NULL)");
         int nWidth = 640;
         int nHeight = 640;
-	WNDCLASSA wc      = {0};
-	wc.lpfnWndProc   = my_window_proc;
-	wc.hInstance     = hInstance;
-	wc.hbrBackground = (HBRUSH)(COLOR_BACKGROUND);
-	wc.lpszClassName = "myclass";
-	wc.style = CS_OWNDC;
+        WNDCLASSA wc      = {0};
+        wc.lpfnWndProc   = my_window_proc;
+        wc.hInstance     = hInstance;
+        wc.hbrBackground = (HBRUSH)(COLOR_BACKGROUND);
+        wc.lpszClassName = "myclass";
+        wc.style = CS_OWNDC;
         if (!RegisterClassA(&wc))
-		fatalf("Failed to register window class");
+                fatalf("Failed to register window class");
         globalWND = CreateWindowA(wc.lpszClassName, "My Window", WS_OVERLAPPEDWINDOW|WS_VISIBLE, 100, 100, nWidth, nHeight, NULL, NULL, hInstance, NULL);
         if (globalWND == NULL)
                 fatalf("Failed to create window");
