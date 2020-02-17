@@ -653,34 +653,6 @@ static void draw_rgba_vertices(struct ColorVertex2d *verts, int numVerts)
         CHECK_GL_ERRORS();
 }
 
-static void draw_rgba_texture_vertices(struct TextureVertex2d *verts, int numVerts)
-{
-        upload_vbo_data(verts, numVerts, sizeof *verts);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glUseProgram(program_GL_id[PROGRAM_TEXTURERGBA]);
-        glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTURERGBA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
-        glUniform1i(uniformLocation[UNIFORM_TEXTURERGBA_sampler], 0);
-        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTURERGBA]);
-        draw_texture_vertices_of_any_kind(verts, numVerts);
-        glBindVertexArray(0);
-        glUseProgram(0);
-        CHECK_GL_ERRORS();
-}
-
-static void draw_alpha_texture_vertices(struct TextureVertex2d *verts, int numVerts)
-{
-        upload_vbo_data(verts, numVerts, sizeof *verts);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glUseProgram(program_GL_id[PROGRAM_TEXTUREALPHA]);
-        glUniformMatrix4fv(uniformLocation[UNIFORM_TEXTUREALPHA_mat], 1, GL_TRUE, &transformMatrix.m[0][0]);
-        glUniform1i(uniformLocation[UNIFORM_TEXTUREALPHA_sampler], 0/*texture unit 0 ???*/);
-        glBindVertexArray(vaoOfProgram[PROGRAM_TEXTUREALPHA]);
-        draw_texture_vertices_of_any_kind(verts, numVerts);
-        glBindVertexArray(0);
-        glUseProgram(0);
-        CHECK_GL_ERRORS();
-}
-
 static void draw_subpixelRenderedFont_vertices(struct TextureVertex2d *verts, int numVerts)
 {
         upload_vbo_data(verts, numVerts, sizeof *verts);
@@ -776,4 +748,3 @@ void draw_rects(struct LayedOutRect *rects, int numRects)
         draw_rgba_vertices(verts, numVerts);
         FREE_MEMORY(&verts);
 }
-

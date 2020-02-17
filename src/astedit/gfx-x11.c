@@ -3,26 +3,10 @@
 #include <astedit/logging.h>
 #include <astedit/memory.h>
 #include <astedit/gfx.h>
+#include <astedit/x11.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <string.h>
-
-extern Display *display;
-extern int screen;
-extern Window window;
-extern XVisualInfo *visualInfo;
-
-Pixmap pixmap;
-XImage *image;
-GC gc;
-
-static char *pixmapBuffer;
-static int pixmapW;
-static int pixmapH;
-static int viewportX;
-static int viewportY;
-static int viewportW;
-static int viewportH;
 
 enum {
         TEXTURE_RGB,
@@ -36,8 +20,20 @@ struct TextureStruct {
         int h;
 };
 
-struct TextureStruct *textures;
-int numTextures;
+static Pixmap pixmap;
+static XImage *image;
+static GC gc;
+
+static unsigned char *pixmapBuffer;
+static int pixmapW;
+static int pixmapH;
+static int viewportX;
+static int viewportY;
+static int viewportW;
+static int viewportH;
+
+static struct TextureStruct *textures;
+static int numTextures;
 
 static Texture alloc_texture(void)
 {
@@ -48,6 +44,7 @@ static Texture alloc_texture(void)
 
 void clear_screen_and_drawing_state(void)
 {
+	XClearWindow(display, window);
 }
 
 void flush_gfx(void)
@@ -189,7 +186,7 @@ void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs)
                 struct TextureStruct *texture = &textures[glyph->tex];
                 unsigned char *src = texture->data + 3 * (ty * texture->w + tx);
                 int texStride = 3 * texture->w;
-                char *ptr = pixmapBuffer + 4 * (y * pixmapW + x);
+                unsigned char *ptr = pixmapBuffer + 4 * (y * pixmapW + x);
                 for (int j = 0; j < h; j++) {
                         unsigned char *a = ptr;
                         unsigned char *b = src;
@@ -205,7 +202,6 @@ void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs)
                         ptr += 4 * pixmapW;
                         src += texStride;
                 }
-                ENSURE((char*)ptr - pixmapBuffer <= 4 * pixmapW * pixmapH);
         }
 }
 
@@ -233,7 +229,7 @@ void draw_rects(struct LayedOutRect *rects, int numRects)
                         w = viewportW - x;
                 if (h > viewportY + viewportH - y)
                         h = viewportH - y;
-                uint32_t *ptr = pixmapBuffer + 4 * (y * pixmapW + x);
+                uint32_t *ptr = (uint32_t *) pixmapBuffer + (y * pixmapW + x);
                 uint32_t color = (a << 24) | (r << 16) | (g << 8) | b;
                 for (int j = 0; j < h; j++) {
                         uint32_t *row = ptr;
@@ -264,7 +260,7 @@ void swap_buffers(void)
 void setup_gfx(void)
 {
         gc = DefaultGC(display, screen);
-        image = XCreateImage(display, visualInfo->visual, 24,
+        image = XCreateImage(display, visual, 24,
                              ZPixmap, 0,
                              NULL, 0, 0, /* data, width, height only set when copying */
                              32, 0);

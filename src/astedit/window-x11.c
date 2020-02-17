@@ -1,15 +1,8 @@
 #include <astedit/astedit.h>
-#include <astedit/logging.h>
 #include <astedit/window.h>
-#include <astedit/clock.h>
-
-#include <stdlib.h>
-
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/XKBlib.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h> // glXCreateContextAttribsARB
 
 #include "x11keysym-to-unicode.h"
 
@@ -84,105 +77,14 @@ static const struct {
 };
 
 
-#define LENGTH(a) (sizeof (a) / sizeof (a)[0])
-
-static const int initialWindowWidth = 800;
-static const int initialWindowHeight = 600;
-
-static GLint att[] = {
-        GLX_RGBA,
-        GLX_DEPTH_SIZE, 24,
-        GLX_DOUBLEBUFFER,
-        GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, 1,
-        GLX_SAMPLE_BUFFERS, 1, // <-- MSAA
-        GLX_SAMPLES, 4, // <-- MSAA
-        None,
-};
-
 Display *display;
 int screen;
 Window rootWin;
 Window window;
-XVisualInfo *visualInfo;
-static Colormap colormap;
-static GLXContext contextGlx;
+Visual *visual;
+int depth;
 
-void setup_window(void)
-{
-        display = XOpenDisplay(NULL);
-        if (display == NULL)
-                fatalf("Failed to XOpenDisplay()");
-
-        screen = DefaultScreen(display);
-        rootWin = DefaultRootWindow(display);
-
-        // FBConfigs were added in GLX version 1.3.
-        int glx_major, glx_minor;
-        if (!glXQueryVersion(display, &glx_major, &glx_minor) ||
-             (glx_major == 1 && glx_minor < 3) || (glx_major < 1))
-                fatalf("Invalid GLX version");
-
-        GLXFBConfig bestFBC;
-        {
-                int fbcount;
-                GLXFBConfig *fbc = glXChooseFBConfig(display, screen, att, &fbcount);
-                if (fbc == NULL || fbcount == 0)
-                        fatalf("Failed to retrieve a framebuffer config");
-                bestFBC = fbc[0]; // TODO: really choose best
-                XFree(fbc);
-        }
-        visualInfo = glXGetVisualFromFBConfig(display, bestFBC);
-
-        colormap = XCreateColormap(display, rootWin,
-                                   visualInfo->visual, AllocNone);
-
-        XSetWindowAttributes wa = {0};
-        wa.colormap = colormap;
-        wa.event_mask = ExposureMask
-                | KeyPressMask | KeyReleaseMask
-                | ButtonPressMask | ButtonReleaseMask
-                | PointerMotionMask;
-
-        window = XCreateWindow(display, rootWin, 0, 0,
-                               initialWindowWidth, initialWindowHeight,
-                               0, visualInfo->depth,
-                               InputOutput, visualInfo->visual,
-                               CWColormap | CWEventMask, &wa);
-
-        XMapWindow(display, window);
-        XStoreName(display, window, "Untitled Window");
-
-        // NOTE: It is not necessary to create or make current to a context before
-        // calling glXGetProcAddressARB
-        PFNGLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribsARB = 0;
-        glXCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC) glXGetProcAddressARB((const GLubyte *) "glXCreateContextAttribsARB");
-
-        {
-                int context_attribs[] =
-                {
-                        GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
-                        GLX_CONTEXT_MINOR_VERSION_ARB, 2,
-                        //GLX_CONTEXT_FLAGS_ARB        , GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
-                        None
-                };
-
-                contextGlx = glXCreateContextAttribsARB( display, bestFBC, 0, True, context_attribs );
-        }
-
-        glXMakeCurrent(display, window, contextGlx);
-}
-
-void teardown_window(void)
-{
-        glXMakeCurrent(display, None, NULL);
-        glXDestroyContext(display, contextGlx);
-        XDestroyWindow(display, window);
-        XFree(visualInfo);
-        XFreeColormap(display, colormap);
-        XCloseDisplay(display);
-}
-
-static int xbutton_to_mousebuttonKind(int xbutton)
+int xbutton_to_mousebuttonKind(int xbutton)
 {
         if (xbutton == 1)
                 return MOUSEBUTTON_1;
@@ -193,7 +95,7 @@ static int xbutton_to_mousebuttonKind(int xbutton)
         return -1;
 }
 
-static int modifiers_from_state(unsigned int state)
+int modifiers_from_state(unsigned int state)
 {
         int modifiers = 0;
         if (state & ControlMask)
@@ -205,7 +107,7 @@ static int modifiers_from_state(unsigned int state)
         return modifiers;
 }
 
-static void handle_x11_button_press_or_release(XButtonEvent *xbutton, int mousebuttoneventKind)
+void handle_x11_button_press_or_release(XButtonEvent *xbutton, int mousebuttoneventKind)
 {
         int modifiers = modifiers_from_state(xbutton->state);
         if (xbutton->button == 4 || xbutton->button == 5) {
@@ -319,15 +221,3 @@ void toggle_fullscreen(void)
 {
         // TODO
 }
-
-ANY_FUNCTION *window_get_OpenGL_function_pointer(const char *name)
-{
-        return glXGetProcAddress((const GLubyte *) name);
-}
-
-/*
-void swap_buffers(void)
-{
-        glXSwapBuffers(display, window);
-}
-*/

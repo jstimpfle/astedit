@@ -66,11 +66,12 @@ else
 	LDFLAGS += $(shell pkg-config --libs gl)
 	LDFLAGS += $(shell pkg-config --libs glu)
 	ifeq ($(WITH_BACKEND), x11)
+		CFILES += src/astedit/window-x11-plain.c
 		CFILES += src/astedit/window-x11.c
 		CFILES += src/astedit/gfx-x11.c
 	else
+		CFILES += src/astedit/window-x11-glx.c
 		CFILES += src/astedit/window-x11.c
-		CFILES += src/astedit/window-glx.c
 		CFILES += src/astedit/gfx-opengl.c
 	endif
 endif
