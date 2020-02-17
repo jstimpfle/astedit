@@ -276,6 +276,7 @@ static void lay_out_cursor_active(struct DrawList *drawList, int isActive, int x
         int w = borderWidthPx + (isActive ? 1 : 0);
         int h = lineHeightPx;
         struct LayedOutRect *rect = alloc_LayedOutRect(drawList, 1);
+
         *rect = (struct LayedOutRect) { x, y, w, h, C(cursorColor) };
 }
 
@@ -334,7 +335,7 @@ static void lay_out_textedit_lines(
                 int borderY = cursor->lineY + lineHeightPx * linesDiff;
                 int borderH = cursor->lineHeight;
                 int borderW = w;
-                struct LayedOutRect *border = alloc_LayedOutRect(&contentsDrawList, 6);
+                struct LayedOutRect *border = alloc_LayedOutRect(&contentsDrawList, 4);
                 lay_out_border(border, borderX, borderY, borderW, borderH, borderWidthPx,
                                C_ALPHA(currentLineBorderColor, 128));
         }

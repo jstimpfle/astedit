@@ -107,7 +107,7 @@ int main(int argc, const char **argv)
         setup_sound();
 
         if (argc >= 2) {
-                for (int i = 1; i < argc; i++) {
+                for (int i = argind; i < argc; i++) {
                         const char *filepath = argv[i];
                         int filepathLength = (int) strlen(filepath);
 
