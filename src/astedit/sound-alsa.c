@@ -7,13 +7,18 @@
 #include <alsa/asoundlib.h>
 #include <math.h>
 
-enum {
-        num_samples_per_second = 44100,
-        num_samples_per_period = 512,
-        num_periods_in_buffer = 3,
-};
-
 static snd_pcm_t *pcm_handle;
+static int sndrate;
+static int sndchannels;
+static int sndformat;  // bits per sample per channel
+static int sndaccess;
+static int sndperiodsize;
+static int sndperiods;
+
+static void _fatal_alsa_error(struct LogInfo ctx, int error, const char *msg)
+{
+	_fatalf(ctx, "Error from ALSA when %s: %s", msg, snd_strerror(error));
+}
 
 static void _report_alsa_error(struct LogInfo ctx, int error, const char *msg)
 {
@@ -21,44 +26,118 @@ static void _report_alsa_error(struct LogInfo ctx, int error, const char *msg)
 }
 
 #define report_alsa_error(error, msg) _report_alsa_error(MAKE_LOGINFO(), (error), (msg))
+#define fatal_alsa_error(error, msg) _fatal_alsa_error(MAKE_LOGINFO(), (error), (msg))
 
 void setup_sound(void)
 {
         int err;
-#define CHECK(x) if (err < 0) { report_alsa_error(err, (x)); return; }
 
         err = snd_pcm_open(&pcm_handle, "default", SND_PCM_STREAM_PLAYBACK, 0);
-        CHECK("open pcm stream");
+	if (err < 0)
+		fatal_alsa_error(err, "calling snd_pcm_device_open() for playback");
 
         {
                 snd_pcm_hw_params_t *hw_params;
 
                 err = snd_pcm_hw_params_malloc(&hw_params);
-                CHECK("allocating hw_params structure");
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params_malloc()");
 
-                err = snd_pcm_hw_params_any(pcm_handle, hw_params);
-                CHECK("snd_pcm_hw_params_any()");
+		static const int possible_rates[] = { 48000, 44100 };
+		static const int possible_channels[] = { 2 };
+		static const int possible_formats[] = { SND_PCM_FORMAT_S16_LE };
+		static const int possible_accesses[] = { SND_PCM_ACCESS_RW_INTERLEAVED }; // TODO: we want to support INTERLEAVED and NONINTERLEAVED
 
-                err = snd_pcm_hw_params_set_access(pcm_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
-                CHECK("setting hardware access mode");
+		for (int i = 0; i < LENGTH(possible_rates); i++) {
+			err = snd_pcm_hw_params_any(pcm_handle, hw_params) < 0;
+			if (err < 0)
+				fatal_alsa_error(err, "Failed to snd_pcm_hw_params_any()");
+			err = snd_pcm_hw_params_set_rate(pcm_handle, hw_params, possible_rates[i], 0);
+			if (err < 0)
+				continue;
+			for (int j = 0; j < LENGTH(possible_channels); j++) {
+				err = snd_pcm_hw_params_set_channels(pcm_handle, hw_params, possible_channels[j]);
+				if (err < 0)
+					continue;
+				for (int k = 0; k < LENGTH(possible_formats); k++) {
+					err = snd_pcm_hw_params_set_format(pcm_handle, hw_params, possible_formats[k]);
+					if (err < 0)
+						continue;
+					for (int l = 0; l < LENGTH(possible_accesses); l++) {
+						err = snd_pcm_hw_params_set_access(pcm_handle, hw_params, possible_accesses[l]);
+						if (err < 0)
+							continue;
 
-                err = snd_pcm_hw_params_set_format(pcm_handle, hw_params, SND_PCM_FORMAT_S16_LE);
-                CHECK("choosing signed 16bit litte-endian samples");
+						snd_pcm_uframes_t minperiodsize = 512;
+						snd_pcm_uframes_t maxperiodsize = 2048;
+						int mindir;
+						int maxdir;
+						err = snd_pcm_hw_params_set_period_size_minmax(pcm_handle, hw_params,
+								&minperiodsize, &mindir,
+								&maxperiodsize, &maxdir);
+						if (err < 0)
+							continue;
 
-                err = snd_pcm_hw_params_set_rate(pcm_handle, hw_params, num_samples_per_second, 0);
-                CHECK("setting hardware sample rate");
+						goto found;
+					}
+				}
+			}
+		}
+		fatalf("Failed to find a valid sound card configuration");
 
-                err = snd_pcm_hw_params_set_channels(pcm_handle, hw_params, 2);
-                CHECK("setting hardware to 2-channel mode");
-
-                err = snd_pcm_hw_params_set_period_size(pcm_handle, hw_params, num_samples_per_period, 0);
-                CHECK("setting hardware period size");
-
-                err = snd_pcm_hw_params_set_buffer_size(pcm_handle, hw_params, num_periods_in_buffer * num_samples_per_period);
-                CHECK("setting hardware buffer size");
-
+found:
                 err = snd_pcm_hw_params(pcm_handle, hw_params);
-                CHECK("applying hardware configuration");
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params() with the configuration we found");
+
+		int dir;
+		unsigned int cfgrate;
+		unsigned int cfgchannels;
+		snd_pcm_format_t cfgformat;
+		snd_pcm_access_t cfgaccess;
+		snd_pcm_uframes_t cfgperiodsize;
+		unsigned cfgperiods;
+
+		err = snd_pcm_hw_params_get_rate(hw_params, &cfgrate, &dir);
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params_get_rate()");
+
+		err = snd_pcm_hw_params_get_channels(hw_params, &cfgchannels);
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params_get_channels()");
+
+		err = snd_pcm_hw_params_get_format(hw_params, &cfgformat);
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params_get_format()");
+
+		err = snd_pcm_hw_params_get_access(hw_params, &cfgaccess);
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params_get_access()");
+
+		err = snd_pcm_hw_params_get_period_size(hw_params, &cfgperiodsize, &dir);
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params_get_periods_size()");
+
+		err = snd_pcm_hw_params_get_periods(hw_params, &cfgperiods, &dir);
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_hw_params_get_periods()");
+
+		sndrate = cfgrate;
+		sndchannels = cfgchannels;
+		sndformat = cfgformat;
+		sndaccess = cfgaccess;
+		sndperiodsize = cfgperiodsize;
+		sndperiods = cfgperiods;
+
+		log_postf("Sound configured. rate=%d channels=%d, periodsize: %d, periods: %d",
+				sndrate, sndchannels, sndperiodsize, sndperiods);
+
+
+
+		/*
+                err = snd_pcm_hw_params_set_period_size(pcm_handle, hw_params, num_samples_per_period, 0);
+                err = snd_pcm_hw_params_set_buffer_size(pcm_handle, hw_params, num_periods_in_buffer * num_samples_per_period);
+		*/
 
                 snd_pcm_hw_params_free(hw_params);
         }
@@ -67,22 +146,23 @@ void setup_sound(void)
                 snd_pcm_sw_params_t *sw_params;
 
                 err = snd_pcm_sw_params_malloc(&sw_params);
-                CHECK("allocating sw_params structure");
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_sw_params_malloc()");
 
                 err = snd_pcm_sw_params_current(pcm_handle, sw_params);
-                CHECK("fill sw_params structures with current values");
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_sw_params_current()");
 
-                err = snd_pcm_sw_params_set_start_threshold(pcm_handle, sw_params, num_samples_per_period);
-                CHECK("set software start threshold to period size");
+                err = snd_pcm_sw_params_set_start_threshold(pcm_handle, sw_params, sndperiodsize);
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_sw_params_set_start_threshold()");
 
                 err = snd_pcm_sw_params(pcm_handle, sw_params);
-                CHECK("applying software configuration");
+		if (err < 0)
+			fatal_alsa_error(err, "calling snd_pcm_sw_params()");
 
                 snd_pcm_sw_params_free(sw_params);
         }
-
-
-//#undef CHECK
 }
 
 void teardown_sound(void)
@@ -91,7 +171,10 @@ void teardown_sound(void)
         snd_config_update_free_global();
 
         int err = snd_pcm_close(pcm_handle);
-        CHECK("closing pcm");
+	if (err < 0) {
+		report_alsa_error(err, "calling snd_pcm_close()");
+		log_postf("WARNING: failed to close ALSA pcm handle");
+	}
 
         /* Documented in file MEMORY LEAK in alsa-lib package */
         snd_config_update_free_global();
@@ -150,7 +233,10 @@ void write_samples(const uint16_t *samples, int nsamples)
                         ENSURE(err != -EBADFD);
                         if (err == -EPIPE || err == -ESTRPIPE) {
                                 err = snd_pcm_recover(pcm_handle, err, 0);
-                                CHECK("recovering from error");
+				if (err < 0) {
+					report_alsa_error(err, "recovering from error");
+					log_postf("TODO: Should we be prepared to handle this at all or rather terminate?");
+				}
                                 log_postf("state is now: %s", alsa_state_to_string(snd_pcm_state(pcm_handle)));
                         }
                         else {
@@ -168,10 +254,12 @@ void begin_playing_a_sound()
 {
         /*
         int err = snd_pcm_drain(pcm_handle);
-        CHECK("snd_pcm_drain()");
+        if (err < 0)
+		report_alsa_error(err, "snd_pcm_drain()");
         */
         int err = snd_pcm_prepare(pcm_handle);
-        CHECK("snd_pcm_prepare()");
+	if (err < 0)
+		report_alsa_error(err, "snd_pcm_prepare()");
 }
 
 void end_playing_a_sound()
