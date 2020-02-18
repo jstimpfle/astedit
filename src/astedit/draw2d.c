@@ -309,7 +309,7 @@ static void lay_out_textedit_lines(
                 always a token separator. Otherwise, we'd need to find the start
                 a little before that line and with more complicated code. */
                 FILEPOS initialReadPos = compute_pos_of_line(edit->rope, firstVisibleLine);
-                init_UTF8Decoder(&decoder, edit->rope, initialReadPos);
+                reset_UTF8Decoder(&decoder, edit->rope, initialReadPos);
                 begin_lexing_blunt_tokens(&readCtx, edit->rope, initialReadPos);
                 set_draw_cursor(cursor, x, y - offsetPixelsY);
         }
@@ -402,8 +402,7 @@ static void lay_out_textedit_lines(
                         struct FileCursor fc = { readpos_in_bytes_of_UTF8Decoder(&decoder) };
                         get_position_line_end(edit, &fc);
                         // because we skipped, need to reset read buffers
-                        exit_UTF8Decoder(&decoder);
-                        init_UTF8Decoder(&decoder, edit->rope, fc.bytePosition);
+                        reset_UTF8Decoder(&decoder, edit->rope, fc.bytePosition);
                         end_lexing_blunt_tokens(&readCtx);
                         begin_lexing_blunt_tokens(&readCtx, edit->rope, fc.bytePosition);
                 }
@@ -413,7 +412,6 @@ static void lay_out_textedit_lines(
         if (readpos_in_bytes_of_UTF8Decoder(&decoder) == edit->cursorBytePosition)
                 lay_out_cursor(drawList, edit, cursor->x, cursor->lineY);
         end_lexing_blunt_tokens(&readCtx);
-        exit_UTF8Decoder(&decoder);
 }
 
 static void lay_out_textedit_ViCmdline(struct DrawList *drawList, struct TextEdit *edit, int w, int h)

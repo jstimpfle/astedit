@@ -714,37 +714,48 @@ static void fill_colored_rect(struct ColorVertex2d rectpoints[6],
         }
 }
 
+
+static union {
+        struct TextureVertex2d textureVerts[4096];
+        struct ColorVertex2d colorVerts[4096];
+} tmp;
+
+
 void draw_glyphs(struct LayedOutGlyph *glyphs, int numGlyphs)
 {
-        struct TextureVertex2d *verts;
-        int numVerts = 6 * numGlyphs;
-        ALLOC_MEMORY(&verts, numVerts);
-        struct TextureVertex2d *ptr = verts;
-        for (int i = 0; i < numGlyphs; i++, ptr += 6) {
+        int numVerts = 0;
+        for (int i = 0; i < numGlyphs; i++) {
+                if (numVerts + 6 > LENGTH(tmp.textureVerts)) {
+                        draw_subpixelRenderedFont_vertices(tmp.textureVerts, numVerts);
+                        numVerts = 0;
+                }
                 struct LayedOutGlyph *log = &glyphs[i];
-                fill_texture2d_rect(ptr,
+                fill_texture2d_rect(tmp.textureVerts + numVerts,
                                     log->r, log->g, log->b, log->a,
                                     log->x, log->y, log->tw, log->th,
                                     log->tx, log->ty, log->tw, log->th);
                 for (int j = 0; j < 6; j++)
-                        ptr[j].tex = log->tex;
+                        tmp.textureVerts[numVerts + j].tex = log->tex;
+                numVerts += 6;
         }
-        draw_subpixelRenderedFont_vertices(verts, numVerts);
-        FREE_MEMORY(&verts);
+        if (numVerts)
+                draw_subpixelRenderedFont_vertices(tmp.textureVerts, numVerts);
 }
 
 void draw_rects(struct LayedOutRect *rects, int numRects)
 {
-        struct ColorVertex2d *verts;
-        int numVerts = 6 * numRects;
-        ALLOC_MEMORY(&verts, numVerts);
-        struct ColorVertex2d *ptr = verts;
-        for (int i = 0; i < numRects; i++, ptr += 6) {
+        int numVerts = 0;
+        for (int i = 0; i < numRects; i++) {
+                if (numVerts + 6 > LENGTH(tmp.colorVerts)) {
+                        draw_rgba_vertices(tmp.colorVerts, numVerts);
+                        numVerts = 0;
+                }
                 struct LayedOutRect *lor = &rects[i];
-                fill_colored_rect(ptr,
+                fill_colored_rect(tmp.colorVerts + numVerts,
                                   lor->x, lor->y, lor->w, lor->h,
                                   lor->r, lor->g, lor->b, lor->a);
+                numVerts += 6;
         }
-        draw_rgba_vertices(verts, numVerts);
-        FREE_MEMORY(&verts);
+        if (numVerts)
+                draw_rgba_vertices(tmp.colorVerts, numVerts);
 }

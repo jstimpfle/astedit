@@ -6,24 +6,12 @@
 #include <astedit/utf8.h>
 #include <astedit/textropeUTF8decode.h>
 
-
-enum {
-        // maybe a little large but I think this is the current node size in the rope
-        TEXTROPEREADBUFFER_CAPACITY = 1024,
-};
-
-void init_UTF8Decoder(struct TextropeUTF8Decoder *trbuf, struct Textrope *rope, FILEPOS initialPosInBytes)
+void reset_UTF8Decoder(struct TextropeUTF8Decoder *trbuf, struct Textrope *rope, FILEPOS initialPosInBytes)
 {
         trbuf->rope = rope;
-        ALLOC_MEMORY(&trbuf->buffer, TEXTROPEREADBUFFER_CAPACITY);
         trbuf->bufferStart = 0;
         trbuf->bufferEnd = 0;
         trbuf->readPosition = initialPosInBytes;
-}
-
-void exit_UTF8Decoder(struct TextropeUTF8Decoder *decoder)
-{
-        FREE_MEMORY(&decoder->buffer);
 }
 
 static void UTF8Decoder_move_bytes_to_front(struct TextropeUTF8Decoder *decoder)
@@ -40,7 +28,7 @@ static void UTF8Decoder_refill(struct TextropeUTF8Decoder *decoder)
         FILEPOS textropeLength = textrope_length(decoder->rope);
         int bytesToRead = min_filepos_as_int(
                 filepos_sub(textropeLength, decoder->readPosition),
-                TEXTROPEREADBUFFER_CAPACITY - decoder->bufferEnd
+                LENGTH(decoder->buffer) - decoder->bufferEnd
         );
         copy_text_from_textrope(decoder->rope, decoder->readPosition,
                 decoder->buffer + decoder->bufferEnd, bytesToRead);
