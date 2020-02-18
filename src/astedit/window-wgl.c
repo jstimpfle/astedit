@@ -156,12 +156,13 @@ LRESULT CALLBACK my_window_proc(
                 int modifiers = 0; //XXX
                 int hasCodepoint = 1;
                 uint32_t codepoint = (uint32_t) wParam; //XXX what does wParam contain exactly?
-                if (codepoint == 8) { // ignore backspace. We already received a WM_KEYDOWN event that results in KEY_BACKSPACE
-                        // ASDfaös dkfjasölkfj awöl4kj45 Windows key handling is the worst design ever. It's literally impossible
-                        // to do it correctly because for some keys we receive WM_KEYDOWN as well as WM_CHAR messages and it's
-                        // literally impossible to correlate them to make sure only one of them is handled.
-
-                        // For Backspace though, we can be reasonably sure to get a WM_KEYDOWN of VK_BACK, and we take that.
+                if (codepoint == 8 || codepoint == 9 || codepoint == 10 || codepoint == 13) {
+                        /* ignore some codepoints < 32. We already received a WM_KEYDOWN event that results in
+                        KEY_BACKSPACE / KEY_ENTER / KEY_TAB etc.
+                        Windows key handling is the worst design ever. It's literally impossible
+                        to do it correctly because for some keys we receive WM_KEYDOWN as well
+                        as WM_CHAR messages and it's literally impossible to correlate them to
+                        make sure only one of them is handled. */
                 }
                 else {
                         enqueue_key_input(keyKind, keyeventKind, modifiers,
