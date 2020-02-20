@@ -30,7 +30,12 @@ struct Textnode {
 };
 
 struct Textrope {
-        struct rb3_tree tree;
+        /* XXX: this is some trickery to avoid UB. TODO Think about making this
+         * nicer.  The wasted memory is neglibible. */
+        union {
+                struct rb3_tree tree;
+                struct Textnode baseNode;
+        } tree;
 };
 
 
@@ -40,132 +45,121 @@ static inline struct Textnode *textnode_from_head(struct rb3_head *head)
         return (struct Textnode *) (((char *)head) - offsetof(struct Textnode, head));
 }
 
+static struct Textnode *get_root_node(struct Textrope *rope)
+{
+        struct rb3_head *root = rb3_get_root(&rope->tree.tree);
+        return root ? textnode_from_head(root) : NULL;
+}
+
+static struct Textnode *get_leftmost_node(struct Textrope *rope)
+{
+        struct rb3_head *head = rb3_get_min(&rope->tree.tree);
+        return head ? textnode_from_head(head) : NULL;
+}
+
+static struct Textnode *get_child(struct Textnode *node, int dir)
+{
+        struct rb3_head *childHead = rb3_get_child(&node->head, dir);
+        return childHead ? textnode_from_head(childHead) : NULL;
+}
+
+static struct Textnode *get_prev(struct Textnode *node)
+{
+        struct rb3_head *prevHead = rb3_get_prev(&node->head);
+        return prevHead ? textnode_from_head(prevHead) : NULL;
+}
+
+static struct Textnode *get_next(struct Textnode *node)
+{
+        struct rb3_head *nextHead = rb3_get_next(&node->head);
+        return nextHead ? textnode_from_head(nextHead) : NULL;
+}
+
+static inline FILEPOS node_length(struct Textnode *node)
+{
+        return node ? node->totalLength : 0;
+}
+
+static inline FILEPOS node_lines(struct Textnode *node)
+{
+        return node ? node->totalLines : 0;
+}
+
+static inline FILEPOS node_codepoints(struct Textnode *node)
+{
+        return node ? node->totalCodepoints : 0;
+}
+
 
 static struct Textnode *create_textnode(void)
 {
-        struct Textnode *textnode;
-        ALLOC_MEMORY(&textnode, 1);
-        ALLOC_MEMORY(&textnode->text, TARGET_LENGTH);
-        textnode->text[0] = 0;
-
-        ZERO_MEMORY(&textnode->head);
-        textnode->ownLength = 0;
-        textnode->totalLength = 0;
-        textnode->ownLines = 0;
-        textnode->totalLines = 0;
-        textnode->ownCodepoints = 0;
-        textnode->totalCodepoints = 0;
-
-        return textnode;
+        struct Textnode *node;
+        ALLOC_MEMORY(&node, 1);
+        ZERO_MEMORY(&node->head);
+        ALLOC_MEMORY(&node->text, TARGET_LENGTH);
+        node->text[0] = 0;
+        node->ownLength = 0;
+        node->totalLength = 0;
+        node->ownLines = 0;
+        node->totalLines = 0;
+        node->ownCodepoints = 0;
+        node->totalCodepoints = 0;
+        return node;
 }
 
-static void destroy_textnode(struct Textnode *textnode)
+static void update_textnode_with_child(struct Textnode *node, int linkDir)
 {
-        FREE_MEMORY(&textnode->text);
-        FREE_MEMORY(&textnode);
-}
-
-static void destroy_textrope_subtree(struct rb3_head *head)
-{
-        if (head != NULL) {
-                destroy_textrope_subtree(rb3_get_child(head, RB3_LEFT));
-                destroy_textrope_subtree(rb3_get_child(head, RB3_RIGHT));
-                destroy_textnode(textnode_from_head(head));
+        struct Textnode *child = get_child(node, linkDir);
+        if (child != NULL) {
+                node->totalLength += child->totalLength;
+                node->totalLines += child->totalLines;
+                node->totalCodepoints += child->totalCodepoints;
         }
 }
 
-struct Textrope *create_textrope(void)
-{
-        struct Textrope *textrope;
-        ALLOC_MEMORY(&textrope, 1);
-        rb3_reset_tree(&textrope->tree);
-        return textrope;
-}
-
-void destroy_textrope(struct Textrope *textrope)
-{
-        destroy_textrope_subtree(rb3_get_root(&textrope->tree));
-        FREE_MEMORY(&textrope);
-}
-
-
-
-static inline int own_length(struct rb3_head *link)
-{
-        struct Textnode *node = textnode_from_head(link);
-        return node->ownLength;
-}
-
-static inline FILEPOS total_length(struct rb3_head *link)
-{
-        struct Textnode *node = textnode_from_head(link);
-        return node->totalLength;
-}
-
-static inline FILEPOS child_length(struct rb3_head *link, int dir)
-{
-        struct rb3_head *child = rb3_get_child(link, dir);
-        if (child)
-                return total_length(child);
-        return 0;
-}
-
-static inline int own_lines(struct rb3_head *head)
+static void augment_helper(struct rb3_head *head)
 {
         struct Textnode *node = textnode_from_head(head);
-        return node->ownLines;
+        node->totalLength = node->ownLength;
+        node->totalLines = node->ownLines;
+        node->totalCodepoints = node->ownCodepoints;
+        update_textnode_with_child(node, RB3_LEFT);
+        update_textnode_with_child(node, RB3_RIGHT);
 }
 
-static inline FILEPOS total_lines(struct rb3_head *head)
+static void update_textnode_after_change(struct Textnode *node)
 {
-        struct Textnode *node = textnode_from_head(head);
-        return node->totalLines;
+        rb3_update_augment(&node->head, &augment_helper);
 }
 
-static inline FILEPOS child_lines(struct rb3_head *head, int dir)
+static void link_textnode(struct Textnode *child, struct Textnode *parent, int linkDir)
 {
-        struct rb3_head *child = rb3_get_child(head, dir);
-        if (child)
-                return total_lines(child);
-        return 0;
+        rb3_link_and_rebalance_and_augment(&child->head, &parent->head, linkDir, &augment_helper);
 }
 
-static inline int own_codepoints(struct rb3_head *head)
+static void unlink_textnode(struct Textnode *node)
 {
-        struct Textnode *node = textnode_from_head(head);
-        return node->ownCodepoints;
+        rb3_unlink_and_rebalance_and_augment(&node->head, &augment_helper);
 }
 
-static inline FILEPOS total_codepoints(struct rb3_head *head)
+static void link_textnode_next_to(struct Textnode *newNode, struct Textnode *node, int dir)
 {
-        struct Textnode *node = textnode_from_head(head);
-        return node->totalCodepoints;
+        struct rb3_head *head = &node->head;
+        if (rb3_has_child(head, dir)) {
+                head = rb3_get_prevnext_descendant(head, dir);
+                dir = !dir;
+        }
+        link_textnode(newNode, textnode_from_head(head), dir);
 }
-
-static inline FILEPOS child_codepoints(struct rb3_head *head, int dir)
-{
-        struct rb3_head *child = rb3_get_child(head, dir);
-        if (child)
-                return total_codepoints(child);
-        return 0;
-}
-
-
 
 FILEPOS textrope_length(struct Textrope *rope)
 {
-        struct rb3_head *root = rb3_get_root(&rope->tree);
-        if (root == NULL)
-                return 0;
-        return total_length(root);
+        return node_length(get_root_node(rope));
 }
 
 FILEPOS textrope_number_of_lines(struct Textrope *rope)
 {
-        struct rb3_head *root = rb3_get_root(&rope->tree);
-        if (root == NULL)
-                return 0;
-        return total_lines(root);
+        return node_lines(get_root_node(rope));
 }
 
 FILEPOS textrope_number_of_lines_quirky(struct Textrope *rope)
@@ -182,21 +176,47 @@ FILEPOS textrope_number_of_lines_quirky(struct Textrope *rope)
 
 FILEPOS textrope_number_of_codepoints(struct Textrope *rope)
 {
-        struct rb3_head *root = rb3_get_root(&rope->tree);
-        if (root == NULL)
-                return 0;
-        return total_codepoints(root);
+        return node_codepoints(get_root_node(rope));
 }
 
+
+static void destroy_textnode(struct Textnode *textnode)
+{
+        FREE_MEMORY(&textnode->text);
+        FREE_MEMORY(&textnode);
+}
+
+static void destroy_subtree(struct Textnode *node)
+{
+        if (node != NULL) {
+                destroy_subtree(get_child(node, RB3_LEFT));
+                destroy_subtree(get_child(node, RB3_RIGHT));
+                destroy_textnode(node);
+        }
+}
+
+struct Textrope *create_textrope(void)
+{
+        struct Textrope *textrope;
+        ALLOC_MEMORY(&textrope, 1);
+        rb3_reset_tree(&textrope->tree.tree);
+        return textrope;
+}
+
+void destroy_textrope(struct Textrope *textrope)
+{
+        destroy_subtree(get_root_node(textrope));
+        FREE_MEMORY(&textrope);
+}
 
 
 
 
 struct Textiter {
         /* reference to node */
-        struct rb3_head *current;
+        struct Textnode *current;
         /* parent and childDir together define a place where a reference to a node is stored. */
-        struct rb3_head *parent;
+        struct Textnode *parent;
         int linkDir;
         /* holds the text position and line number of the first byte of the referenced node's text. */
         FILEPOS pos;
@@ -206,71 +226,80 @@ struct Textiter {
 
 static void init_textiter(struct Textiter *iter, struct Textrope *rope)
 {
-        //XXX: internal knowledge: root node is linked to the left of base link
-        struct rb3_head *current = rb3_get_child(&rope->tree.base, RB3_LEFT);
-        iter->current = current;
-        iter->parent = &rope->tree.base;
+        iter->current = get_root_node(rope);
+        iter->parent = (struct Textnode *) &rope->tree.baseNode;
         iter->linkDir = RB3_LEFT;
-        if (current == NULL) {
+        if (iter->current == NULL) {
                 iter->pos = 0;
                 iter->line = 0;
                 iter->codepointPosition = 0;
         }
         else {
-                iter->pos = child_length(current, RB3_LEFT);
-                iter->line = child_lines(current, RB3_LEFT);
-                iter->codepointPosition = child_codepoints(current, RB3_LEFT);
+                struct Textnode *left = get_child(iter->current, RB3_LEFT);
+                if (left == NULL) {
+                        iter->pos = 0;
+                        iter->line = 0;
+                        iter->codepointPosition = 0;
+                }
+                else {
+                        iter->pos = left->totalLength;
+                        iter->line = left->totalLines;
+                        iter->codepointPosition = left->totalCodepoints;
+                }
         }
 }
 
 static void go_to_left_child(struct Textiter *iter)
 {
         ENSURE(iter->current != NULL);
-        struct rb3_head *child = rb3_get_child(iter->current, RB3_LEFT);
+        struct Textnode *child = get_child(iter->current, RB3_LEFT);
         iter->parent = iter->current;
         iter->current = child;
         iter->linkDir = RB3_LEFT;
-        if (child != NULL) {
-                struct Textnode *childNode = textnode_from_head(child);
-                iter->pos -= child_length(child, RB3_RIGHT);
-                iter->pos -= childNode->ownLength;
-                iter->line -= child_lines(child, RB3_RIGHT);
-                iter->line -= childNode->ownLines;
-                iter->codepointPosition -= child_codepoints(child, RB3_RIGHT);
-                iter->codepointPosition -= childNode->ownCodepoints;
-        }
+        if (child == NULL)
+                return;
+        iter->pos -= child->ownLength;
+        iter->line -= child->ownLines;
+        iter->codepointPosition -= child->ownCodepoints;
+        struct Textnode *grandchild = get_child(child, RB3_RIGHT);
+        if (grandchild == NULL)
+                return;
+        iter->pos -= grandchild->totalLength;
+        iter->line -= grandchild->totalLines;
+        iter->codepointPosition -= grandchild->totalCodepoints;
 }
 
 static void go_to_right_child(struct Textiter *iter)
 {
         ENSURE(iter->current != NULL);
-        struct rb3_head *oldCurrent = iter->current;
-        struct rb3_head *child = rb3_get_child(iter->current, RB3_RIGHT);
-        iter->parent = oldCurrent;
+        iter->pos += iter->current->ownLength;
+        iter->line += iter->current->ownLines;
+        iter->codepointPosition += iter->current->ownCodepoints;
+        struct Textnode *child = get_child(iter->current, RB3_RIGHT);
+        iter->parent = iter->current;
         iter->current = child;
         iter->linkDir = RB3_RIGHT;
-        iter->pos += textnode_from_head(oldCurrent)->ownLength;
-        iter->line += textnode_from_head(oldCurrent)->ownLines;
-        iter->codepointPosition += textnode_from_head(oldCurrent)->ownCodepoints;
-        if (child != NULL) {
-                iter->pos += child_length(child, RB3_LEFT);
-                iter->line += child_lines(child, RB3_LEFT);
-                iter->codepointPosition += child_codepoints(child, RB3_LEFT);
-        }
+        if (child == NULL)
+                return;
+        struct Textnode *grandchild = get_child(child, RB3_LEFT);
+        if (grandchild == NULL)
+                return;
+        iter->pos += grandchild->totalLength;
+        iter->line += grandchild->totalLines;
+        iter->codepointPosition += grandchild->totalCodepoints;
 }
 
 
 
-static int is_last_byte_end_of_line(struct rb3_head *head)
+static int is_last_byte_end_of_line(struct Textnode *node)
 {
-        struct Textnode *node = textnode_from_head(head);
         ENSURE(node->ownLength > 0);
         return node->text[node->ownLength - 1] == '\n';
 }
 
-static int is_first_byte_start_of_line(struct rb3_head *head)
+static int is_first_byte_start_of_line(struct Textnode *node)
 {
-        struct rb3_head *prev = rb3_get_prev(head);
+        struct Textnode *prev = get_prev(node);
         return prev == NULL || is_last_byte_end_of_line(prev);
 }
 
@@ -283,7 +312,7 @@ static struct Textiter find_first_node_that_contains_the_character_at_pos(struct
         while (iter->current != NULL) {
                 if (iter->pos > pos)
                         go_to_left_child(iter);
-                else if (iter->pos + own_length(iter->current) <= pos)
+                else if (iter->pos + iter->current->ownLength <= pos)
                         go_to_right_child(iter);
                 else
                         break;
@@ -301,9 +330,9 @@ static struct Textiter find_first_node_that_contains_the_given_line(struct Textr
                         go_to_left_child(iter);
                 else if (iter->line == line && !is_first_byte_start_of_line(iter->current))
                         go_to_left_child(iter);
-                else if (iter->line + own_lines(iter->current) < line)
+                else if (iter->line + iter->current->ownLines < line)
                         go_to_right_child(iter);
-                else if (iter->line + own_lines(iter->current) == line && is_last_byte_end_of_line(iter->current))
+                else if (iter->line + iter->current->ownLines == line && is_last_byte_end_of_line(iter->current))
                         go_to_right_child(iter);
                 else
                         break;
@@ -319,7 +348,7 @@ static struct Textiter find_first_node_that_contains_the_given_codepointPos(stru
         while (iter->current != NULL) {
                 if (iter->codepointPosition > codepointPos)
                         go_to_left_child(iter);
-                else if (iter->codepointPosition + own_codepoints(iter->current) <= codepointPos)
+                else if (iter->codepointPosition + iter->current->ownCodepoints <= codepointPos)
                         go_to_right_child(iter);
                 else
                         break;
@@ -355,15 +384,14 @@ void compute_line_number_and_codepoint_position(
         }
         struct Textiter iter = find_first_node_that_contains_the_character_at_pos(rope, pos);
         ENSURE(iter.current != NULL);
-        struct Textnode *node = textnode_from_head(iter.current);
         FILEPOS currentPos = iter.pos;
         FILEPOS currentLine = iter.line;
         FILEPOS currentCodepoint = iter.codepointPosition;
         for (int i = 0; ; i++) {
                 if (currentPos == pos)
                         break;
-                ENSURE(i < node->ownLength);
-                int c = node->text[i];
+                ENSURE(i < iter.current->ownLength);
+                int c = iter.current->text[i];
                 if (is_utf8_leader_byte(c))
                         currentCodepoint++;
                 currentPos++;
@@ -385,7 +413,6 @@ void compute_pos_and_line_number_from_codepoint(
         }
         struct Textiter iter = find_first_node_that_contains_the_given_codepointPos(rope, codepointPos);
         ENSURE(iter.current != NULL);  // caller should check range first
-        struct Textnode *node = textnode_from_head(iter.current);
         FILEPOS currentPos = iter.pos;
         FILEPOS currentCodepoint = iter.codepointPosition;
         FILEPOS currentLine = iter.line;
@@ -393,8 +420,8 @@ void compute_pos_and_line_number_from_codepoint(
          * N is not located at the byte that immediately follows the N'th leader
          * byte, but at the byte that has the (N+1)'s leaderbyte. */
         for (int i = 0; ; i++) {
-                ENSURE(i < node->ownLength);
-                int c = node->text[i];
+                ENSURE(i < iter.current->ownLength);
+                int c = iter.current->text[i];
                 if (is_utf8_leader_byte(c)) {
                         if (currentCodepoint == codepointPos)
                                 break;
@@ -417,16 +444,15 @@ void compute_pos_and_codepoint_of_line(struct Textrope *rope, FILEPOS lineNumber
                 return;
         }
         struct Textiter iter = find_first_node_that_contains_the_given_line(rope, lineNumber);
-        struct Textnode *node = textnode_from_head(iter.current);
-        ENSURE(node != 0);
         FILEPOS currentPos = iter.pos;
         FILEPOS codepointPosition = iter.codepointPosition;
         FILEPOS currentLine = iter.line;
+        ENSURE(iter.current != 0);
         for (int i = 0; ; i++) {
-                ENSURE(i < node->ownLength); // I believe this can break with "quirky" lines
+                ENSURE(i < iter.current->ownLength); // I believe this can break with "quirky" lines
                 if (currentLine == lineNumber)
                         break;
-                int c = node->text[i];
+                int c = iter.current->text[i];
                 if (is_utf8_leader_byte(c))
                         codepointPosition++;
                 currentPos++;
@@ -537,52 +563,6 @@ static void erased_range(struct Textnode *node, const char *text, int length)
         node->ownCodepoints -= numCodepoints;
 }
 
-static void update_textnode_with_child(struct Textnode *node, int linkDir)
-{
-        struct rb3_head *child = rb3_get_child(&node->head, linkDir);
-        if (child != NULL) {
-                struct Textnode *childNode = textnode_from_head(child);
-                node->totalLength += childNode->totalLength;
-                node->totalLines += childNode->totalLines;
-                node->totalCodepoints += childNode->totalCodepoints;
-        }
-}
-
-static void update_textnode(struct Textnode *node)
-{
-        node->totalLength = node->ownLength;
-        node->totalLines = node->ownLines;
-        node->totalCodepoints = node->ownCodepoints;
-        update_textnode_with_child(node, RB3_LEFT);
-        update_textnode_with_child(node, RB3_RIGHT);
-}
-
-
-
-static void augment_textnode_head(struct rb3_head *head)
-{
-        struct Textnode *node = textnode_from_head(head);
-        update_textnode(node);
-}
-
-static void link_textnode_head(struct rb3_head *child, struct rb3_head *parent, int linkDir)
-{
-        rb3_link_and_rebalance_and_augment(child, parent, linkDir, &augment_textnode_head);
-}
-
-static void unlink_textnode_head(struct rb3_head *head)
-{
-        rb3_unlink_and_rebalance_and_augment(head, &augment_textnode_head);
-}
-
-static void link_textnode_head_next_to(struct rb3_head *newNode, struct rb3_head *head, int dir)
-{
-        if (rb3_has_child(head, dir)) {
-                head = rb3_get_prevnext_descendant(head, dir);
-                dir = !dir;
-        }
-        link_textnode_head(newNode, head, dir);
-}
 
 
 
@@ -669,7 +649,7 @@ void insert_text_into_textrope(struct Textrope *rope, FILEPOS pos, const char *t
         if (iter->current == NULL) {
                 ENSURE(pos == 0);
                 struct Textnode *node = create_textnode();
-                link_textnode_head(&node->head, iter->parent, iter->linkDir);
+                link_textnode(node, iter->parent, iter->linkDir);
                 init_textiter(iter, rope);
         }
 
@@ -678,7 +658,7 @@ void insert_text_into_textrope(struct Textrope *rope, FILEPOS pos, const char *t
         for (;;) {
                 if (iter->pos > pos)
                         go_to_left_child(iter);
-                else if (iter->pos + own_length(iter->current) < pos)
+                else if (iter->pos + iter->current->ownLength < pos)
                         go_to_right_child(iter);
                 else
                         break;
@@ -686,8 +666,7 @@ void insert_text_into_textrope(struct Textrope *rope, FILEPOS pos, const char *t
 
         ENSURE(iter->current != NULL);
 
-        struct rb3_head *head = iter->current;
-        struct Textnode *node = textnode_from_head(head);
+        struct Textnode *node = iter->current;
         int internalPos = compute_internal_distance(iter, pos);
         ENSURE(0 <= internalPos && internalPos <= node->ownLength);
 
@@ -718,30 +697,28 @@ void insert_text_into_textrope(struct Textrope *rope, FILEPOS pos, const char *t
 
         int finalBytesAvailable;
         {
-                struct rb3_head *succ = rb3_get_next(head);
-                finalBytesAvailable = succ == NULL ? 0 : TARGET_LENGTH - own_length(succ);
+                struct Textnode *succ = get_next(node);
+                finalBytesAvailable = succ == NULL ? 0 : TARGET_LENGTH - succ->ownLength;
         }
 
         copy_from_StreamsChain_to_Textnode(&chain, node, node->ownLength, TARGET_LENGTH - node->ownLength);
-        rb3_update_augment(head, &augment_textnode_head);
+        update_textnode_after_change(node);
 
         while (chain.remainingBytes > finalBytesAvailable) {
-                struct rb3_head *lastHead = head;
+                struct Textnode *lastNode = node;
                 node = create_textnode();
-                head = &node->head;
                 copy_from_StreamsChain_to_Textnode(&chain, node, node->ownLength, TARGET_LENGTH - node->ownLength);
-                link_textnode_head_next_to(head, lastHead, RB3_RIGHT);
+                link_textnode_next_to(node, lastNode, RB3_RIGHT);
         }
 
         if (chain.remainingBytes > 0) {
                 ENSURE(chain.remainingBytes <= finalBytesAvailable);
                 int remainingBytes = cast_filepos_to_int(chain.remainingBytes);
-                head = rb3_get_next(head);
-                node = textnode_from_head(head);
+                node = get_next(node);
                 ENSURE(TARGET_LENGTH - node->ownLength == finalBytesAvailable);
                 move_memory(node->text, remainingBytes, node->ownLength);
                 copy_from_StreamsChain_to_Textnode(&chain, node, 0, remainingBytes);
-                rb3_update_augment(head, &augment_textnode_head);
+                update_textnode_after_change(node);
         }
 }
 
@@ -753,12 +730,11 @@ void erase_text_from_textrope(struct Textrope *rope, FILEPOS pos, FILEPOS length
         struct Textiter textiter = find_first_node_that_contains_the_character_at_pos(rope, pos);
         struct Textiter *iter = &textiter;
 
-        struct rb3_head *head = iter->current;
+        struct Textnode *node = iter->current;
         FILEPOS numDeleted = 0;
 
         /* partial delete from left node of range */
         if (pos != iter->pos) {
-                struct Textnode *node = textnode_from_head(head);
                 int internalPos = compute_internal_distance(iter, pos);
                 ENSURE(0 <= internalPos && internalPos < node->ownLength);
                 int nd = node->ownLength - internalPos;
@@ -772,58 +748,51 @@ void erase_text_from_textrope(struct Textrope *rope, FILEPOS pos, FILEPOS length
                 node->ownLength -= nd;
                 /* We might optimize this augmentation away:
                 Maybe we need to augment this node again later anyway. */
-                rb3_update_augment(head, &augment_textnode_head);
-
-                /* move to next node. */
-                head = rb3_get_next(head);
+                update_textnode_after_change(node);
+                node = get_next(node);
         }
 
         /* Unlink/delete all nodes whose contents are completely in the
         to-be-deleted range. */
         while (length != numDeleted) {
-                ENSURE(head != NULL);
-
-                struct Textnode *node = textnode_from_head(head);
+                ENSURE(node != NULL);
 
                 if (node->ownLength > length - numDeleted)
                         break;
 
                 numDeleted += node->ownLength;
 
-                struct rb3_head *nextHead = rb3_get_next(head);
-                unlink_textnode_head(head);
+                struct Textnode *nextNode = get_next(node);
+                unlink_textnode(node);
                 destroy_textnode(node);
-                head = nextHead;
+                node = nextNode;
         }
 
         /* partial delete from last node */
         if (length > numDeleted) {
-                ENSURE(head != NULL);
-                struct Textnode *node = textnode_from_head(head);
+                ENSURE(node != NULL);
                 int nd = cast_filepos_to_int(length - numDeleted);
                 ENSURE(numDeleted + node->ownLength >= nd);
                 /* Just erase the last chunk of text inside the last node */
                 erased_range(node, node->text, nd);
                 move_memory(node->text + nd, -nd, node->ownLength - nd);
                 node->ownLength -= nd;
-                rb3_update_augment(head, &augment_textnode_head);
+                update_textnode_after_change(node);
         }
 
         /* maybe merge last visited node with previous */
-        if (head != NULL) {
-                struct Textnode *node = textnode_from_head(head);
+        if (node != NULL) {
                 /* this may or may not be (depending on if we did a partial erase)
                 the first node that we visited */
-                struct rb3_head *prevHead = rb3_get_prev(head);
-                if (prevHead != NULL) {
-                        struct Textnode *prevNode = textnode_from_head(prevHead);
+                struct Textnode *prevNode = get_prev(node);
+                if (prevNode != NULL) {
                         if (prevNode->ownLength + node->ownLength <= TARGET_LENGTH) {
                                 copy_memory(prevNode->text + prevNode->ownLength,
                                         node->text, node->ownLength);
                                 added_range(prevNode, node->text, node->ownLength);
                                 prevNode->ownLength += node->ownLength;
-                                rb3_update_augment(prevHead, &augment_textnode_head);
-                                unlink_textnode_head(head);
+                                update_textnode_after_change(prevNode);
+                                unlink_textnode(node);
                                 destroy_textnode(node);
                         }
                 }
@@ -842,7 +811,7 @@ FILEPOS copy_text_from_textrope(struct Textrope *rope, FILEPOS offset, char *dst
         while (iter->current) {
                 if (iter->pos > offset)
                         go_to_left_child(iter);
-                else if (iter->pos + own_length(iter->current) <= offset)
+                else if (iter->pos + iter->current->ownLength <= offset)
                         go_to_right_child(iter);
                 else
                         break;
@@ -850,25 +819,23 @@ FILEPOS copy_text_from_textrope(struct Textrope *rope, FILEPOS offset, char *dst
 
         FILEPOS numRead = 0;
 
-        struct rb3_head *head = iter->current;
-        if (head != NULL) {
+        struct Textnode *node = iter->current;
+        if (node != NULL) {
                 /* Read from first node - we might have to start somewhere in the middle */
-                struct Textnode *node = textnode_from_head(head);
                 int internalPos = compute_internal_distance(iter, offset);
                 ENSURE(0 <= internalPos && internalPos < node->ownLength);
                 int numToRead = min_filepos_as_int(length, node->ownLength - internalPos);
                 copy_memory(dstBuffer, node->text + internalPos, numToRead);
                 numRead += numToRead;
-                head = rb3_get_next(head);
+                node = get_next(node);
         }
 
         /* Read subsequent nodes */
-        while (head != NULL && numRead < length) {
-                struct Textnode *node = textnode_from_head(head);
+        while (node != NULL && numRead < length) {
                 int numToRead = min_filepos_as_int(length - numRead, node->ownLength);
                 copy_memory(dstBuffer + numRead, node->text, numToRead);
                 numRead += numToRead;
-                head = rb3_get_next(head);
+                node = get_next(node);
         }
 
         return numRead;
@@ -888,13 +855,10 @@ int textrope_read_char_at(struct Textrope *rope, FILEPOS bytePosition)
 
 
 
-static void check_node_values(struct rb3_head *head)
+static void check_node_values(struct Textnode *node)
 {
-        if (head == NULL)
-                return;
-        check_node_values(rb3_get_child(head, RB3_LEFT));
-        check_node_values(rb3_get_child(head, RB3_RIGHT));
-        struct Textnode *node = textnode_from_head(head);
+        check_node_values(get_child(node, RB3_LEFT));
+        check_node_values(get_child(node, RB3_RIGHT));
 
         if (node->ownLength == 0)
                 fatal("Zero length node.\n");
@@ -908,55 +872,51 @@ static void check_node_values(struct rb3_head *head)
 
         if (node->totalLength !=
                 node->ownLength
-                + child_length(head, RB3_LEFT)
-                + child_length(head, RB3_RIGHT)) {
+                + node_length(get_child(node, RB3_LEFT))
+                + node_length(get_child(node, RB3_RIGHT))) {
                 fatal("Bad lengths.");
         }
         if (node->totalLines !=
                 node->ownLines
-                + child_lines(head, RB3_LEFT)
-                + child_lines(head, RB3_RIGHT)) {
+                + node_lines(get_child(node, RB3_LEFT))
+                + node_lines(get_child(node, RB3_RIGHT))) {
                 fatal("Bad lines.");
         }
         if (node->totalCodepoints !=
                 node->ownCodepoints
-                + child_codepoints(head, RB3_LEFT)
-                + child_codepoints(head, RB3_RIGHT)) {
+                + node_codepoints(get_child(node, RB3_LEFT))
+                + node_codepoints(get_child(node, RB3_RIGHT))) {
                 fatal("Bad codepoints.\n");
         }
 }
 
 void debug_check_textrope(struct Textrope *rope)
 {
-        check_node_values(rb3_get_root(&rope->tree));
+        check_node_values(get_root_node(rope));
 }
 
 void debug_print_textrope(struct Textrope *rope)
 {
         log_begin();
         log_write_cstring("textrope contents: ");
-        for (struct rb3_head *head = rb3_get_min(&rope->tree);
-                head != NULL; head = rb3_get_next(head)) {
-                struct Textnode *node = textnode_from_head(head);
+        for (struct Textnode *node = get_leftmost_node(rope);
+                node != NULL; node = get_next(node)) {
                 log_write(node->text, node->ownLength);
-                head = rb3_get_next(head);
         }
         log_end();
 }
 
 void print_textrope_statistics(struct Textrope *rope)
 {
-        check_node_values(rb3_get_root(&rope->tree)); //XXX
+        check_node_values(get_root_node(rope));
 
         FILEPOS nodesVisited = 0;
         FILEPOS bytesUsed = 0;
 
-        struct rb3_head *head = rb3_get_min(&rope->tree);
-        while (head != NULL) {
-                struct Textnode *node = textnode_from_head(head);
+        for (struct Textnode *node = get_leftmost_node(rope);
+             node != NULL; node = get_next(node)) {
                 bytesUsed += node->ownLength;
                 nodesVisited++;
-                head = rb3_get_next(head);
         }
 
         log_postf("Textrope: %"FILEPOS_PRI" bytes distributed among %"
