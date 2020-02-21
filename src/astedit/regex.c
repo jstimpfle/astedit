@@ -218,6 +218,17 @@ static void add_character_node(struct RegexReadCtx *ctx, int character)
         ctx->startIndexOfLastElement = nodeIndex;
 }
 
+static int value_from_hexchar(int c)
+{
+        if ('0' <= c && c <= '9')
+                return c - '0';
+        if ('A' <= c && c <= 'Z')
+                return 10 + c - 'A';
+        if ('a' <= c && c <= 'z')
+                return 10 + c - 'a';
+        return -1;
+}
+
 static void read_pattern(struct RegexReadCtx *ctx)
 {
 readmore:;
@@ -251,21 +262,45 @@ readmore:;
                 static const char escapechars[] = ".\\()";
                 for (int i = 0; escapechars[i]; i++) {
                         if (c == escapechars[i]) {
-                                consume_pattern_char(ctx);
-                                add_character_node(ctx, c);
-                                goto readmore;
+                                goto singlechar;
                         }
                 }
-                if (c == -1) {
-                        fatal_regex_parse_error(ctx,
-                                "Unfinished escape sequence at end of pattern");
-                        return;
+                if (c == 'r')
+                        c = 0x0d;
+                else if (c == 'n')
+                        c = 0x0a;
+                else if (c == 't')
+                        c = 0x09;
+                else if (c == 'x') {
+                        consume_pattern_char(ctx);
+                        int d = next_pattern_char(ctx);
+                        if (d == -1)
+                                goto unfinished;
+                        d = value_from_hexchar(d);
+                        if (d == -1)
+                                goto invalid;
+                        consume_pattern_char(ctx);
+                        int e = next_pattern_char(ctx);
+                        if (e == -1)
+                                goto unfinished;
+                        e = value_from_hexchar(e);
+                        if (e == -1)
+                                goto invalid;
+                        c = d * 16 + e;
+                        goto singlechar;
                 }
-                else {
-                        fatal_regex_parse_error(ctx,
-                                "Invalid escape sequence");
-                        return;
-                }
+        invalid:
+                fatal_regex_parse_error(ctx,
+                "Invalid escape sequence");
+                return;
+        unfinished:
+                fatal_regex_parse_error(ctx,
+                        "Unfinished escape sequence at end of pattern");
+                return;
+        singlechar:
+                log_postf("add pattern char %d", c);
+                consume_pattern_char(ctx);
+                add_character_node(ctx, c);
         }
         else if (c == '.') {
                 consume_pattern_char(ctx);
