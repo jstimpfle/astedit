@@ -857,37 +857,34 @@ int textrope_read_char_at(struct Textrope *rope, FILEPOS bytePosition)
 
 static void check_node_values(struct Textnode *node)
 {
+        if (node == NULL)
+                return;
         check_node_values(get_child(node, RB3_LEFT));
         check_node_values(get_child(node, RB3_RIGHT));
 
         if (node->ownLength == 0)
                 fatal("Zero length node.\n");
-
         if (node->ownLength < 0 || node->ownLength > TARGET_LENGTH)
                 fatal("Bad length.\n");
         if (node->ownLines < 0 || node->ownLines > node->ownLength)
                 fatal("Bad lines.\n");
         if (node->ownCodepoints < 0 || node->ownCodepoints > node->ownLength)
                 fatal("Bad codepoints.\n");
-
         if (node->totalLength !=
                 node->ownLength
                 + node_length(get_child(node, RB3_LEFT))
-                + node_length(get_child(node, RB3_RIGHT))) {
+                + node_length(get_child(node, RB3_RIGHT)))
                 fatal("Bad lengths.");
-        }
         if (node->totalLines !=
                 node->ownLines
                 + node_lines(get_child(node, RB3_LEFT))
-                + node_lines(get_child(node, RB3_RIGHT))) {
+                + node_lines(get_child(node, RB3_RIGHT)))
                 fatal("Bad lines.");
-        }
         if (node->totalCodepoints !=
                 node->ownCodepoints
                 + node_codepoints(get_child(node, RB3_LEFT))
-                + node_codepoints(get_child(node, RB3_RIGHT))) {
+                + node_codepoints(get_child(node, RB3_RIGHT)))
                 fatal("Bad codepoints.\n");
-        }
 }
 
 void debug_check_textrope(struct Textrope *rope)
