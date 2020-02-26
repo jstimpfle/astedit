@@ -1,13 +1,7 @@
 #include <astedit/logging.h>
 #include <astedit/window.h>
+#include <astedit/x11.h>
 #include <X11/Xlib.h>
-
-extern Display *display;
-extern int screen;
-extern int depth;
-extern Visual *visual;
-extern Window rootWin;
-extern Window window;
 
 static const int initialWindowWidth = 800;
 static const int initialWindowHeight = 600;
